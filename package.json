@@ -4,7 +4,10 @@
   "private": true,
   "description": "Local NIKKE account sync, versioned snapshots and simulation foundation.",
   "scripts": {
-    "dev": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync.ps1 -Action dev",
+    "dev": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/desktop.ps1 -Action dev",
+    "build:desktop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/desktop.ps1 -Action build",
+    "dev:desktop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/desktop.ps1 -Action dev",
+    "prepare:images": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/prepare-presentation.ps1",
     "build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync.ps1 -Action build",
     "dev:reference": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/web.ps1 -Action dev",
     "build:reference": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/web.ps1 -Action build",

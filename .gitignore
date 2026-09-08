@@ -10,6 +10,7 @@
 **/TestResults/
 **/__pycache__/
 *.pyc
+/apps/desktop-ui/generated/
 # Private account data and credentials
 **/profiles/
 **/.env

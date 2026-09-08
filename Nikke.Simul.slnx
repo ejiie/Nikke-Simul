@@ -5,6 +5,7 @@
   <Project Path="src/Nikke.Data/Nikke.Data.csproj" />
   <Project Path="src/Nikke.Storage/Nikke.Storage.csproj" />
   <Project Path="src/Nikke.Api/Nikke.Api.csproj" />
+  <Project Path="src/Nikke.Desktop/Nikke.Desktop.csproj" />
   <Project Path="tests/Nikke.Sync.Tests/Nikke.Sync.Tests.csproj" />
   <Project Path="tests/Nikke.Core.Tests/Nikke.Core.Tests.csproj" />
   <Project Path="tools/Nikke.Smoke/Nikke.Smoke.csproj" />

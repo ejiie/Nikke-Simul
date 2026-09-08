@@ -15,3 +15,4 @@ src/Nikke.Core/Data/Constants/EffectType.cs -text whitespace=cr-at-eol
 src/Nikke.Engine/Legacy/FiringModel.cs -text whitespace=cr-at-eol
 src/Nikke.Engine/Legacy/WeaponProfile.cs -text whitespace=cr-at-eol
 src/Nikke.Engine/Legacy/IRandomSource.cs -text whitespace=cr-at-eol
+apps/desktop-ui/editor.css -text whitespace=cr-at-eol

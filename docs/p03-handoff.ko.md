@@ -1,6 +1,6 @@
 # P02 → P03 인계
 
-2026-09-08 P03 착수 후속: [5인 스킬 효과 실행·출처](p03-skill-runtime.ko.md), [진행 기록](p03-progress.ko.md), [사용자 실측 조건 안내](p03-measurement-guide.ko.md). 공식 스킬 그래프를 실제 효과 실행에 연결했다. 현재 버스트 시전/풀버스트 구간은 지정 조건이며 실제 팀 게이지·UI 연결·실측 대조는 다음 작업이다.
+2026-09-09 후속: [Windows 실행 파일 UI](desktop-ui-migration.ko.md)에 5인 스킬 검산과 결과 저장을 연결했다. [5인 스킬 효과 실행·출처](p03-skill-runtime.ko.md), [진행 기록](p03-progress.ko.md), [사용자 실측 조건 안내](p03-measurement-guide.ko.md). 공식 스킬 그래프를 실제 효과 실행에 연결했다. 현재 버스트 시전/풀버스트 구간은 지정 조건이며 실제 팀 게이지·실측 대조는 다음 작업이다.
 
 P02 계산 API·UI는 구현되었고 히트 정수화 판정은 추후 실측 대조를 위해 열어 둔다. `HitCalculator.Compare`는 동일한 입력을 세 후보 정책으로 계산한다. 현재는 항상 `provisional_rounding`이다.
 

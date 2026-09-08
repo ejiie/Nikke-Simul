@@ -5,7 +5,7 @@ using Nikke.Storage;
 
 namespace Nikke.Api;
 
-public sealed class SyncCoordinator(SnapshotStore store, CollectorProcess collector, GameSnapshot game) : IHostedService
+public sealed class SyncCoordinator(SnapshotStore store, CollectorProcess collector, GameSnapshot game, PresentationService? presentation = null) : IHostedService
 {
     private readonly object gate = new();
     private readonly Dictionary<string, (CancellationTokenSource Cancellation, Task Task)> running = [];
@@ -123,6 +123,8 @@ public sealed class SyncCoordinator(SnapshotStore store, CollectorProcess collec
             job.Issues = snapshot.Issues; job.Collected = snapshot.Characters.Count;
             if (!snapshot.Valid) throw new CollectorFailure("validation_failed", "수집 데이터 검증에 실패했습니다. 이전 정상 스펙을 유지합니다.");
             lock (gate) { token.ThrowIfCancellationRequested(); store.Commit(snapshot, job, cancellation: token); }
+            // Image refresh is independent; a CDN outage cannot invalidate a successfully stored account snapshot.
+            if (Environment.GetEnvironmentVariable("NIKKE_TEST_FIXTURE") is null) presentation?.Start(false);
         }
         catch (Exception ex)
         {

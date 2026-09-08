@@ -22,6 +22,7 @@ public sealed class CollectorProcess(string projectRoot, string dataRoot, string
         var start = new ProcessStartInfo(python) { WorkingDirectory = projectRoot, UseShellExecute = false,
             CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true,
             StandardOutputEncoding = System.Text.Encoding.UTF8, StandardErrorEncoding = System.Text.Encoding.UTF8 };
+        start.Environment["PYTHONIOENCODING"] = "utf-8";
         foreach (var argument in new[] { Path.Combine(projectRoot, "tools/data-pipeline/collector.py"), action, "--session",
             Path.Combine(dataRoot, "sessions", connection.Id + ".bin"), "--result", ResultPath(runId) }) start.ArgumentList.Add(argument);
         if (action == "collect")

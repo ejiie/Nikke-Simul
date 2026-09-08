@@ -32,3 +32,8 @@ P03 copies the local legacy `FiringModel.cs`, `WeaponProfile.cs`, and `IRandomSo
 The solution/project scaffolding, PowerShell setup and verification wrappers, synthetic tests and smoke executable, source manifests, and project documentation were authored for this project. They are not features imported from nikke-calc. No repository-wide license is declared in P00.
 
 The P03 skill implementation adapts the pinned legacy firing state machine into `src/Nikke.Engine/Skills/SkillFiringModel.cs` to support live ammunition, charge/reload timing and temporary fire-rate changes. The original `Legacy/FiringModel.cs` remains unmodified. The new interpreter and Data adapter reference the legacy skill DTO/enum/runtime structure and pinned nikke-calc `calculator/buff_manager.py` for caster stat basis comparison; they do not copy either complete skill runtime. Official public role descriptions/squad metadata are additionally hash-pinned and retained only in ignored local data. Adoption decisions and limitations are documented in [P03 skill provenance](docs/p03-skill-runtime.ko.md).
+# Nikke-Local-Lab 관리 UI
+
+사용자가 소유한 `https://github.com/ejiie/Nikke-Local-Lab`의 관리 UI 및 WebView2 shell을 사용자 명시 요청에 따라 재사용했습니다. 고정 커밋: `c05fc1c392a523b9e17ebe0cbd4811bed9c19adb`. 독립 LICENSE 파일은 확인되지 않아 임의로 MIT 등으로 재지정하지 않습니다. 기능별 출처와 변경 범위는 `docs/desktop-ui-migration.ko.md`, source hash는 `docs/desktop-source-manifest.json` 및 `sources.lock.json`을 참고하세요.
+
+캐릭터·돌파·코어·분류 이미지의 출처는 블라블라(Blablalink)입니다. 사용자 제공 ZIP 및 공개 CDN 이미지 파일은 Git에 포함하지 않고 로컬 `data/local/presentation/`에 보관합니다.

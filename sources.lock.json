@@ -43,6 +43,19 @@
       "source": "LICENSE",
       "sha256": "b58c70805598fdb5f0a19b8fa560429703392d3dbb524772b391317320d3a430",
       "sourceId": "upstream"
+    },
+    {
+      "destination": "apps/desktop-ui/editor.css",
+      "transformation": "none; byte-for-byte copy",
+      "source": "src/NikkeLocalLab.Admin.Api/wwwroot/editor/editor.css",
+      "sha256": "d61f7241559c48b85bc879a43de852bd409728d09ff209ff73dbdfecbc07420c",
+      "sourceId": "desktopUi"
     }
-  ]
+  ],
+  "desktopUi": {
+    "url": "https://github.com/ejiie/Nikke-Local-Lab.git",
+    "commit": "c05fc1c392a523b9e17ebe0cbd4811bed9c19adb",
+    "checkout": ".reference/nikke-local-lab",
+    "license": "No standalone LICENSE; user-owned UI reused at the user's explicit request."
+  }
 }

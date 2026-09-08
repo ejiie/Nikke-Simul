@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nikke Simul · 지휘관 관리 도구</title>
+  <link rel="stylesheet" href="/editor/editor.css">
+  <link rel="stylesheet" href="/editor/simul.css"><script src="/editor/app.js" type="module"></script>
+</head>
+<body>
+  <div id="app-shell" class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark small" aria-hidden="true">N</div>
+        <div><strong>NIKKE SIMUL</strong><span>지휘관 관리 도구</span></div>
+      </div>
+      <nav class="main-nav" aria-label="주요 기능">
+        <button class="tab-button" type="button" data-tab="home" aria-selected="true"><span class="nav-icon">⌂</span><span>홈</span></button>
+        <button class="tab-button" type="button" data-tab="account" aria-selected="false"><span class="nav-icon">●</span><span>계정 설정</span></button>
+        <button class="tab-button" type="button" data-tab="nikkes" aria-selected="false"><span class="nav-icon">◆</span><span>니케 관리</span></button>
+        <button class="tab-button" type="button" data-tab="raid" aria-selected="false"><span class="nav-icon">⚔</span><span>솔로 레이드</span></button>
+        <button class="tab-button" type="button" data-tab="import" aria-selected="false"><span class="nav-icon">↧</span><span>계정 가져오기</span></button>
+      </nav>
+      <div class="topbar-account"><span class="presence-dot" aria-hidden="true"></span><div><strong id="top-account-name">계정을 선택하세요</strong><span id="top-account-detail">로컬 전용</span></div></div>
+      <button class="tab-button nav-bottom" type="button" data-tab="advanced" aria-selected="false"><span class="nav-icon">⚙</span><span>고급 진단</span></button>
+    </aside>
+
+    <div class="workspace">
+      <header class="topbar">
+        <div><p id="page-eyebrow" class="eyebrow">지휘관 관리</p><h1 id="page-title">홈</h1></div>
+      </header>
+
+
+      <main>
+        <div id="test-banner" class="surface" hidden>검증용 데이터 · 실제 계정 수집 결과가 아닙니다.</div>
+        <section class="tab-panel page" data-tab-panel="home">
+          <div class="hero-panel commander-picker">
+            <div><p class="eyebrow">내 계정</p><h2>사용할 계정을 선택하세요</h2><p>저장된 스펙으로 니케 육성 현황을 확인하고 대미지를 검산합니다.</p></div>
+            <button id="refresh-accounts" class="ghost" type="button">목록 새로고침</button>
+          </div>
+          <ul id="account-list" class="account-list" aria-label="로컬 계정"></ul>
+          <div class="quick-grid">
+            <button class="quick-card jump-button" type="button" data-jump="account"><span class="quick-icon cyan">●</span><strong>계정 설정</strong><span>싱크로·리사이클 룸</span></button>
+            <button class="quick-card jump-button" type="button" data-jump="nikkes"><span class="quick-icon violet">◆</span><strong>니케 관리</strong><span>돌파·스킬·장비·소장품</span></button>
+            <button class="quick-card jump-button" type="button" data-jump="raid"><span class="quick-icon coral">⚔</span><strong>솔로 레이드</strong><span>조건별 대미지 검산</span></button>
+          </div>
+        </section>
+
+        <section class="tab-panel page" data-tab-panel="nikkes" hidden>
+          <div id="nikke-browser">
+            <div class="section-heading nikke-list-heading"><div><p class="eyebrow">전체 니케</p><h2>니케 도감</h2><p>보유 니케가 먼저 표시됩니다. 검색과 분류로 빠르게 찾으세요.</p></div><span id="nikke-count" class="status-pill neutral">보유 0 / 전체 0</span></div>
+            <div class="nikke-filter-shell surface">
+              <label class="search-field"><span class="visually-hidden">니케 검색</span><input id="nikke-search" type="search" placeholder="니케 이름 검색"></label>
+              <div class="compact-filters">
+                <div class="filter-segment" aria-label="버스트 필터">
+                  <button type="button" data-filter-select="nikke-filter-burst" data-filter-value="all" aria-pressed="true">ALL</button>
+                  <button type="button" data-filter-select="nikke-filter-burst" data-filter-value="1" aria-pressed="false">Ⅰ</button>
+                  <button type="button" data-filter-select="nikke-filter-burst" data-filter-value="2" aria-pressed="false">Ⅱ</button>
+                  <button type="button" data-filter-select="nikke-filter-burst" data-filter-value="3" aria-pressed="false">Ⅲ</button>
+                </div>
+                <select id="nikke-filter-burst" class="visually-hidden" aria-hidden="true" tabindex="-1"><option value="all">ALL</option><option value="1">Ⅰ</option><option value="2">Ⅱ</option><option value="3">Ⅲ</option></select>
+                <div class="filter-segment filter-image-segment" aria-label="클래스 필터">
+                  <button type="button" data-filter-select="nikke-filter-class" data-filter-value="all" aria-pressed="true">ALL</button>
+                  <button type="button" data-filter-select="nikke-filter-class" data-filter-value="attacker" aria-pressed="false" title="화력형"><img src="/editor/assets/ui/job-attacker.png" alt="화력형"></button>
+                  <button type="button" data-filter-select="nikke-filter-class" data-filter-value="defender" aria-pressed="false" title="방어형"><img src="/editor/assets/ui/job-defender.png" alt="방어형"></button>
+                  <button type="button" data-filter-select="nikke-filter-class" data-filter-value="supporter" aria-pressed="false" title="지원형"><img src="/editor/assets/ui/job-supporter.png" alt="지원형"></button>
+                </div>
+                <select id="nikke-filter-class" class="visually-hidden" aria-hidden="true" tabindex="-1"><option value="all">전체</option><option value="attacker">화력형</option><option value="defender">방어형</option><option value="supporter">지원형</option></select>
+                <label class="filter-dropdown"><span>기업</span><select id="nikke-filter-manufacturer"><option value="all">전체</option><option value="elysion">엘리시온</option><option value="missilis">미실리스</option><option value="tetra">테트라</option><option value="pilgrim">필그림</option><option value="abnormal">어브노멀</option></select></label>
+                <label class="filter-dropdown"><span>코드</span><select id="nikke-filter-element"><option value="all">전체 속성</option><option value="fire">작열</option><option value="water">수냉</option><option value="wind">풍압</option><option value="electric">전격</option><option value="iron">철갑</option></select></label>
+              </div>
+            </div>
+            <div id="nikke-card-list" class="nikke-grid encyclopedia-grid" aria-label="전체 니케"></div>
+          </div>
+          <div id="nikke-detail" class="nikke-detail" hidden>
+            <button id="nikke-detail-back" class="detail-back" type="button">‹ 니케 도감</button>
+            <section class="nikke-detail-hero">
+              <div id="selected-nikke-portrait" class="detail-portrait" aria-hidden="true"><span>N</span></div>
+              <div class="detail-identity"><p class="eyebrow">니케 상세</p><h2 id="nikke-selected-name">니케를 선택하세요</h2><p id="nikke-selected-tags" class="selected-tags"></p></div>
+              <div id="nikke-core-panel" class="growth-panel"></div>
+            </section>
+            <nav class="detail-tabs" aria-label="니케 상세 항목">
+              <button type="button" data-detail-tab="equipment" aria-selected="true">장비</button>
+              <button type="button" data-detail-tab="skill" aria-selected="false">스킬</button>
+              <button type="button" data-detail-tab="collection" aria-selected="false">소장품</button>
+            </nav>
+            <section class="detail-pane" data-detail-pane="equipment"><div id="equipment-summary" class="equipment-summary surface"></div><div id="equipment-list" class="equipment-list"></div></section>
+            <section class="detail-pane" data-detail-pane="skill" hidden><div id="skill-editor" class="skill-grid"></div></section>
+            <section class="detail-pane" data-detail-pane="collection" hidden><div id="collection-editor" class="collection-card surface"></div></section>
+          </div>
+<select id="nikke-subject" hidden></select></section>
+<section class="tab-panel page" data-tab-panel="account" hidden><div id="account-content"></div></section><section class="tab-panel page" data-tab-panel="raid" hidden><div id="raid-content"></div></section><section class="tab-panel page" data-tab-panel="import" hidden><div id="import-content"></div></section><section class="tab-panel page" data-tab-panel="advanced" hidden><div id="advanced-content"></div></section></main></div></div><div id="status" role="status" class="simul-status"></div></body></html>

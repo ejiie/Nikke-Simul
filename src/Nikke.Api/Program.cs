@@ -24,6 +24,8 @@ if (!File.Exists(gamePath)) throw new InvalidOperationException("Run npm run set
 var game = Wire.Read<GameSnapshot>(File.ReadAllText(gamePath)); store.SaveGame(game);
 builder.Services.AddSingleton(store); builder.Services.AddSingleton(game);
 builder.Services.AddSingleton(new CollectorProcess(root, dataRoot, python));
+builder.Services.AddSingleton(new PresentationService(root, Path.Combine(dataRoot, "presentation"), python));
+builder.Services.AddHostedService(sp => sp.GetRequiredService<PresentationService>());
 builder.Services.AddSingleton<SyncCoordinator>(); builder.Services.AddHostedService(sp => sp.GetRequiredService<SyncCoordinator>());
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.PropertyNamingPolicy = Wire.Json.PropertyNamingPolicy);
 var app = builder.Build();
@@ -61,6 +63,15 @@ var calculationPath = Path.Combine(root, "data/local/calculation");
 var calculations = new Lazy<CalculationService>(() => new CalculationService(calculationPath));
 var runtimeRoot = Path.Combine(dataRoot, "runtime");
 var runtimeReplay = new Lazy<RuntimeReplayService>(() => new(runtimeRoot, Path.Combine(dataRoot, "weapon-replays")));
+var presentationRoot = Path.Combine(dataRoot, "presentation");
+var presentation = app.Services.GetRequiredService<PresentationService>();
+app.MapGet("/api/presentation", () => presentation.Read());
+app.MapGet("/api/presentation/status", () => presentation.Status());
+app.MapPost("/api/presentation/refresh", () => presentation.Start());
+app.MapPost("/api/desktop/shutdown", (IHostApplicationLifetime lifetime) =>
+{
+    lifetime.StopApplication(); return Results.Accepted();
+});
 app.MapGet("/api/runtime/catalog", () => File.Exists(Path.Combine(runtimeRoot, "current.json"))
     ? Results.Ok(runtimeReplay.Value.Summary())
     : Results.Conflict(new { message = "P03 자료 준비가 필요합니다. npm run prepare:p03을 실행하세요." }));
@@ -96,13 +107,25 @@ app.MapPost("/api/calculations/hit", (HitRequest request) =>
     catch (JsonException) { throw new ArgumentException("계산 입력 필드를 확인하세요. 기존 attack은 statAttack과 버프 목록으로 분리되었습니다."); }
     return HitCalculator.Compare(input, request.ObservedDamage);
 });
+var editor = Path.Combine(root, "apps/desktop-ui");
+if (Directory.Exists(editor))
+{
+    var provider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(editor);
+    app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = provider, RequestPath = "/editor" });
+    app.UseStaticFiles(new StaticFileOptions { FileProvider = provider, RequestPath = "/editor" });
+}
+var assets = Path.Combine(presentationRoot, "assets"); Directory.CreateDirectory(assets);
+app.UseStaticFiles(new StaticFileOptions { FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(assets), RequestPath = "/editor/assets" });
+app.MapGet("/", () => Results.Redirect("/editor/"));
 var web = Path.Combine(root, "apps/web/dist");
 if (Directory.Exists(web))
 {
     var provider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(web);
-    app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = provider }); app.UseStaticFiles(new StaticFileOptions { FileProvider = provider });
+    // Preserve the prior workbench during migration. Product entry is /editor/.
+    app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = provider, RequestPath = "/legacy" }); app.UseStaticFiles(new StaticFileOptions { FileProvider = provider, RequestPath = "/legacy" });
+    app.UseStaticFiles(new StaticFileOptions { FileProvider = provider });
 }
-app.MapGet("/api/health", () => new { status = "ok", milestone = "P02", combatEngineConnected = false, singleHitCalculator = true });
+app.MapGet("/api/health", () => new { status = "ok", application = "nikke-simul", projectRoot = root, milestone = "P03", combatEngineConnected = false, singleHitCalculator = true, desktopUi = true });
 await app.RunAsync();
 record AreaSelection(int Area);
 record StartSync(string ConnectionId);

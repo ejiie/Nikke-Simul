@@ -1,0 +1,26 @@
+{
+  "sourceId": "desktopUi",
+  "commit": "c05fc1c392a523b9e17ebe0cbd4811bed9c19adb",
+  "adaptations": [
+    {
+      "source": "src/NikkeLocalLab.Admin.Api/wwwroot/editor/index.html",
+      "sourceSha256": "168078b3901fb7d579154e4b9a50bd2082fe7482430b89d6e77d62fe3e4428f0",
+      "destination": "apps/desktop-ui/index.html"
+    },
+    {
+      "source": "src/NikkeLocalLab.Admin.Api/wwwroot/editor/editor.js",
+      "sourceSha256": "cad6bd0dfac6546cf2ab6a056a0c6ccd97f5fcf1e2166c47adbe96e15fc4349b",
+      "destination": "apps/desktop-ui/cards.js"
+    },
+    {
+      "source": "tools/NikkeLocalLab.ControlCenter.Desktop/Program.cs",
+      "sourceSha256": "10ab0f5a227f45c7da0ebbeece190c88aa22df7cf5245d9ac017e64d4209560b",
+      "destination": "src/Nikke.Desktop/Program.cs"
+    },
+    {
+      "source": "scripts/materialize-nll-phase-d-presentation-assets.ps1",
+      "sourceSha256": "ff05238f2b050238c49e0d04bcc0b932008bc3796cb6cdd469887a192879df03",
+      "destination": "tools/data-pipeline/presentation_assets.py"
+    }
+  ]
+}
