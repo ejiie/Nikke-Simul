@@ -1,6 +1,6 @@
 # 구현 계획 — Solo Raid 우선
 
-작성: 2026-09-08. 상태: **P00·P01·P02 구현 완료 / 히트 정수화 실측 판정 대기 / P03 대기**. [P01 검증 보고서](p01-verification.ko.md)와 [P01 기능 출처](p01-source-map.ko.md)에 계정 연결·수집·정제·저장·실제 원천 대조 결과를 기록했다. 전체 전투 엔진 이식·실게임 수치 재대조·성능 검증은 후속 단계다.
+작성: 2026-09-08. 상태: **P00·P01·P02 구현 완료 / 히트 정수화 실측 판정 대기 / P03 5인 스킬 효과 실행 연결**. [P03 스킬 구현 범위·출처](p03-skill-runtime.ko.md), [P01 검증 보고서](p01-verification.ko.md)와 [P01 기능 출처](p01-source-map.ko.md)에 현재 지원 범위·검증 결과를 기록했다. 실제 팀 게이지·보스 기믹·실게임 수치 재대조·성능 검증은 후속 단계다.
 
 계산·제품 설계는 [architecture-draft.ko.md](C:/Users/user/Documents/GitHub/Nikke-Simul/docs/architecture-draft.ko.md)를 따른다. 이 문서는 그 설계를 실제 작업 순서와 완료 조건으로 구체화한다. 여기의 P00~P09는 설계 문서의 개략 단계보다 세분화한 실행 단위다.
 

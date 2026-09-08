@@ -8,6 +8,8 @@ public sealed record HitContext
     public double StatAttack { get; init; }
     public IReadOnlyList<StatRateBuff> AttackBuffs { get; init; } = [];
     public IReadOnlyList<StatRateBuff> RuntimeAttackBuffs { get; init; } = [];
+    // Caster-based grants are flat amounts added after recipient-native rate buffs.
+    public IReadOnlyList<StatFlatBuff> AttackFlatBuffs { get; init; } = [];
     public double Defense { get; init; }
     public double Coefficient { get; init; } = 1;
     public string DamageType { get; init; } = "normal";
@@ -50,7 +52,7 @@ public record HitComparison(string RulesVersion, string Status, HitContext Input
 
 public static class HitCalculator
 {
-    public const string Version = "p02.2";
+    public const string Version = "p02.3";
     public const int InputSchemaVersion = 2;
     public static HitComparison Compare(HitContext c, double? observed = null)
     {
@@ -74,13 +76,14 @@ public static class HitCalculator
             ("critical", c.Crit ? c.CritBonus : 0), ("core", c.Core ? c.CoreBonus : 0) };
         if (charge <= 0 || b3 < 0 || b4 < 0 || b5 < 0 || 1 + bonuses.Sum(x => x.Item2) < 0)
             throw new ArgumentException("유효 대미지 배율이 음수이거나 차지 배율이 0입니다.");
-        var attack = StatBuffCalculator.Apply(c.StatAttack, c.AttackBuffs, c.RuntimeAttackBuffs);
+        var ratedAttack = StatBuffCalculator.Apply(c.StatAttack, c.AttackBuffs, c.RuntimeAttackBuffs);
+        var attack = StatBuffCalculator.AddFlat(ratedAttack, c.AttackFlatBuffs);
         var defense = c.DamageType == "true" ? 0 : c.Defense;
         var p = (attack - defense) * c.Coefficient * charge;
         var results = new List<DamageBreakdown>();
         foreach (var policy in new[] { "legacy_term_floor", "final_round_even", "nested_floor" })
         {
-            var terms = new List<CalculationTerm> { new("effectiveAttack", c.StatAttack, attack, "native + grouped rounded native * (OL + passive + active skill rates)"),
+            var terms = new List<CalculationTerm> { new("effectiveAttack", c.StatAttack, attack, "native + grouped rounded native * (OL + passive + active skill rates) + caster-based flat grants"),
                 new("effectiveDefense", c.Defense, defense, c.DamageType == "true" ? "ignore" : "identity"),
                 new("charge", c.ChargeBase, charge, "base * (1 + multiplierBonus) + add; gated by fullCharge"),
                 new("P", attack - defense, p, "attackDefenseDifference * coefficient * charge") };

@@ -18,6 +18,8 @@
     "path": "SimulatorEngine/Nikke.Simulator.Engine/FiringModel.cs",
     "sha256": "1e6890d675fec9f192f48f8f3655b22ae7fb1be6b303e314fc406db592850c97",
     "destination": "src/Nikke.Engine/Legacy/FiringModel.cs",
+    "adaptedDestination": "src/Nikke.Engine/Skills/SkillFiringModel.cs",
+    "adaptation": "Separate P03 skill model adds live ammo/time modifiers and temporary rate/unlimited ammo; the destination above remains byte-identical.",
     "usage": "unchanged legacy reference model, timing assumptions retained explicitly"
   },
   {
@@ -90,5 +92,30 @@
     "path": "SimulatorEngine/Nikke.Simulator.Engine/Skills/OfficialSkillEnums.cs",
     "sha256": "19a08bb3635397d6f22949f13abc091e03735e9f5d50f5d43fb4fa77f8eb636c",
     "usage": "read-only audit; not wholesale adoption"
+  },
+  {
+    "sourceRoot": "C:/Users/user/Documents/GitHub/Nikke-Dmg-Simulator",
+    "path": "Database/raw/blabla_roledata.json",
+    "sha256": "8568963a75d971cf97489be79bf6f81829bf4e20fdccc74ed10b28159c304348",
+    "inputKey": "sourceRoles",
+    "usage": "P03 skill descriptions, squad metadata and burst duration; ignored local catalog only"
+  },
+  {
+    "sourceRoot": ".reference/nikke-calc",
+    "path": "calculator/buff_manager.py",
+    "sha256": "793605043926d90dc29633ad35dc8d4e9ccf2fe0c34d6b93e92f38582a5d081d",
+    "usage": "read-only caster ATK flat grant and charge-time basis comparison; no wholesale runtime import"
+  },
+  {
+    "sourceRoot": ".reference/nikke-calc",
+    "path": "calculator/timeline.py",
+    "sha256": "eead16c1debebf1c082dba6eb9646630df397bf6a1af4cc326a9910c217c6e44",
+    "usage": "read-only changed-weapon normal-attack classification and coefficient modifier comparison"
+  },
+  {
+    "sourceRoot": ".reference/nikke-calc",
+    "path": "calculator/damage.py",
+    "sha256": "0c145eede842d01a3401cdb23d08e5b3ba8eec9f8545c7a7db915a6e5b204590",
+    "usage": "read-only changed-weapon normal-attack classification and coefficient modifier comparison"
   }
 ]

@@ -131,7 +131,7 @@ public static class WeaponReplay
     }
 
     private static double[] Rates(IReadOnlyList<StatRateBuff> buffs) => buffs.SelectMany(b => Enumerable.Repeat(b.Rate, b.Stacks)).ToArray();
-    private static void Validate(IReadOnlyList<WeaponReplayMember> members, WeaponReplayConditions c)
+    internal static void Validate(IReadOnlyList<WeaponReplayMember> members, WeaponReplayConditions c)
     {
         if (c is null || members is null || members.Count is < 1 or > 5 || members.Any(m => m is null)
             || members.Select(m => m.CharacterId).Distinct().Count() != members.Count || c.DurationFrames is < 1 or > 10800

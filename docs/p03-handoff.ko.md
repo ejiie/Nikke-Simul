@@ -1,6 +1,6 @@
 # P02 → P03 인계
 
-2026-09-08 P03 착수: [진행 기록·출처·현재 지원 범위](p03-progress.ko.md), [사용자 실측 조건 안내](p03-measurement-guide.ko.md). 공식 스킬 그래프와 평타 시간축 검산 기반을 연결했다. 스킬 자동 실행은 다음 작업이다.
+2026-09-08 P03 착수 후속: [5인 스킬 효과 실행·출처](p03-skill-runtime.ko.md), [진행 기록](p03-progress.ko.md), [사용자 실측 조건 안내](p03-measurement-guide.ko.md). 공식 스킬 그래프를 실제 효과 실행에 연결했다. 현재 버스트 시전/풀버스트 구간은 지정 조건이며 실제 팀 게이지·UI 연결·실측 대조는 다음 작업이다.
 
 P02 계산 API·UI는 구현되었고 히트 정수화 판정은 추후 실측 대조를 위해 열어 둔다. `HitCalculator.Compare`는 동일한 입력을 세 후보 정책으로 계산한다. 현재는 항상 `provisional_rounding`이다.
 
@@ -12,7 +12,7 @@ P02의 기본 HitContext는 캐릭터 스킬·팀 버프 적용 전이다. 조�
 
 **버프 연결 필수 계약:** `StatAttack`은 OL 적용 전 `NativeStats.ATK`다. OL은 `AttackBuffs`, 스킬은 `RuntimeAttackBuffs`로 전달한다. 두 목록을 합친 후 같은 비율끼리 그룹·사사오입하며, 이미 버프가 적용된 값을 새 스탯 기준으로 삼지 않는다. `StatBuffCalculator`를 공용으로 사용한다. HP·DEF·장탄 상시 비율은 `PermanentBuffs`에 보존되어 있다. 옵션·스킬 ID 및 스택을 유지하고, 만료 시 원값과 현재 유효한 목록으로 다시 계산한다. `AtkRate`와 B3 `AttackDamage`는 서로 다른 효과다. 수치·스택·스냅샷 시점이 바뀌면 합성된 스탯 캐시도 무효화해야 한다.
 
-단일 히트 API의 `inputSchemaVersion`은 2, 규칙은 `p02.2`, 스탯 규칙은 `native-stat-shared-buffs-v2`다. 이전 `attack` 입력이나 schema v1 기록은 OL을 포함했는지 알 수 없으므로 자동 변환하지 않는다. 기본 UI에는 최종 스탯 세 값만 표시하며 원인 추적은 API/검산 JSON에서 확인한다. [OL 수정 조사·검증](p02-buff-correction.ko.md)을 후속 변경의 회귀 기준으로 사용한다.
+단일 히트 API의 `inputSchemaVersion`은 2, 현행 히트 규칙은 `p02.3`, 스탯 규칙은 `native-stat-shared-buffs-v2`다. P03에서 시전자 기준 고정 공증 `AttackFlatBuffs`를 추가했고, 빈 목록에서 기존 `p02.2` 계산은 보존된다. 이전 `attack` 입력이나 schema v1 기록은 OL을 포함했는지 알 수 없으므로 자동 변환하지 않는다. 기본 UI에는 최종 스탯 세 값만 표시하며 원인 추적은 API/검산 JSON에서 확인한다. [OL 수정 조사·검증](p02-buff-correction.ko.md)을 후속 변경의 회귀 기준으로 사용한다.
 
 193명 수집과 160명 스탯 생성은 전투 효과 지원 범위가 아니다. 초기 후보 리타·블랑·누아르·앨리스·모더니아의 실제 effect 지원표를 만들고, SG 펠릿 계수/분할·MG ramp·차지/재장전 타이밍을 각각 검증한다. 실제 팀 게이지·버스트 사이클은 P04 목표다.
 

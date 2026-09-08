@@ -72,6 +72,14 @@ app.MapPost("/api/runtime/weapon-replays", (WeaponReplayRequest request) =>
     return runtimeReplay.Value.Run(store.Snapshot(request.SnapshotId) ?? throw new KeyNotFoundException(), request, calculations.Value);
 });
 app.MapGet("/api/runtime/weapon-replays/{id}", (string id) => runtimeReplay.Value.Read(id));
+app.MapPost("/api/runtime/skill-replays", (SkillReplayRequest request) =>
+{
+    if (string.IsNullOrWhiteSpace(request.SnapshotId)) throw new ArgumentException("저장 스냅샷을 지정하세요.");
+    if (!File.Exists(Path.Combine(runtimeRoot, "current.json")))
+        throw new InvalidOperationException("P03 자료 준비가 필요합니다. npm run prepare:p03을 실행하세요.");
+    return runtimeReplay.Value.RunSkills(store.Snapshot(request.SnapshotId) ?? throw new KeyNotFoundException(), request, calculations.Value);
+});
+app.MapGet("/api/runtime/skill-replays/{id}", (string id) => runtimeReplay.Value.ReadSkills(id));
 app.MapGet("/api/snapshots/{id}/characters/{characterId}/stats", (string id, string characterId, int? scenarioLevel) =>
 {
     if (!File.Exists(Path.Combine(calculationPath, "current.json"))) return Results.Conflict(new { message = "P02 계산 자료 준비가 필요합니다. npm run setup:sync를 실행하세요." });

@@ -54,7 +54,7 @@ def graph_closure(chains, roots):
     return functions, skills, sorted(missing)
 
 
-def assemble(chains, roles, names, upstream_skills, upstream_characters):
+def assemble(chains, roles, names, upstream_skills, upstream_characters, source_roles=None):
     selected, functions, character_skills, missing = {}, {}, {}, []
     for name in TARGETS:
         ids = [key for key, value in names.items() if value == name]
@@ -75,6 +75,10 @@ def assemble(chains, roles, names, upstream_skills, upstream_characters):
                          'upstreamSkills': upstream_skills[name], 'upstreamCharacter': upstream_characters[name],
                          'functionIds': sorted(fs, key=int), 'missing': ms,
                          'skillExecutionStatus': 'not_connected'}
+        if source_roles is not None:
+            role = source_roles['roster'][key]
+            selected[key]['sourceRole'] = {'squad': role['squad'], 'skills': role['skills'],
+                                           'burstDurationCs': role['burst_duration']}
     return {'schemaVersion': 1, 'characters': selected, 'functions': functions,
             'characterSkills': character_skills, 'missing': sorted(set(missing)),
             'skillExecutionStatus': 'not_connected'}
@@ -93,7 +97,7 @@ def main():
             raise ValueError('P03 source changed; review before repinning: ' + source['path'])
         inputs[source['inputKey']] = json.loads(content)
         hashes[source['inputKey']] = source['sha256']
-    catalog = assemble(inputs['chains'], inputs['roles'], inputs['names'], inputs['skills'], inputs['characters'])
+    catalog = assemble(inputs['chains'], inputs['roles'], inputs['names'], inputs['skills'], inputs['characters'], inputs['sourceRoles'])
     catalog['sourceHashes'] = hashes
     content = json.dumps(catalog, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()
     version = digest(content)

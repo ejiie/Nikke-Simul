@@ -22,7 +22,7 @@ def request(path, payload=None, token=None):
 def main():
     boot = request('/bootstrap'); token = boot['token']
     catalog = request('/runtime/catalog')
-    assert catalog['skillExecutionStatus']=='not_connected' and not catalog['missing']
+    assert catalog['weaponReferenceSkillExecutionStatus']=='not_connected' and not catalog['missing']
     account = next(c['accountId'] for c in boot['connections'] if c.get('accountId'))
     snapshot = request('/accounts/'+account+'/snapshot')
     ids = [c['characterId'] for c in catalog['characters']]

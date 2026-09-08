@@ -4,6 +4,7 @@ namespace Nikke.Core.Stats;
 
 // Rates from OL, equipment effects and active skills share the same native stat basis.
 public sealed record StatRateBuff(string Source, double Rate, int Stacks = 1);
+public sealed record StatFlatBuff(string Source, double Amount);
 public sealed record StatBuffSet
 {
     public IReadOnlyList<StatRateBuff> Attack { get; init; } = [];
@@ -14,11 +15,25 @@ public sealed record StatBuffSet
     public IReadOnlyList<StatRateBuff> ChargeSpeed { get; init; } = [];
     public IReadOnlyList<StatRateBuff> ReloadSpeed { get; init; } = [];
     public IReadOnlyList<StatRateBuff> CriticalChance { get; init; } = [];
+    public IReadOnlyList<StatRateBuff> Accuracy { get; init; } = [];
+    // BasicHit already includes this factor; changed-weapon coefficients need to apply it once as well.
+    public double NormalAttackMultiplier { get; init; }
 }
 
 public static class StatBuffCalculator
 {
     public const string Version = "native-stat-shared-buffs-v2";
+
+    public static double AddFlat(double ratedStat, IReadOnlyList<StatFlatBuff> buffs)
+    {
+        if (!double.IsFinite(ratedStat) || ratedStat < 0 || buffs is null || buffs.Count > 1024
+            || buffs.Any(b => b is null || string.IsNullOrWhiteSpace(b.Source) || b.Source.Length > 256
+                || !double.IsFinite(b.Amount) || Math.Abs(b.Amount) > 1e12))
+            throw new ArgumentException("고정 스탯 버프를 확인하세요.");
+        var total = ratedStat + buffs.Sum(b => b.Amount);
+        if (!double.IsFinite(total) || total < 0 || total > 9e15) throw new ArgumentException("스탯 범위를 확인하세요.");
+        return total;
+    }
 
     public static double Apply(double nativeStat, params IReadOnlyList<StatRateBuff>[] groups)
     {

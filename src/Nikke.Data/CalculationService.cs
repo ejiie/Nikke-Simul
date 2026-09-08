@@ -174,7 +174,9 @@ public sealed class CalculationService
             Ammo = OptionBuffs("StatAmmoLoad").Concat(effectTerms.GetValueOrDefault("MaxAmmo") ?? []).ToArray(),
             ChargeSpeed = OptionBuffs("StatChargeTime").Select(b => b with { Rate = -b.Rate }).Concat(effectTerms.GetValueOrDefault("ChargeSpeed") ?? []).ToArray(),
             ReloadSpeed = OptionBuffs("StatReloadTime").Select(b => b with { Rate = -b.Rate }).Concat(effectTerms.GetValueOrDefault("ReloadSpeed") ?? []).ToArray(),
-            CriticalChance = OptionBuffs("StatCritical") };
+            CriticalChance = OptionBuffs("StatCritical"),
+            Accuracy = OptionBuffs("StatAccuracyCircle").Select(b => b with { Rate = -b.Rate }).Concat(effectTerms.GetValueOrDefault("HitRate") ?? []).ToArray(),
+            NormalAttackMultiplier = effects.GetValueOrDefault("NormalAttackMultiplier") };
         var basic = role["basicAttack"];
         if (basic is null || basic["multiplier"] is null) { Error("missing_weapon", characterId, "평타 계수가 없습니다."); return Result(native); }
         var chargeWeapon = role["weaponData"]?["isChargeWeapon"]?.GetValue<bool>() ?? false;
