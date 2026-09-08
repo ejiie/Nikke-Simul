@@ -2,11 +2,18 @@
   "name": "nikke-simul",
   "version": "0.0.0",
   "private": true,
-  "description": "P00 local development foundation; upstream UI is a pinned reference.",
+  "description": "Local NIKKE account sync, versioned snapshots and simulation foundation.",
   "scripts": {
-    "dev": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/web.ps1 -Action dev",
-    "build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/web.ps1 -Action build",
+    "dev": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync.ps1 -Action dev",
+    "build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync.ps1 -Action build",
+    "dev:reference": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/web.ps1 -Action dev",
+    "build:reference": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/web.ps1 -Action build",
+    "test:reference": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/web.ps1 -Action test",
     "test": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify.ps1",
-    "test:web": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/web.ps1 -Action test"
+    "test:web": "npm --prefix apps/web test",
+    "setup:sync": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync.ps1 -Action setup",
+    "build:sync": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync.ps1 -Action build",
+    "dev:sync": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync.ps1 -Action dev",
+    "test:sync": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync.ps1 -Action test"
   }
 }

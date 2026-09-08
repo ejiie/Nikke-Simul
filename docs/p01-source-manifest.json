@@ -1,0 +1,50 @@
+[
+  {
+    "sourceId": "legacy",
+    "path": "DataPipeline/crawler/getFromBlaLink.py",
+    "sha256": "da073a6b5f93f25b87cce37a48e8e379992816260f86bbe4d71f926a705f2621",
+    "usage": "adapted or referenced; see p01-source-map.ko.md"
+  },
+  {
+    "sourceId": "legacy",
+    "path": "DataPipeline/etl/blabla_merger.py",
+    "sha256": "78f806dfd73b63a9d973dbefc6581aaed7606988a1885be94a57883deffb0032",
+    "usage": "adapted or referenced; see p01-source-map.ko.md"
+  },
+  {
+    "sourceId": "upstream",
+    "path": "scraper/profile_fetch.py",
+    "sha256": "4190d5aab2a7f9dfbfcbdbf032508ec67425c5ca8ed4e319d7ae001678b8b7a9",
+    "usage": "adapted or referenced; see p01-source-map.ko.md"
+  },
+  {
+    "sourceId": "upstream",
+    "path": "worker/src/index.js",
+    "sha256": "c29de50e84efee582d7dc8216cdb4d47144488c1549d741b384cf0412d283768",
+    "usage": "adapted or referenced; see p01-source-map.ko.md"
+  },
+  {
+    "sourceId": "upstream",
+    "path": "site/src/blablalink.ts",
+    "sha256": "7f9b7386850e6a227be5a283420a4addb49621b189d78089fc60c68c8ba3752f",
+    "usage": "adapted or referenced; see p01-source-map.ko.md"
+  },
+  {
+    "sourceId": "upstream",
+    "path": "site/src/styles.css",
+    "sha256": "7a7c3f463994ad52a50c5194fd41abaf8f2caaf195bc577576b2d49026ded4bc",
+    "usage": "adapted or referenced; see p01-source-map.ko.md"
+  },
+  {
+    "sourceId": "upstream",
+    "path": "data/name_codes.json",
+    "sha256": "cda0d9666324db1facc3870528bbe0539ec61460b319fe526a06e0bc7867f73f",
+    "usage": "adapted or referenced; see p01-source-map.ko.md"
+  },
+  {
+    "sourceId": "upstream",
+    "path": "data/base_stat_tables/equipment_skills.json",
+    "sha256": "fbea4f3273381a96d1e882d1201995f3c22bd356330eeb06180a4312f7f632d0",
+    "usage": "adapted or referenced; see p01-source-map.ko.md"
+  }
+]

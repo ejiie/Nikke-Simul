@@ -1,10 +1,11 @@
-# P00 웹 실행 진입점
+# 계정 스펙 동기화 UI
 
-현재 웹은 `sources.lock.json`으로 고정한 Moris-kr/nikke-calc의 `site/`를 원본 위치에서 실행한다.
-`npm run dev`는 `scripts/web.ps1`을 통해 이 화면을 연다. UI 소스를 이 폴더로 이식하고
-새 C# API와 연결하는 작업은 P01~P05에서 수행한다.
+P01의 연결·동기화·스펙 확인·수동 보완 화면이다. `src/upstream-theme.css`는 고정 nikke-calc 테마의 처음 62줄을 재사용했고, 화면·API adapter는 이 프로젝트에서 작성했다. 저작권 고지는 저장소의 THIRD_PARTY_NOTICES와 MIT 원문을 따른다.
 
-이 단계의 웹 계산은 upstream Python/Pyodide 참조 엔진이다. 새로운 정밀 엔진의 결과가 아니다.
-로컬 실행은 upstream 운영자의 프로필 프록시·공유·접속자 수 서비스를 사용하지 않는다.
+저장소 루트에서 `npm run build` 후 `npm run dev`를 실행하면 C# API가 빌드된 UI를 함께 제공한다.
 
-개발 URL: http://127.0.0.1:5173/nikke-calc/
+- 기본 URL: http://127.0.0.1:5180/
+- 웹 개발 서버만 실행: 이 폴더에서 `npm run dev` → 5174, API 요청은 5180으로 proxy.
+- 원본 Python 전투 계산기: 저장소 루트의 `npm run dev:reference` → 5173/nikke-calc/.
+
+현재 화면은 새 C# 계정 snapshot을 표시한다. C# 전투 엔진은 아직 연결하지 않았다. 합성 테스트 서버에서는 검증용 데이터 배너를 표시한다.

@@ -33,5 +33,10 @@
     "path": "DataPipeline/crawler/staticdata_snapshot_manifest.py",
     "sha256": "2bbb74f9a609d8f132f9b543a539d840b4ed7e96b23d18cb4bf80a6891a4aa58",
     "status": "candidate-only; not imported or executed"
+  },
+  {
+    "path": "DataPipeline/crawler/getFromBlaLink.py",
+    "sha256": "da073a6b5f93f25b87cce37a48e8e379992816260f86bbe4d71f926a705f2621",
+    "status": "candidate-only; added after P00 source-map omission correction; not imported or executed"
   }
 ]

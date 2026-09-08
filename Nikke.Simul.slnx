@@ -1,5 +1,11 @@
 <Solution>
   <Project Path="src/Nikke.Core/Nikke.Core.csproj" />
+  <Project Path="src/Nikke.Contracts/Nikke.Contracts.csproj" />
+  <Project Path="src/Nikke.Data/Nikke.Data.csproj" />
+  <Project Path="src/Nikke.Storage/Nikke.Storage.csproj" />
+  <Project Path="src/Nikke.Api/Nikke.Api.csproj" />
+  <Project Path="tests/Nikke.Sync.Tests/Nikke.Sync.Tests.csproj" />
   <Project Path="tests/Nikke.Core.Tests/Nikke.Core.Tests.csproj" />
   <Project Path="tools/Nikke.Smoke/Nikke.Smoke.csproj" />
+  <Project Path="tools/Nikke.SyncAudit/Nikke.SyncAudit.csproj" />
 </Solution>

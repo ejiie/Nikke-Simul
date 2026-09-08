@@ -1,0 +1,63 @@
+/* Adapted verbatim from Moris-kr/nikke-calc site/src/styles.css lines 1-62. MIT (c) 2026 Jgaram. */
+:root {
+  color-scheme: dark;
+  font-family: Pretendard, "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
+  color: #eaf2f8;
+  background: #050b13;
+  font-synthesis: none;
+  --ink: #eaf2f8;
+  --muted: #8394a6;
+  --line: rgba(146, 176, 201, 0.16);
+  --panel: rgba(12, 24, 38, 0.88);
+  --panel-strong: #0e1b2a;
+  --amber: #ffbf3c;
+  --amber-hot: #ff9d1f;
+  --cyan: #45d6d0;
+  --danger: #ff7787;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 8% 3%, rgba(38, 154, 172, 0.15), transparent 28rem),
+    radial-gradient(circle at 94% 13%, rgba(255, 167, 48, 0.12), transparent 26rem),
+    linear-gradient(180deg, #07111f 0%, #050b13 54%, #04080e 100%);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.18;
+  background-image:
+    linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: linear-gradient(to bottom, black, transparent 76%);
+}
+
+button, input, select { font: inherit; }
+button, select, input { color: inherit; }
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+a:focus-visible {
+  outline: 3px solid rgba(69, 214, 208, 0.65);
+  outline-offset: 3px;
+}
+
+.site-shell { width: min(1440px, calc(100% - 40px)); margin: 0 auto; padding: 48px 0 28px; }
+.hero { display: flex; justify-content: space-between; align-items: center; min-height: 260px; padding: 24px 16px 46px; }
+.hero-copy { max-width: 850px; }
+.eyebrow, .step { margin: 0 0 12px; color: var(--cyan); font-size: 11px; font-weight: 800; letter-spacing: .2em; }
+.eyebrow span { color: var(--amber); }
+.hero h1 { margin: 0; font-size: clamp(42px, 6vw, 92px); line-height: .96; letter-spacing: -.065em; font-weight: 900; }
+.hero h1 span { color: var(--amber); text-shadow: 0 0 40px rgba(255, 184, 58, .15); }
+.hero-lede { max-width: 650px; margin: 24px 0 20px; color: #aebdca; font-size: clamp(15px, 1.4vw, 19px); line-height: 1.7; }

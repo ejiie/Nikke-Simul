@@ -2,6 +2,8 @@
 
 기준일: 2026-09-08. **P00은 개발 기반 구축 단계이며, 기존 두 전투 엔진을 합친 단계가 아니다.**
 
+이 문서는 P00 도입 시점의 출처·후속 후보 기록이다. 이후 완료한 계정 동기화 구현은 [P01 기능별 출처](p01-source-map.ko.md)에 별도로 기록했다.
+
 ## 원본 고정
 
 | 원본 | 고정 기준 | 보존 방식 |
@@ -31,7 +33,8 @@
 
 | 기능 | 우선 채택·참고 대상 | 의존 관계 / 이식 판단 | 단계 |
 |---|---|---|---|
-| 스펙 입력·fetch | `site/src/blablalink.ts`, `csv-import.ts`, `scraper/profile_fetch.py`; 기존 `DataPipeline/etl/blabla_merger.py`, `crawler/getFromBlaLinkRoledata.py` | 계정 입력 → 공통 snapshot adapter. 장비 4부위·줄·잠금 보존을 확인하고 기존 평탄화 출력 그대로 채택하지 않음. 전체 crawler/LLM 의존성 일괄 도입 안 함 | P01 |
+| 계정 스펙 입력·fetch | 기존 `DataPipeline/crawler/getFromBlaLink.py`, `etl/blabla_merger.py`; upstream `site/src/blablalink.ts`, `scraper/profile_fetch.py`, `worker/src/index.js` | 버튼 기반 자동 동기화. Python 로그인·원천 수집 → 신규 C# 정제·검증 → SQLite snapshot. 원본의 배치 요청·필드 매핑·UI를 재사용하며 OL 평탄화는 계승하지 않음. CSV는 후순위 | P01 |
+| 공개 캐릭터·무기·스킬 데이터 | 기존 `DataPipeline/crawler/getFromBlaLinkRoledata.py` | 공개 CDN roledata → 정적 GameSnapshot. 계정별 육성 스펙 수집기의 대체재가 아님. 공유 CDN helper·정제기 의존성 별도 검토 | P01 |
 | 기초 스탯 | C# `Nikke.Simulator.Core/Stats/StatCalculator.cs`, `StatTable.cs` 및 관련 DTO·Entities·장비/큐브/소장품 테이블 | 사용자 실게임 검증을 채택 기준으로 삼음. 기존 계산 순서·정수화와 테이블 단위를 함께 이식 | P02 |
 | 히트 대미지·차지 | C# `Nikke.Simulator.Core/Combat/DamageCalculator.cs` + Python `calculator/damage.py` 대조 | Stat 계산 결과 → 히트 context. 차지는 확정식으로 수정. 히트 정수화 후보는 실측 판정 전 병행 비교 | P02 |
 | 사격·장전·차지 | C# `Nikke.Simulator.Engine/FiringModel.cs`, Core `Stats/WeaponProfile.cs`; Python `calculator/timeline.py` | Engine → Core. 무기 시간·발사·탄약 상태와 조작 정책을 분리 | P03 |
@@ -40,11 +43,14 @@
 | Solo Raid 보스 | C# Engine `Targets/BossTarget.cs`, `SoloRaidBossTable.cs`; 기존 `DataPipeline/crawler/staticdata_solo_raid.py` | 보스 원천 데이터·시간 구간·파츠·기믹 → Scenario. 정적 표적만으로 실전 추천하지 않음 | P05 |
 | 스킬·보스 원천 테이블 | 기존 `DataPipeline/crawler/staticdata_skill_chains.py`, `staticdata_snapshot_manifest.py` | binary decoder 등 동반 의존성 별도 검토. 원천 snapshot 버전 고정 후 가져옴 | P01~P05 |
 | 구성원·effect별 결과 | C# Engine `Metrics/MetricsCollector.cs`, `IMetricsSink.cs`와 upstream 결과 구조 참고 | 공통 RunResult/EffectResult 계약으로 새 adapter 작성. 총합 보존과 원인별 추적 검증 | P03~P06 |
-| 저장·반복 실행·분포·retry | 신규 구현 | SQLite, CPU worker, seed/snapshot/engine version, 신뢰구간·꼬리 확률 추정 | P06 |
+| 계정 저장·동기화 작업 관리 | 신규 구현 | 로컬 API, SQLite snapshot/current 포인터, 진행·취소·실패 복원, 수동 보완 revision | P01 |
+| 전투 저장·반복 실행·분포·retry | 신규 구현 | P01 저장 기반에 전투 결과·CPU worker 추가, seed/snapshot/engine version, 신뢰구간·꼬리 확률 추정 | P05~P06 |
 | 비중복 5덱 및 장비별 OL 육성 추천 | 신규 구현 | 검증된 Solo Raid 표본·보유 캐릭터·시도 비용/확률에 의존 | P07~P08 |
 | Union Raid·GPU | 후순위 | 기존 Union Raid UI는 참고 후보. GPU 채택은 CPU 병목 측정 후 결정 | P09 |
 
 기존 WPF 화면은 기준 소스 목록에 보존했지만 웹 제품 UI로 채택하지 않았고 P00에서 빌드하지 않았다. 기존 Union Raid UI, 계정 인증, 원천 수집 작업도 실행하지 않았다.
+
+P00 출처표 보정: `getFromBlaLink.py`는 부적격 판정으로 제외한 것이 아니라 최초 후보표에서 누락했다. 계정 수집의 주요 재사용 후보로 추가했다. Playwright 로그인·응답 수집·배치 요청·부분 수집 실패 코드는 활용 대상이며, 제품 adapter에서는 출력 경로와 인증을 분리하고 roster ID 집합 대비 누락·중복 및 장비 필드 완전성을 검증한다. 현재 사이트에서의 실제 동작은 아직 재검증하지 않았다.
 
 ## 유지하는 계산 결정
 
