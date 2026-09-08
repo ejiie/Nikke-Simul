@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using Nikke.Contracts;
 using Nikke.Core.Combat;
+using Nikke.Core.Stats;
 using Nikke.Simulator.Core.Data.Dto;
 using Nikke.Simulator.Core.Stats;
 
@@ -16,7 +17,10 @@ public record StatStep(string Name, StatVector Value, string Source);
 public record StatReport(string AccountSnapshotId, string GameSnapshotId, string CalculationDataId,
     string CharacterId, string Name, int AccountLevel, int AppliedLevel, string LevelSource,
     string Status, IReadOnlyList<Issue> Issues, IReadOnlyList<StatStep> Steps,
-    StatVector? Total, HitContext? BasicHit, IReadOnlyList<string> DeferredEffects);
+    StatVector? NativeStats, StatBuffSet PermanentBuffs, HitContext? BasicHit, IReadOnlyList<string> DeferredEffects)
+{
+    public string StatRulesVersion => StatBuffCalculator.Version;
+}
 
 // One immutable table set per API process. Legacy StatTable is initialized only in this constructor.
 public sealed class CalculationService
@@ -48,11 +52,12 @@ public sealed class CalculationService
     {
         var c = snapshot.Characters.SingleOrDefault(x => x.CharacterId == characterId) ?? throw new KeyNotFoundException();
         var issues = new List<Issue>(); var steps = new List<StatStep>(); var deferred = new List<string>();
+        var permanentBuffs = new StatBuffSet();
         void Error(string code, string path, string message) => issues.Add(new("error", code, path, message));
         var level = scenarioLevel ?? c.Level ?? 0;
-        StatReport Result(StatVector? total = null, HitContext? hit = null) => new(snapshot.Id, snapshot.GameSnapshotId, dataId, c.CharacterId,
+        StatReport Result(StatVector? native = null, HitContext? hit = null) => new(snapshot.Id, snapshot.GameSnapshotId, dataId, c.CharacterId,
             c.Name, c.Level ?? 0, level, scenarioLevel is null ? "account_snapshot" : "scenario_override", issues.Any(x => x.Severity == "error") ? "incomplete" : "stat_ready_hit_provisional",
-            issues, steps, total, hit, deferred);
+            issues, steps, native, permanentBuffs, hit, deferred);
         var role = roles[characterId];
         if (role is null) { Error("missing_role", characterId, "고정된 정적 테이블에 캐릭터가 없습니다."); return Result(); }
         string Str(string key) => role[key]?.GetValue<string>() ?? "";
@@ -90,7 +95,13 @@ public sealed class CalculationService
             }
         }
         var effects = new Dictionary<string, double>();
-        void Add(string key, double value) => effects[key] = effects.GetValueOrDefault(key) + value;
+        var effectTerms = new Dictionary<string, List<StatRateBuff>>();
+        void Add(string key, double value, string source)
+        {
+            effects[key] = effects.GetValueOrDefault(key) + value;
+            if (!effectTerms.TryGetValue(key, out var terms)) effectTerms[key] = terms = [];
+            terms.Add(new(source, value));
+        }
         var cube = new StatVector(0, 0, 0); var coll = cube;
         if (c.CubeId is null) Error("unknown_cube", "cube", "큐브 장착 여부가 미확인입니다.");
         else if (c.CubeId != "0")
@@ -107,7 +118,7 @@ public sealed class CalculationService
                     if (effect["conditional"]?.GetValue<bool>() == true) { deferred.Add($"cube:{type}:conditional"); continue; }
                     var vals = effect["values"]!.AsArray(); var index = c.CubeLevel!.Value - 1;
                     if (index < 0 || index >= vals.Count) Error("cube_effect_level", "cube", "큐브 효과 레벨이 표 범위를 벗어났습니다.");
-                    else Add(type, vals[index]!.GetValue<double>() / 100);
+                    else Add(type, (double)(vals[index]!.GetValue<decimal>() / 100m), $"cube:{c.CubeId}:{type}");
                 }
             }
         }
@@ -128,7 +139,7 @@ public sealed class CalculationService
                     {
                         var type = entry["buff_type"]!.GetValue<string>();
                         var mapped = type switch { "def_pct" => "Def", "core_dmg_pct" => "CoreDamage", "max_ammo_pct" => "MaxAmmo", "charge_dmg_mag_pct" => "ChargeDamageMultiplier", "normal_atk_dmg_pct" => "NormalAttackMultiplier", _ => type };
-                        Add(mapped, vals[skillIndex]!.GetValue<double>() / 100);
+                        Add(mapped, (double)(vals[skillIndex]!.GetValue<decimal>() / 100m), $"collection:{c.CollectionId}:{type}");
                     }
                 if (c.CollectionGrade == "SSR") deferred.Add("favorite:skill_replacement:P03");
             }
@@ -153,16 +164,18 @@ public sealed class CalculationService
         steps.Add(new("cube", cube, "legacy cube table; exact level"));
         steps.Add(new("collection", coll, "upstream grade + API level (SSR: SR15)"));
         var native = core + gear + cube + coll;
-        var rated = new StatVector(native.HP * (1 + effects.GetValueOrDefault("MaxHp")), native.ATK, native.DEF * (1 + effects.GetValueOrDefault("Def")));
-        steps.Add(new("accessoryRates", rated - native, "legacy assembly order; passive HP/DEF rates"));
-        double[] Options(string type) => c.Equipment.SelectMany(x => x.Lines).Where(x => x.Presence == "present" && (x.OptionType == type || type == "StatDef" && x.OptionType == "IncHurtDef")).Select(x => (double)x.NormalizedValue!.Value).ToArray();
-        double Final(double n, string type) => OverloadProcessor.CalculateFinalBaseStat(n, Options(type));
-        var total = new StatVector(Final(rated.HP, "StatMaxHP"), Final(rated.ATK, "StatAtk"), Final(rated.DEF, "StatDef"));
-        steps.Add(new("overload", total - rated, "legacy group equal values then round; normalized ratios"));
+        StatRateBuff[] OptionBuffs(string type) => c.Equipment.SelectMany(eq => eq.Lines
+            .Where(x => x.Presence == "present" && (x.OptionType == type || type == "StatDef" && x.OptionType == "IncHurtDef"))
+            .Select(line => new StatRateBuff($"overload:{c.CharacterId}:{eq.Slot}:{line.LineIndex}:{line.OptionType}", (double)line.NormalizedValue!.Value))).ToArray();
+        double[] Options(string type) => OptionBuffs(type).Select(x => x.Rate).ToArray();
+        permanentBuffs = new() { Attack = OptionBuffs("StatAtk"),
+            HP = OptionBuffs("StatMaxHP").Concat(effectTerms.GetValueOrDefault("MaxHp") ?? []).ToArray(),
+            Defense = OptionBuffs("StatDef").Concat(effectTerms.GetValueOrDefault("Def") ?? []).ToArray(),
+            Ammo = OptionBuffs("StatAmmoLoad").Concat(effectTerms.GetValueOrDefault("MaxAmmo") ?? []).ToArray() };
         var basic = role["basicAttack"];
-        if (basic is null || basic["multiplier"] is null) { Error("missing_weapon", characterId, "평타 계수가 없습니다."); return Result(total); }
+        if (basic is null || basic["multiplier"] is null) { Error("missing_weapon", characterId, "평타 계수가 없습니다."); return Result(native); }
         var chargeWeapon = role["weaponData"]?["isChargeWeapon"]?.GetValue<bool>() ?? false;
-        var hit = new HitContext { Attack = total.ATK, Defense = 0, Coefficient = basic["multiplier"]!.GetValue<double>() / 100 * (1 + effects.GetValueOrDefault("NormalAttackMultiplier")),
+        var hit = new HitContext { StatAttack = native.ATK, AttackBuffs = permanentBuffs.Attack, Defense = 0, Coefficient = basic["multiplier"]!.GetValue<double>() / 100 * (1 + effects.GetValueOrDefault("NormalAttackMultiplier")),
             ChargeApplicable = chargeWeapon, ChargeBase = basic["chargeDamage"]!.GetValue<double>(),
             ChargeAdd = Options("StatChargeDamage").Sum() + effects.GetValueOrDefault("ChargeDamage"), ChargeMultiplierBonus = effects.GetValueOrDefault("ChargeDamageMultiplier"),
             CritBonus = .5 + Options("StatCriticalDamage").Sum(), CoreBonus = basic["coreHitBonus"]!.GetValue<double>() + effects.GetValueOrDefault("CoreDamage"),
@@ -172,7 +185,7 @@ public sealed class CalculationService
         foreach (var type in new[] { "StatAccuracyCircle", "StatAmmoLoad", "StatChargeTime", "StatReloadTime", "StatCritical" })
             if (Options(type).Length > 0) deferred.Add("overload:" + type + ":weapon_runtime_or_rng:P03");
         foreach (var effect in effects.Keys.Where(x => !new[] { "MaxHp", "Def", "NormalAttackMultiplier", "ChargeDamage", "ChargeDamageMultiplier", "CoreDamage", "ElementAdvantageDamage", "PartsDamage", "PierceDamage", "TrueDamage" }.Contains(x))) deferred.Add("accessory:" + effect + ":not_consumed_in_single_hit");
-        return Result(total, hit);
+        return Result(native, hit);
     }
     private static StatVector Vector(JsonNode row, bool upper) => new(row[upper ? "HP" : "hp"]!.GetValue<double>(), row[upper ? "ATK" : "atk"]!.GetValue<double>(), row[upper ? "DEF" : "def"]!.GetValue<double>());
 }

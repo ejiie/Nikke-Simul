@@ -1,0 +1,38 @@
+[
+  {
+    "sourceRoot": "C:/Users/user/Documents/GitHub/Nikke-Dmg-Simulator",
+    "path": "Docs/DESIGN.md",
+    "sha256": "31fdccf1be0c7b922d58cc9176bc898e9f1a7a8927182e4168a63096db80c20c",
+    "usage": "read-only investigation; shared buff contract and wiring comparison"
+  },
+  {
+    "sourceRoot": "C:/Users/user/Documents/GitHub/Nikke-Dmg-Simulator",
+    "path": "Docs/FACTS.md",
+    "sha256": "e0241720730bba51975157bd97ca5d043b6204c165be101609ed602935eecd6c",
+    "usage": "read-only investigation; shared buff contract and wiring comparison"
+  },
+  {
+    "sourceRoot": "C:/Users/user/Documents/GitHub/Nikke-Dmg-Simulator",
+    "path": "Docs/VERIFICATION_LOG.md",
+    "sha256": "8e82d831916594aac3c2ab476a576d255c2903384e524e300a89ad0ed6780081",
+    "usage": "read-only investigation; shared buff contract and wiring comparison"
+  },
+  {
+    "sourceRoot": "C:/Users/user/Documents/GitHub/Nikke-Dmg-Simulator",
+    "path": "SimulatorEngine/Nikke.Simulator.Core/Entities/Nikke.cs",
+    "sha256": "a09440fcc3440fba5cf42d0963da8f2d67b4325a9bb024cccce882c891b2671c",
+    "usage": "read-only investigation; shared buff contract and wiring comparison"
+  },
+  {
+    "sourceRoot": "C:/Users/user/Documents/GitHub/Nikke-Dmg-Simulator",
+    "path": "SimulatorEngine/Nikke.Simulator.Engine/Buffs/BuffAggregator.cs",
+    "sha256": "f41d33b797c35e38314a7d99a2e614484215170be9db9c22d77bd1a72a474fc1",
+    "usage": "read-only investigation; shared buff contract and wiring comparison"
+  },
+  {
+    "sourceRoot": "C:/Users/user/Documents/GitHub/Nikke-Dmg-Simulator",
+    "path": "SimulatorEngine/Nikke.Simulator.Core/Stats/OverloadProcessor.cs",
+    "sha256": "ec621b02c4dc32dc45ac48ec4c0e1e231c33a6435745940c0c66566a793c9280",
+    "usage": "read-only investigation; shared buff contract and wiring comparison"
+  }
+]

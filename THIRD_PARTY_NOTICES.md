@@ -23,6 +23,8 @@ P02 uses pinned `data/base_stat_tables/collection.json`, `data/name_codes.json`,
 
 P02 additionally copies `StatCalculator.cs`, `StatTable.cs`, `CubeStatDto.cs`, `RootDto.cs`, and `EffectType.cs` byte-for-byte from the local legacy source. It adapts the assembly order in `Entities/Nikke.cs` and damage brackets in `Combat/DamageCalculator.cs`; the charge formula follows the user's new decision. Exact paths and hashes are in [the P02 manifest](docs/p02-source-manifest.json).
 
+The P02 buff correction follows the user's instruction and the shared native-stat buff contract in the legacy `Docs/DESIGN.md` §3.5, `Docs/FACTS.md`, and `Docs/VERIFICATION_LOG.md`. The legacy two-stage OL/skill wiring is not copied. Newly authored `StatBuffCalculator` merges permanent and active rate terms before calling the unchanged rounding implementation. Additional read-only source hashes and adaptation details are in [the correction record](docs/p02-buff-correction.ko.md).
+
 ## Newly authored for Nikke-Simul
 
 The solution/project scaffolding, PowerShell setup and verification wrappers, synthetic tests and smoke executable, source manifests, and project documentation were authored for this project. They are not features imported from nikke-calc. No repository-wide license is declared in P00.

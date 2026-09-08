@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Nikke.Api;
 using Nikke.Contracts;
@@ -63,7 +64,17 @@ app.MapGet("/api/snapshots/{id}/characters/{characterId}/stats", (string id, str
     if (!File.Exists(Path.Combine(calculationPath, "current.json"))) return Results.Conflict(new { message = "P02 계산 자료 준비가 필요합니다. npm run setup:sync를 실행하세요." });
     return Results.Ok(calculations.Value.Calculate(store.Snapshot(id) ?? throw new KeyNotFoundException(), characterId, scenarioLevel));
 });
-app.MapPost("/api/calculations/hit", (HitRequest request) => HitCalculator.Compare(request.Input, request.ObservedDamage));
+app.MapPost("/api/calculations/hit", (HitRequest request) =>
+{
+    if (request.InputSchemaVersion != HitCalculator.InputSchemaVersion)
+        throw new ArgumentException("계산 입력 형식이 변경되었습니다. 화면을 새로고침한 뒤 다시 계산하세요.");
+    if (request.Input is null || !request.Input.ContainsKey("statAttack"))
+        throw new ArgumentException("버프 적용 전 statAttack 입력이 필요합니다.");
+    HitContext input;
+    try { input = request.Input.Deserialize<HitContext>(new JsonSerializerOptions(Wire.Json) { UnmappedMemberHandling = System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow })!; }
+    catch (JsonException) { throw new ArgumentException("계산 입력 필드를 확인하세요. 기존 attack은 statAttack과 버프 목록으로 분리되었습니다."); }
+    return HitCalculator.Compare(input, request.ObservedDamage);
+});
 var web = Path.Combine(root, "apps/web/dist");
 if (Directory.Exists(web))
 {
@@ -74,4 +85,4 @@ app.MapGet("/api/health", () => new { status = "ok", milestone = "P02", combatEn
 await app.RunAsync();
 record AreaSelection(int Area);
 record StartSync(string ConnectionId);
-record HitRequest(HitContext Input, double? ObservedDamage);
+record HitRequest(JsonObject Input, double? ObservedDamage, int InputSchemaVersion);

@@ -1,13 +1,17 @@
+using Nikke.Core.Stats;
+
 namespace Nikke.Core.Combat;
 
 // Explicit single damage instance. Rates are fractions; no RNG or trigger inference here.
 public sealed record HitContext
 {
-    public double Attack { get; init; }
+    public double StatAttack { get; init; }
+    public IReadOnlyList<StatRateBuff> AttackBuffs { get; init; } = [];
+    public IReadOnlyList<StatRateBuff> RuntimeAttackBuffs { get; init; } = [];
     public double Defense { get; init; }
     public double Coefficient { get; init; } = 1;
     public string DamageType { get; init; } = "normal";
-    public string AttackStatBasis { get; init; } = "current_caster_attack";
+    public string AttackStatBasis { get; init; } = "native_caster_attack";
     public string SnapshotTiming { get; init; } = "explicit_single_hit";
     public bool CanCrit { get; init; } = true;
     public bool CanCore { get; init; } = true;
@@ -41,18 +45,19 @@ public sealed record HitContext
 public record CalculationTerm(string Name, double Before, double After, string Operation);
 public record DamageBreakdown(string Policy, double Damage, double? Residual, double? RelativeError,
     IReadOnlyList<CalculationTerm> Terms);
-public record HitComparison(string RulesVersion, string Status, HitContext Input, double? ObservedDamage,
+public record HitComparison(string RulesVersion, string Status, HitContext Input, double EffectiveAttack, double? ObservedDamage,
     IReadOnlyList<DamageBreakdown> Candidates);
 
 public static class HitCalculator
 {
-    public const string Version = "p02.1";
+    public const string Version = "p02.2";
+    public const int InputSchemaVersion = 2;
     public static HitComparison Compare(HitContext c, double? observed = null)
     {
         ArgumentNullException.ThrowIfNull(c);
         var values = typeof(HitContext).GetProperties().Where(p => p.PropertyType == typeof(double))
             .Select(p => (double)p.GetValue(c));
-        if (values.Any(v => !double.IsFinite(v) || Math.Abs(v) > 1e12) || c.Attack < 0 || c.Defense < 0 || c.Coefficient <= 0
+        if (values.Any(v => !double.IsFinite(v) || Math.Abs(v) > 1e12) || c.StatAttack < 0 || c.Defense < 0 || c.Coefficient <= 0
             || (observed is { } o && (!double.IsFinite(o) || o < 1 || o != Math.Floor(o) || o > 9e15)))
             throw new ArgumentException("계산 입력 범위 또는 실측 대미지를 확인하세요.");
         if (!new[] { "normal", "skill", "dot", "sequential", "distribution", "true" }.Contains(c.DamageType))
@@ -69,16 +74,18 @@ public static class HitCalculator
             ("critical", c.Crit ? c.CritBonus : 0), ("core", c.Core ? c.CoreBonus : 0) };
         if (charge <= 0 || b3 < 0 || b4 < 0 || b5 < 0 || 1 + bonuses.Sum(x => x.Item2) < 0)
             throw new ArgumentException("유효 대미지 배율이 음수이거나 차지 배율이 0입니다.");
+        var attack = StatBuffCalculator.Apply(c.StatAttack, c.AttackBuffs, c.RuntimeAttackBuffs);
         var defense = c.DamageType == "true" ? 0 : c.Defense;
-        var p = (c.Attack - defense) * c.Coefficient * charge;
+        var p = (attack - defense) * c.Coefficient * charge;
         var results = new List<DamageBreakdown>();
         foreach (var policy in new[] { "legacy_term_floor", "final_round_even", "nested_floor" })
         {
-            var terms = new List<CalculationTerm> { new("effectiveDefense", c.Defense, defense, c.DamageType == "true" ? "ignore" : "identity"),
+            var terms = new List<CalculationTerm> { new("effectiveAttack", c.StatAttack, attack, "native + grouped rounded native * (OL + passive + active skill rates)"),
+                new("effectiveDefense", c.Defense, defense, c.DamageType == "true" ? "ignore" : "identity"),
                 new("charge", c.ChargeBase, charge, "base * (1 + multiplierBonus) + add; gated by fullCharge"),
-                new("P", c.Attack - defense, p, "attackDefenseDifference * coefficient * charge") };
+                new("P", attack - defense, p, "attackDefenseDifference * coefficient * charge") };
             double damage;
-            if (defense >= c.Attack) { damage = 1; terms.Add(new("minimum", p, 1, "defense >= attack")); }
+            if (defense >= attack) { damage = 1; terms.Add(new("minimum", p, 1, "defense >= attack")); }
             else
             {
                 double b2;
@@ -103,6 +110,6 @@ public static class HitCalculator
             results.Add(new(policy, damage, observed is { } m ? damage - m : null,
                 observed is { } m2 ? (damage - m2) / m2 : null, terms));
         }
-        return new(Version, "provisional_rounding", c, observed, results);
+        return new(Version, "provisional_rounding", c, attack, observed, results);
     }
 }

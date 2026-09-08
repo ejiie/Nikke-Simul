@@ -93,11 +93,11 @@ upstream은 전체 factor를 실수로 곱한 뒤 최종 round를 한다. 동일
 스탯은 다음 층으로 나눈다.
 
 1. 레벨·레어도·클래스·무기 예외와 돌파·코어·호감도·콘솔.
-2. 장비 고정 스탯·큐브·소장품 및 애장품 교체 효과.
-3. OL 옵션의 원천 줄별 기여와 정수화.
-4. 전투 중 버프·디버프, HP→ATK 등의 변환, 스냅샷 스탯.
+2. 장비·큐브·소장품의 고정 수치 합으로 스탯 원값을 구성한다.
+3. OL 및 액세서리 비율은 상시 버프다. 스킬 비율과 같은 원값·같은 괄호에서 합산하며, 모든 출처를 합친 뒤 동일 비율 그룹별로 증가분을 사사오입한다.
+4. 전투 중 버프·디버프의 유효 목록, HP→ATK 등의 변환, 애장품 스킬 교체, 스냅샷 시점을 관리한다. OL 적용 공격력을 스킬 공증의 새 기준으로 사용하지 않는다.
 
-각 단계의 subtotal을 조회 가능하게 한다. 가져온 최종 ATK를 기초 ATK로 넣은 뒤 OL을 다시 더하는 중복 적용을 금지한다. 미공개 콘솔·큐브 등은 unknown과 실제 0을 구별한다. 표 밖 레벨 외삽은 추정으로 표시한다.
+UI 기본 화면에는 최종 HP·공격력·방어력만 표시한다. 중간 기여·버프 출처·계산항은 API/검산 JSON에서 조회한다. 가져온 버프 적용 ATK를 스탯 원값으로 넣거나 OL·스킬을 단계별로 중복 곱하지 않는다. [P02 버프 정정](p02-buff-correction.ko.md)의 입력·그룹 계약을 따른다. 미공개 콘솔·큐브 등은 unknown과 실제 0을 구별한다. 표 밖 레벨 외삽은 추정으로 표시한다.
 
 근거: [upstream base_stat](https://github.com/Moris-kr/nikke-calc/blob/master/calculator/base_stat.py#L257), [기존 StatCalculator](C:/Users/user/Documents/GitHub/Nikke-Dmg-Simulator/SimulatorEngine/Nikke.Simulator.Core/Stats/StatCalculator.cs), [기존 OverloadProcessor](C:/Users/user/Documents/GitHub/Nikke-Dmg-Simulator/SimulatorEngine/Nikke.Simulator.Core/Stats/OverloadProcessor.cs).
 
