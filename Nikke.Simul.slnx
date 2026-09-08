@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="src/Nikke.Core/Nikke.Core.csproj" />
+  <Project Path="tests/Nikke.Core.Tests/Nikke.Core.Tests.csproj" />
+  <Project Path="tools/Nikke.Smoke/Nikke.Smoke.csproj" />
+</Solution>

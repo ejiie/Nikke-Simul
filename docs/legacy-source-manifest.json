@@ -1,0 +1,254 @@
+[
+  {
+    "path": "SimulatorEngine/NikkeSimulator.sln",
+    "sha256": "fe45df7ddd06fc8fb4a891e4389e4bc6c1dcfdcc5c76f11894ea09f0a55399a9"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Core/Nikke.Simulator.Core.csproj",
+    "sha256": "e151f959964eb450a5b86b72765e3f9c505645fa9516eae485743d2b43911c8e"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Core/Combat/AccuracyModel.cs",
+    "sha256": "ea48110ffdb7814d802c553a90fbb1f769d93aff4b8df7df258af1a4aad21269"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Core/Combat/DamageCalculator.cs",
+    "sha256": "3976be849304b853b1af05b9a23b999eb8ef58b3b8624bdb8d6279bbb8fc2f64"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Core/Combat/ElementAdvantage.cs",
+    "sha256": "ddfa2d59d42811826a45c7c89bf35b5511ca528239eb9c8b5b911d8194d22ce2"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Core/Combat/ProperDistanceTable.cs",
+    "sha256": "de5f8792c8ddf1825598f1eaac2b87b3c29e50e1c6e5ca6e1f63ba26962c9dd7"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Core/Data/JsonProvider.cs",
+    "sha256": "6f207bfae5052630a164190720913a1f2fa303da9ef9ce2961135c41571b3682"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Core/Data/Constants/EffectTable.cs",
+    "sha256": "5c5b8616d43484e7e7b594155310886b1997f214197300a2dc3bc9e872078791"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Core/Data/Constants/EffectType.cs",
+    "sha256": "f73842752ac4735dbfeab62d7e80725aacf651c28f62bc90e9305990ec43c4c7"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Core/Data/Dto/CubeStatDto.cs",
+    "sha256": "1b2f038b3cdc96436c861447e2fcf78f764da5d7f487698a4fe489a2b082a731"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Core/Data/Dto/OverloadOptionDto.cs",
+    "sha256": "bf74353b14011329020d4c1362ffade89a4db53959d4d48a0baf974176bde086"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Core/Data/Dto/RootDto.cs",
+    "sha256": "6b58c9733333de75887a4044255eb52154f1518252140867c00c9995165964b4"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Core/Entities/Nikke.cs",
+    "sha256": "a09440fcc3440fba5cf42d0963da8f2d67b4325a9bb024cccce882c891b2671c"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Core/Stats/IRandomSource.cs",
+    "sha256": "ba3eb003981f876cadfd308a88d6bbfebcb5da4360c06dbe62b39a42ceb0a0d8"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Core/Stats/OverloadProcessor.cs",
+    "sha256": "ec621b02c4dc32dc45ac48ec4c0e1e231c33a6435745940c0c66566a793c9280"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Core/Stats/StatCalculator.cs",
+    "sha256": "ccd7b0fb060935179864a861d019a2e16c6a92dea1442bc2de30aaf4aa6b1a0f"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Core/Stats/StatTable.cs",
+    "sha256": "427c5a9a8bab69be972db7cb9c7a75e226f36fc671d4f918865eac9e09eae2a2"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Core/Stats/WeaponProfile.cs",
+    "sha256": "69ba17602c98b81326ea35bdf52c621fa8ca697897c771da9d05ebbc4e376f50"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Engine/FiringModel.cs",
+    "sha256": "1e6890d675fec9f192f48f8f3655b22ae7fb1be6b303e314fc406db592850c97"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Engine/Nikke.Simulator.Engine.csproj",
+    "sha256": "274417954880f968ff45dfd18cdb9d257edaeeabede75b4163bb9f96874ee56e"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Engine/SimulationRunner.cs",
+    "sha256": "333fca442949a7f33835f20ecfbdeedd3d9c05fc410cd0362d183c539a14e520"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Engine/Buffs/BuffAggregator.cs",
+    "sha256": "f41d33b797c35e38314a7d99a2e614484215170be9db9c22d77bd1a72a474fc1"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Engine/Buffs/BuffInstance.cs",
+    "sha256": "15a6fc9c5ce7590011f0eb93bcdb489d0a10e122767f0c313f9bd36181a32660"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Engine/Clock/ISimClock.cs",
+    "sha256": "db787d6635ac8c479377f734f77953c227927fb1ba9b4c7165d81cf4bd353bf0"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Engine/Clock/SimClock.cs",
+    "sha256": "219be86310966a6209f2a0d1dae3f3c429dea16d252a9bb76742865346c948dc"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Engine/Combat/Combatant.cs",
+    "sha256": "abb70200900a67830b0fe580d796813911186a60c71b3af5ac34d1284b17f982"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Engine/Events/BattleEvent.cs",
+    "sha256": "f282e7d47ac20eba0cbf29fa3cccf54265bc3d083602dad20c0f90c6e93ede50"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Engine/Metrics/IMetricsSink.cs",
+    "sha256": "444883f3406e2419d1769c4fcf38a75df8365c590353c429d422a47425b29d34"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Engine/Metrics/MetricsCollector.cs",
+    "sha256": "33814b0ec3aa488385abbf62bb89e04c3494037cbb1f7f2ac4db5cdca1ada205"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Engine/Rotation/IRotationController.cs",
+    "sha256": "a3ec2f060e2b57d1f66943fc8bd302d4908f7641a4872c205f27c4b33ec073b9"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Engine/Skills/OfficialSkillEnums.cs",
+    "sha256": "19a08bb3635397d6f22949f13abc091e03735e9f5d50f5d43fb4fa77f8eb636c"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Engine/Skills/SkillChainDto.cs",
+    "sha256": "d1874d5d269a6425802a96d542ff2eae695000d3107876a066b6d613434f2758"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Engine/Skills/SkillChainLoader.cs",
+    "sha256": "6ea49905598f0bd9573543ee37b0f0881651cda07705bd0aa7518a9b9d2510d3"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Engine/Skills/SkillRuntime.cs",
+    "sha256": "82984b6419eace6d2b415f9fe646404c9f64b1d2522c055ec0104c9acef2663e"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Engine/Skills/SkillTranslator.cs",
+    "sha256": "751c0729c47d229af8a1121b06248cfe8522efcb4d0d1f247e718ea7b8af3fa7"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Engine/Targets/BossTarget.cs",
+    "sha256": "3eb0d2c19512216c2aea8992eafb14ec8ceab61b91ea93f57ace35b1e4e042f9"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Engine/Targets/DummyTarget.cs",
+    "sha256": "c0c3507970eaffab6475e188d34ff6342e3aa006b66912c87747ee5d38f62ea3"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Engine/Targets/ITarget.cs",
+    "sha256": "d4170c0e20be86bf0d2a530ff591d87149267bfc5cc9d50bb7ff54ec616ab3b7"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Engine/Targets/SoloRaidBossTable.cs",
+    "sha256": "f74582e738de564835d5d7d0f1a9522f725722594c6973025c52253373b94551"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Harness/Nikke.Simulator.Harness.csproj",
+    "sha256": "76089a338aee6cc9d6a71134f21a007a62e81fd6fa2bb39965827a94d3e1d8ce"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Harness/Program.cs",
+    "sha256": "97265c17f5f4b52288797a8186e6462191a31fbe7544269bfb0f350a98ae0dec"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Tests/BossTargetTests.cs",
+    "sha256": "d7cb97fd24265a047ed2dcf7cace94690fca16b3e35cd7329c8795b0ef884c3a"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Tests/BuffAggregatorTests.cs",
+    "sha256": "3627a580282232879816c78b836b0810d24900e7fbc13c8cc2c3137bc75582ee"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Tests/DamageFormulaGoldenTests.cs",
+    "sha256": "cdc961ae6b41809d99d0666e7e47d3341b7ddda0e16197c8ada360b3d5142c9c"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Tests/EffectTableTests.cs",
+    "sha256": "0a64e4ee1a5c4860ce33f24af6aa3332967fa7e2c3b843df301c37a656d6ea67"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Tests/ElementAdvantageTests.cs",
+    "sha256": "733472204528a4432a62e547428d7a7ad546eb6715c631b8c56d07c66fb2f0d5"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Tests/EquipmentStatsTests.cs",
+    "sha256": "35bb047d6b3b43b40251d0c5066560780c3e62912b9da853e16d0ea1e00f3406"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Tests/FiringModelTests.cs",
+    "sha256": "fd41ba62f93ff14550f081ee6c5509d851fe901f812eec366c8653bbb36707c7"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Tests/MetricsCollectorTests.cs",
+    "sha256": "417fd89724383cdab8a8596e4cfa1fbdaf7425d588255f65dd095c2349692d9b"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Tests/Nikke.Simulator.Tests.csproj",
+    "sha256": "fcfa5942f0c76bce22c5d14a44303322160d7df67e9f52b64d191a2bb9e90854"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Tests/NikkeBuildIntegrationTests.cs",
+    "sha256": "4de55dd5e4b89c50b7706021ad368e3148ea778a71fbb75cacea83e3bf4978de"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Tests/SimClockTests.cs",
+    "sha256": "2aa570ceb3352a05ce8e23fdfe650e86ec29d79e45b6d2852f331b782c9cf027"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Tests/SimulationRunnerTests.cs",
+    "sha256": "674c694ca937401467737b5ca626df53fef631a1ed27160ba7e9a88471c92460"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Tests/SkillChainLoaderTests.cs",
+    "sha256": "f7e8bafeeb12418f6bb9112e31912f9426a2907e8ccb2575e1743458dab6a622"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Tests/SkillRuntimeTests.cs",
+    "sha256": "6a195b4252c1a87ef5473bd5a778411efa4e78935e11ac42901d9fee819bddcf"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Tests/WeaponDataTests.cs",
+    "sha256": "710f27f2e2b4e04805227e81917782fb2c99a0e2e1d590b33f98042842529de3"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Tests/WUnitFoundationTests.cs",
+    "sha256": "8b6a74e5b5d3224fb651de852947b56a90821788d3f03b8628f2624dae5051eb"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Wpf/App.xaml",
+    "sha256": "84de072bdbcb7a64d7483e024eeff3431a250658fa6e0d4f5936e1499c030806"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Wpf/App.xaml.cs",
+    "sha256": "d781dad65ffbc482cdf594ff1237d0a295cbd0c959235483ac95e924f3ee3d70"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Wpf/AssemblyInfo.cs",
+    "sha256": "3fac2af92385f676e9a941befd23fe38f0a5fa6167d4a3a88f07e730c5595ca3"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Wpf/MainWindow.xaml",
+    "sha256": "3e5e63143fcd41af2461556a22aede687fb4baa23348017414e2198398aff658"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Wpf/MainWindow.xaml.cs",
+    "sha256": "ae758c75d7b1546c97cc3e06109fae7e52c022da9990b6377c34bc0b751cca4a"
+  },
+  {
+    "path": "SimulatorEngine/Nikke.Simulator.Wpf/Nikke.Simulator.Wpf.csproj",
+    "sha256": "fdcd3852bc04836a709d7de91f257092b9436011ca2c1948fbb09279cbdec03a"
+  }
+]

@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "milestone": "P00",
+  "upstream": {
+    "url": "https://github.com/Moris-kr/nikke-calc.git",
+    "commit": "b4f440594d9d88840305e5a5897584549a0264dc",
+    "checkout": ".reference/nikke-calc",
+    "license": "MIT",
+    "copyright": "Copyright (c) 2026 Jgaram"
+  },
+  "legacy": {
+    "path": "C:/Users/user/Documents/GitHub/Nikke-Dmg-Simulator",
+    "commit": "c10395cc6c46caaea2c58c13d400796549a7eb17",
+    "workingTreeDirty": true,
+    "checkout": ".reference/legacy-simulator",
+    "license": "No standalone LICENSE found; user-owned local reference, no license inferred."
+  },
+  "toolchain": {
+    "dotnetSdk": "10.0.400",
+    "legacyDotnetSdk": "8.0.407",
+    "node": "24.16.0",
+    "npm": "11.13.0",
+    "python": "3.12.14"
+  },
+  "imports": [
+    {
+      "destination": "src/Nikke.Core/Stats/OverloadProcessor.cs",
+      "transformation": "none; byte-for-byte copy",
+      "source": "SimulatorEngine/Nikke.Simulator.Core/Stats/OverloadProcessor.cs",
+      "sha256": "ec621b02c4dc32dc45ac48ec4c0e1e231c33a6435745940c0c66566a793c9280",
+      "sourceId": "legacy"
+    },
+    {
+      "destination": "src/Nikke.Core/Data/Dto/OverloadOptionDto.cs",
+      "transformation": "none; byte-for-byte copy",
+      "source": "SimulatorEngine/Nikke.Simulator.Core/Data/Dto/OverloadOptionDto.cs",
+      "sha256": "bf74353b14011329020d4c1362ffade89a4db53959d4d48a0baf974176bde086",
+      "sourceId": "legacy"
+    },
+    {
+      "destination": "third-party/nikke-calc.LICENSE",
+      "transformation": "none; byte-for-byte copy",
+      "source": "LICENSE",
+      "sha256": "b58c70805598fdb5f0a19b8fa560429703392d3dbb524772b391317320d3a430",
+      "sourceId": "upstream"
+    }
+  ]
+}

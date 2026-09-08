@@ -1,0 +1,23 @@
+# Local reference checkouts, SDKs, package caches and generated evidence
+/.reference/
+/.tools/
+/artifacts/
+/data/
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+**/TestResults/
+**/__pycache__/
+*.pyc
+# Private account data and credentials
+**/profiles/
+**/.env
+**/.env.*
+!**/.env.example
+**/.session_cookie
+**/*secrets*.json
+*.db
+*.db-shm
+*.db-wal
+.DS_Store

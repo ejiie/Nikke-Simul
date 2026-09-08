@@ -1,0 +1,9 @@
+* text=auto
+*.cs text eol=crlf
+*.ps1 text eol=crlf
+*.json text eol=lf
+*.md text eol=lf
+# These imports have raw-byte provenance hashes.
+src/Nikke.Core/Stats/OverloadProcessor.cs -text whitespace=cr-at-eol
+src/Nikke.Core/Data/Dto/OverloadOptionDto.cs -text whitespace=cr-at-eol
+third-party/nikke-calc.LICENSE -text whitespace=cr-at-eol

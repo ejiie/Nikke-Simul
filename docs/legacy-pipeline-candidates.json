@@ -1,0 +1,37 @@
+[
+  {
+    "path": "DataPipeline/run_pipeline.py",
+    "sha256": "6ae23af79d82ce2dd64556d92882d12478130365571037059a715be3c68ef6c9",
+    "status": "candidate-only; not imported or executed"
+  },
+  {
+    "path": "DataPipeline/requirements.txt",
+    "sha256": "ec74fe867dd2339ac507bfc9c411a97856d7e3afffcb1b42bcc92afbe84a22f4",
+    "status": "candidate-only; not imported or executed"
+  },
+  {
+    "path": "DataPipeline/etl/blabla_merger.py",
+    "sha256": "78f806dfd73b63a9d973dbefc6581aaed7606988a1885be94a57883deffb0032",
+    "status": "candidate-only; not imported or executed"
+  },
+  {
+    "path": "DataPipeline/crawler/getFromBlaLinkRoledata.py",
+    "sha256": "97dd58e50dc95556b73740ace665b92f014a8348980212af2cdaf3638b697381",
+    "status": "candidate-only; not imported or executed"
+  },
+  {
+    "path": "DataPipeline/crawler/staticdata_skill_chains.py",
+    "sha256": "9a8fc12f192fd121a6795e2a67b7160b916e26c4caf630c7ccd0cc6bfe60556a",
+    "status": "candidate-only; not imported or executed"
+  },
+  {
+    "path": "DataPipeline/crawler/staticdata_solo_raid.py",
+    "sha256": "db5f4808a58141c8690f0d25e9ffd06c365ee5b9384c3ddd6ae493c9bc479bb5",
+    "status": "candidate-only; not imported or executed"
+  },
+  {
+    "path": "DataPipeline/crawler/staticdata_snapshot_manifest.py",
+    "sha256": "2bbb74f9a609d8f132f9b543a539d840b4ed7e96b23d18cb4bf80a6891a4aa58",
+    "status": "candidate-only; not imported or executed"
+  }
+]
