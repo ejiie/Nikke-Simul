@@ -8,4 +8,5 @@
   <Project Path="tests/Nikke.Core.Tests/Nikke.Core.Tests.csproj" />
   <Project Path="tools/Nikke.Smoke/Nikke.Smoke.csproj" />
   <Project Path="tools/Nikke.SyncAudit/Nikke.SyncAudit.csproj" />
+  <Project Path="tools/Nikke.CalculationAudit/Nikke.CalculationAudit.csproj" />
 </Solution>

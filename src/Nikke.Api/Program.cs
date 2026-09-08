@@ -3,6 +3,8 @@ using System.Text.Json.Nodes;
 using Nikke.Api;
 using Nikke.Contracts;
 using Nikke.Storage;
+using Nikke.Data;
+using Nikke.Core.Combat;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Logging.AddFilter("Microsoft.AspNetCore", LogLevel.Warning);
@@ -54,13 +56,22 @@ app.MapGet("/api/accounts/{id}/snapshot", (string id) => store.Current(id) is { 
 app.MapGet("/api/snapshots/{id}", (string id) => store.Snapshot(id) ?? throw new KeyNotFoundException());
 app.MapGet("/api/snapshots/{id}/changes", (string id) => (store.Snapshot(id) ?? throw new KeyNotFoundException()).Changes);
 app.MapPost("/api/accounts/{id}/overrides", (string id, OverrideRequest request) => store.ApplyOverride(id, request));
+var calculationPath = Path.Combine(root, "data/local/calculation");
+var calculations = new Lazy<CalculationService>(() => new CalculationService(calculationPath));
+app.MapGet("/api/snapshots/{id}/characters/{characterId}/stats", (string id, string characterId, int? scenarioLevel) =>
+{
+    if (!File.Exists(Path.Combine(calculationPath, "current.json"))) return Results.Conflict(new { message = "P02 계산 자료 준비가 필요합니다. npm run setup:sync를 실행하세요." });
+    return Results.Ok(calculations.Value.Calculate(store.Snapshot(id) ?? throw new KeyNotFoundException(), characterId, scenarioLevel));
+});
+app.MapPost("/api/calculations/hit", (HitRequest request) => HitCalculator.Compare(request.Input, request.ObservedDamage));
 var web = Path.Combine(root, "apps/web/dist");
 if (Directory.Exists(web))
 {
     var provider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(web);
     app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = provider }); app.UseStaticFiles(new StaticFileOptions { FileProvider = provider });
 }
-app.MapGet("/api/health", () => new { status = "ok", milestone = "P01", combatEngineConnected = false });
+app.MapGet("/api/health", () => new { status = "ok", milestone = "P02", combatEngineConnected = false, singleHitCalculator = true });
 await app.RunAsync();
 record AreaSelection(int Area);
 record StartSync(string ConnectionId);
+record HitRequest(HitContext Input, double? ObservedDamage);

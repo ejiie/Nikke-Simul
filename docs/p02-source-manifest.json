@@ -1,0 +1,97 @@
+[
+  {
+    "sourceRoot": ".reference/legacy-simulator",
+    "path": "SimulatorEngine/Nikke.Simulator.Core/Stats/StatCalculator.cs",
+    "sha256": "ccd7b0fb060935179864a861d019a2e16c6a92dea1442bc2de30aaf4aa6b1a0f",
+    "destination": "src/Nikke.Core/Stats/StatCalculator.cs"
+  },
+  {
+    "sourceRoot": ".reference/legacy-simulator",
+    "path": "SimulatorEngine/Nikke.Simulator.Core/Stats/StatTable.cs",
+    "sha256": "427c5a9a8bab69be972db7cb9c7a75e226f36fc671d4f918865eac9e09eae2a2",
+    "destination": "src/Nikke.Core/Stats/StatTable.cs"
+  },
+  {
+    "sourceRoot": ".reference/legacy-simulator",
+    "path": "SimulatorEngine/Nikke.Simulator.Core/Data/Dto/CubeStatDto.cs",
+    "sha256": "1b2f038b3cdc96436c861447e2fcf78f764da5d7f487698a4fe489a2b082a731",
+    "destination": "src/Nikke.Core/Data/Dto/CubeStatDto.cs"
+  },
+  {
+    "sourceRoot": ".reference/legacy-simulator",
+    "path": "SimulatorEngine/Nikke.Simulator.Core/Data/Dto/RootDto.cs",
+    "sha256": "6b58c9733333de75887a4044255eb52154f1518252140867c00c9995165964b4",
+    "destination": "src/Nikke.Core/Data/Dto/RootDto.cs"
+  },
+  {
+    "sourceRoot": ".reference/legacy-simulator",
+    "path": "SimulatorEngine/Nikke.Simulator.Core/Data/Constants/EffectType.cs",
+    "sha256": "f73842752ac4735dbfeab62d7e80725aacf651c28f62bc90e9305990ec43c4c7",
+    "destination": "src/Nikke.Core/Data/Constants/EffectType.cs"
+  },
+  {
+    "sourceRoot": ".reference/legacy-simulator",
+    "path": "Database/processed/stat_table.csv",
+    "sha256": "2b8a0b3ad1c42566043f4330e5207d944d88185883c2f8ddd626b3356bddb879"
+  },
+  {
+    "sourceRoot": ".reference/legacy-simulator",
+    "path": "Database/processed/equip_stat_table.json",
+    "sha256": "165ff077b0da6f291ff31233fb7d914ece28bc9007414c19a3e3e505557c9dc0"
+  },
+  {
+    "sourceRoot": ".reference/legacy-simulator",
+    "path": "Database/processed/cube_base_table.json",
+    "sha256": "c9bacbbb779e3869067b2772bd003eb34d2cafb60b1b1bd5eabdcc254fd3c370"
+  },
+  {
+    "sourceRoot": ".reference/legacy-simulator",
+    "path": "Database/processed/cube_effect_table.json",
+    "sha256": "5b0231b2103a124e9585631462d5ccfa21d8ce389f68cbb9fc6ddf9213b1fda4"
+  },
+  {
+    "sourceRoot": ".reference/legacy-simulator",
+    "path": "Database/processed/roledata_clean.json",
+    "sha256": "c5c4eee8afc23666dc51d06864ab74c1b00e56ce406a545fc05777c8c2b03f4a"
+  },
+  {
+    "sourceRoot": ".reference/legacy-simulator",
+    "path": "SimulatorEngine/Nikke.Simulator.Core/Combat/DamageCalculator.cs",
+    "sha256": "3976be849304b853b1af05b9a23b999eb8ef58b3b8624bdb8d6279bbb8fc2f64"
+  },
+  {
+    "sourceRoot": ".reference/legacy-simulator",
+    "path": "SimulatorEngine/Nikke.Simulator.Core/Entities/Nikke.cs",
+    "sha256": "a09440fcc3440fba5cf42d0963da8f2d67b4325a9bb024cccce882c891b2671c"
+  },
+  {
+    "sourceRoot": ".reference/legacy-simulator",
+    "path": "SimulatorEngine/Nikke.Simulator.Tests/DamageFormulaGoldenTests.cs",
+    "sha256": "cdc961ae6b41809d99d0666e7e47d3341b7ddda0e16197c8ada360b3d5142c9c"
+  },
+  {
+    "sourceRoot": ".reference/nikke-calc",
+    "path": "data/base_stat_tables/collection.json",
+    "sha256": "6ae3df677f8fa4ac910853611e682d54741e42a66db82e64b0546b6720f32f31"
+  },
+  {
+    "sourceRoot": ".reference/nikke-calc",
+    "path": "data/name_codes.json",
+    "sha256": "cda0d9666324db1facc3870528bbe0539ec61460b319fe526a06e0bc7867f73f"
+  },
+  {
+    "sourceRoot": ".reference/nikke-calc",
+    "path": "data/parsed_nikke.json",
+    "sha256": "f93844f04631d0bfe2c14d839dd67f8bc39fc7d2b6301f78a671f0f785cbb7b9"
+  },
+  {
+    "sourceRoot": ".reference/nikke-calc",
+    "path": "calculator/damage.py",
+    "sha256": "0c145eede842d01a3401cdb23d08e5b3ba8eec9f8545c7a7db915a6e5b204590"
+  },
+  {
+    "sourceRoot": ".reference/nikke-calc",
+    "path": "scraper/profile_fetch.py",
+    "sha256": "4190d5aab2a7f9dfbfcbdbf032508ec67425c5ca8ed4e319d7ae001678b8b7a9"
+  }
+]

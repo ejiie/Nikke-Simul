@@ -1,5 +1,7 @@
 import './upstream-theme.css';
 import './styles.css';
+import './calculation.css';
+import { mountCalculation } from './calculation';
 import { active, escape as e, lineValue, options, parts, selectedConnection, value, type Character, type Connection, type Job, type Snapshot } from './model';
 
 type Boot = { token: string; connections: Connection[]; jobs: Job[]; game: { characters: number }; testMode: boolean };
@@ -71,7 +73,7 @@ function render() {
     <section class="workspace"><aside class="roster panel"><div class="panel-heading"><h2>내 니케</h2><span>${snapshot?.characters.length ?? 0}</span></div><input id="search" type="search" placeholder="이름으로 찾기" aria-label="니케 검색" value="${e(search)}"><div id="roster-list"></div></aside><article id="detail" class="detail panel"></article></section>
     <section class="bottom-grid"><div class="panel"><h2>최근 변경</h2>${snapshot ? `<ul>${snapshot.changes.slice(0, 30).map(x => `<li>${e(x)}</li>`).join('')}</ul>` : '<p class="muted">첫 동기화를 완료하면 변경 내역이 표시됩니다.</p>'}</div><div class="panel"><h2>수집 확인</h2>${renderIssues(job)}</div></section>
     ${snapshot ? `<details class="panel account-edit"><summary>계정 스탯 확인·수동 보완</summary><p class="muted">수집되지 않은 값은 빈칸으로 표시됩니다. 실제 값을 확인한 뒤 저장하세요.</p><form id="account-form"><div class="fields"><label>싱크로 레벨<input type="number" name="synchro" min="1" max="10000" value="${snapshot.synchroLevel ?? ''}"></label>${Object.entries(consoleNames).map(([id, label]) => `<label>${e(label)} 연구실<input type="number" name="console-${id}" min="0" max="10000" value="${snapshot!.consoles?.[id] ?? ''}"></label>`).join('')}</div><button type="submit" ${busy ? 'disabled' : ''}>계정 스탯 보완 저장</button><small>현재 출처: ${snapshot.accountStatsSource.includes('manual') ? '수동 보완 포함' : 'API 수집'}</small></form></details>` : ''}
-    <footer><span>대미지 계산과 추천 기능은 후속 단계에서 연결됩니다.</span><a href="https://github.com/Moris-kr/nikke-calc" target="_blank" rel="noreferrer">UI 테마 출처 · nikke-calc / MIT</a></footer>
+    <footer><span>스탯·단일 히트 검산 제공 · 팀 전투와 추천은 후속 단계입니다.</span><a href="https://github.com/Moris-kr/nikke-calc" target="_blank" rel="noreferrer">UI 테마 출처 · nikke-calc / MIT</a></footer>
   </main>`;
   renderRoster(); renderDetail(); bind();
 }
@@ -89,12 +91,13 @@ function renderRoster() {
 }
 function renderDetail() {
   const c: Character | undefined = snapshot?.characters.find(c => c.characterId === characterId) ?? snapshot?.characters[0];
-  const el = document.querySelector('#detail')!;
+  const el = document.querySelector<HTMLElement>('#detail')!;
   if (!c) { el.innerHTML = '<div class="empty"><div class="empty-icon">＋</div><h2>육성 현황을 불러오세요</h2><p>계정을 연결하면 보유 니케와<br>장비별 오버로드 옵션이 여기에 표시됩니다.</p></div>'; return; }
   if (characterId !== c.characterId) { characterId = c.characterId; renderRoster(); }
   el.innerHTML = `<div class="detail-heading"><div><p class="eyebrow">CHARACTER BUILD</p><h2>${e(c.name)}</h2></div><span class="chip">${c.catalogKnown ? '목록 매핑 확인' : '미등록 캐릭터'}</span></div><div class="stat-line"><span>레벨 <b>${value(c.level)}</b></span><span>돌파 <b>${value(c.limitBreak)}</b></span><span>코강 <b>${value(c.core)}</b></span><span>호감도 <b>${value(c.bond)}</b></span><span>스킬 <b>${Object.values(c.skills).map(value).join(' / ')}</b></span></div>
     <div class="equipment-grid">${c.equipment.map(eq => `<section class="equipment"><div class="panel-heading"><h3>${e(parts[eq.slot])}</h3><span>${eq.tier === 0 ? '미장착' : `T${value(eq.tier)} +${value(eq.level)}`}</span></div>${eq.lines.map(line => `<div class="option-line"><span class="line-no">0${line.lineIndex}</span><div class="grow"><strong>${line.presence === 'absent' ? '옵션 없음' : e(options[line.optionType ?? ''] ?? line.optionType ?? '옵션 미확인')}</strong><small>${line.presence === 'present' ? `${e(lineValue(line))} · ${line.valueTier === null ? '단계 미확인' : line.valueTier + '단계'}` : '—'}</small></div>${line.presence === 'present' ? `<select data-lock="${eq.slot}:${line.lineIndex}" aria-label="${e(parts[eq.slot])} ${line.lineIndex}줄 잠금" ${busy ? 'disabled' : ''}>${[['unknown','잠금 미확인'],['unlocked','잠금 해제'],['locked','잠금']].map(([v,l]) => `<option value="${v}" ${v === line.lockState ? 'selected' : ''}>${l}</option>`).join('')}</select>` : ''}</div>`).join('')}</section>`).join('')}</div>
     <div class="accessories"><div><span>현재 장착 큐브</span><strong>${c.cubeId === '0' ? '미장착' : `ID ${value(c.cubeId)} · Lv. ${value(c.cubeLevel)}`}</strong></div><div><span>소장품 / 애장품</span><strong>${c.collectionId === '0' ? '미장착' : `${value(c.collectionGrade)} · Lv. ${value(c.collectionLevel)}${c.favoriteStage ? ` · 애장품 ${c.favoriteStage}단계` : ''}`}</strong></div></div><p class="detail-note">잠금 선택은 수동 보완으로 저장됩니다. 장비 옵션이 변경되면 다시 확인합니다.</p>`;
+  mountCalculation(el, snapshot!.id, c.characterId, api);
   el.querySelectorAll<HTMLSelectElement>('[data-lock]').forEach(select => select.onchange = () => {
     const [slot, index] = select.dataset.lock!.split(':');
     const request = { expectedSnapshotId: snapshot!.id, characterId: c.characterId, slot, lineIndex: Number(index), lockState: select.value, fingerprint: c.equipment.find(x => x.slot === slot)!.fingerprint };

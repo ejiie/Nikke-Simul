@@ -7,3 +7,8 @@
 src/Nikke.Core/Stats/OverloadProcessor.cs -text whitespace=cr-at-eol
 src/Nikke.Core/Data/Dto/OverloadOptionDto.cs -text whitespace=cr-at-eol
 third-party/nikke-calc.LICENSE -text whitespace=cr-at-eol
+src/Nikke.Core/Stats/StatCalculator.cs -text whitespace=cr-at-eol
+src/Nikke.Core/Stats/StatTable.cs -text whitespace=cr-at-eol
+src/Nikke.Core/Data/Dto/CubeStatDto.cs -text whitespace=cr-at-eol
+src/Nikke.Core/Data/Dto/RootDto.cs -text whitespace=cr-at-eol
+src/Nikke.Core/Data/Constants/EffectType.cs -text whitespace=cr-at-eol

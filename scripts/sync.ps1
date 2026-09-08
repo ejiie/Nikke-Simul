@@ -20,6 +20,8 @@ try {
             } finally { Pop-Location }
             & $env:NIKKE_PYTHON tools/data-pipeline/prepare_catalog.py
             if ($LASTEXITCODE -ne 0) { throw 'Run P00 setup/build first to prepare reference settings.' }
+            & $env:NIKKE_PYTHON tools/data-pipeline/prepare_calculation.py
+            if ($LASTEXITCODE -ne 0) { throw 'P02 calculation tables could not be prepared.' }
             & npm.cmd --prefix apps/web ci --no-audit --no-fund
             if ($LASTEXITCODE -ne 0) { throw 'Web dependency installation failed.' }
             & $dotnet restore Nikke.Simul.slnx --locked-mode --configfile nuget.config
