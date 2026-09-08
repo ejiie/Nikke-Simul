@@ -95,6 +95,12 @@
       },
       "nikke.core": {
         "type": "Project"
+      },
+      "nikke.engine": {
+        "type": "Project",
+        "dependencies": {
+          "Nikke.Core": "[1.0.0, )"
+        }
       }
     }
   }

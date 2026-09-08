@@ -11,6 +11,7 @@
     "test:reference": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/web.ps1 -Action test",
     "test": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify.ps1",
     "test:web": "npm --prefix apps/web test",
+    "prepare:p03": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/prepare-p03.ps1",
     "setup:sync": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync.ps1 -Action setup",
     "build:sync": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync.ps1 -Action build",
     "dev:sync": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync.ps1 -Action dev",

@@ -65,6 +65,13 @@
         "type": "Project",
         "dependencies": {
           "Nikke.Contracts": "[1.0.0, )",
+          "Nikke.Core": "[1.0.0, )",
+          "Nikke.Engine": "[1.0.0, )"
+        }
+      },
+      "nikke.engine": {
+        "type": "Project",
+        "dependencies": {
           "Nikke.Core": "[1.0.0, )"
         }
       },

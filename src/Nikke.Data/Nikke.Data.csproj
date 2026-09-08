@@ -1,4 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable></PropertyGroup>
-  <ItemGroup><ProjectReference Include="../Nikke.Contracts/Nikke.Contracts.csproj" /><ProjectReference Include="../Nikke.Core/Nikke.Core.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../Nikke.Contracts/Nikke.Contracts.csproj" /><ProjectReference Include="../Nikke.Core/Nikke.Core.csproj" /><ProjectReference Include="../Nikke.Engine/Nikke.Engine.csproj" /></ItemGroup>
 </Project>

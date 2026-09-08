@@ -15,3 +15,10 @@ if (Test-Path $p02Manifest) {
     }
     Write-Host 'P02 raw-byte imports verified.'
 }
+$p03Manifest = Join-Path $ProjectRoot 'docs/p03-source-manifest.json'
+if (Test-Path $p03Manifest) {
+    foreach ($file in (Get-Content $p03Manifest -Raw | ConvertFrom-Json) | Where-Object { $_.destination }) {
+        if ((Get-SourceSha256 (Join-Path $ProjectRoot $file.destination)) -ne $file.sha256) { throw "P03 import changed: $($file.destination)" }
+    }
+    Write-Host 'P03 raw-byte reference imports verified.'
+}

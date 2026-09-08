@@ -59,6 +59,19 @@ app.MapGet("/api/snapshots/{id}/changes", (string id) => (store.Snapshot(id) ?? 
 app.MapPost("/api/accounts/{id}/overrides", (string id, OverrideRequest request) => store.ApplyOverride(id, request));
 var calculationPath = Path.Combine(root, "data/local/calculation");
 var calculations = new Lazy<CalculationService>(() => new CalculationService(calculationPath));
+var runtimeRoot = Path.Combine(dataRoot, "runtime");
+var runtimeReplay = new Lazy<RuntimeReplayService>(() => new(runtimeRoot, Path.Combine(dataRoot, "weapon-replays")));
+app.MapGet("/api/runtime/catalog", () => File.Exists(Path.Combine(runtimeRoot, "current.json"))
+    ? Results.Ok(runtimeReplay.Value.Summary())
+    : Results.Conflict(new { message = "P03 자료 준비가 필요합니다. npm run prepare:p03을 실행하세요." }));
+app.MapPost("/api/runtime/weapon-replays", (WeaponReplayRequest request) =>
+{
+    if (string.IsNullOrWhiteSpace(request.SnapshotId)) throw new ArgumentException("저장 스냅샷을 지정하세요.");
+    if (!File.Exists(Path.Combine(runtimeRoot, "current.json")))
+        throw new InvalidOperationException("P03 자료 준비가 필요합니다. npm run prepare:p03을 실행하세요.");
+    return runtimeReplay.Value.Run(store.Snapshot(request.SnapshotId) ?? throw new KeyNotFoundException(), request, calculations.Value);
+});
+app.MapGet("/api/runtime/weapon-replays/{id}", (string id) => runtimeReplay.Value.Read(id));
 app.MapGet("/api/snapshots/{id}/characters/{characterId}/stats", (string id, string characterId, int? scenarioLevel) =>
 {
     if (!File.Exists(Path.Combine(calculationPath, "current.json"))) return Results.Conflict(new { message = "P02 계산 자료 준비가 필요합니다. npm run setup:sync를 실행하세요." });

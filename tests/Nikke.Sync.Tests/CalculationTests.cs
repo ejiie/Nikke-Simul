@@ -100,6 +100,19 @@ public sealed class CalculationTests : IDisposable
         Assert.Contains("overload:StatAccuracyCircle:weapon_runtime_or_rng:P03",r.DeferredEffects);
     }
     [Fact]
+    public void OL_time_reduction_is_converted_to_positive_speed_once()
+    {
+        var snapshot = Snapshot();
+        snapshot.Characters[0].Equipment[0].Lines.Add(new() { Presence="present", OptionType="StatChargeTime", Unit="ratio", NormalizedValue=-.0286m });
+        snapshot.Characters[0].Equipment[1].Lines.Add(new() { Presence="present", OptionType="StatReloadTime", Unit="ratio", NormalizedValue=-.1m });
+        var result = service.Calculate(snapshot,"101");
+        Assert.Equal(.0286, Assert.Single(result.PermanentBuffs.ChargeSpeed).Rate);
+        Assert.Equal(.1, Assert.Single(result.PermanentBuffs.ReloadSpeed).Rate);
+        Assert.Equal(110,result.NativeStats!.ATK);
+        Assert.Equal(110,result.BasicHit!.StatAttack);
+    }
+
+    [Fact]
     public void Calculation_data_hash_detects_tampering()
     {
         var sub=Directory.GetDirectories(folder).Single(); File.AppendAllText(Path.Combine(sub,"cube_base_table.json")," ");

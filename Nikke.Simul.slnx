@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="src/Nikke.Core/Nikke.Core.csproj" />
+  <Project Path="src/Nikke.Engine/Nikke.Engine.csproj" />
   <Project Path="src/Nikke.Contracts/Nikke.Contracts.csproj" />
   <Project Path="src/Nikke.Data/Nikke.Data.csproj" />
   <Project Path="src/Nikke.Storage/Nikke.Storage.csproj" />

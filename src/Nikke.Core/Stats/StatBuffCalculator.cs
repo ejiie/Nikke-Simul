@@ -10,6 +10,10 @@ public sealed record StatBuffSet
     public IReadOnlyList<StatRateBuff> HP { get; init; } = [];
     public IReadOnlyList<StatRateBuff> Defense { get; init; } = [];
     public IReadOnlyList<StatRateBuff> Ammo { get; init; } = [];
+    // Positive rates shorten time; the adapter converts OL time deltas once.
+    public IReadOnlyList<StatRateBuff> ChargeSpeed { get; init; } = [];
+    public IReadOnlyList<StatRateBuff> ReloadSpeed { get; init; } = [];
+    public IReadOnlyList<StatRateBuff> CriticalChance { get; init; } = [];
 }
 
 public static class StatBuffCalculator

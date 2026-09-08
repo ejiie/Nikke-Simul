@@ -1,0 +1,58 @@
+# P03 착수 기록 — 공식 체인과 평타 시간축
+
+2026-09-08. **P03 진행 중.** 대상은 사용자가 지정한 리타·블랑·누아르·앨리스·모더니아다. 이들은 통합 검증 후보이며 단순한 캐릭터만 모은 집합으로 취급하지 않는다. 사용자 제공 틱 대미지는 추후 수신하며 [측정 조건 안내](p03-measurement-guide.ko.md)를 기준으로 묶는다.
+
+## 이번 착수분
+
+- 5인 × 3슬롯 × 10레벨의 공식 스킬 자료 연결. 연결 함수 **329개**, 하위 CharacterSkill **20개**, 누락 참조 **0**. 단계별 함수 순서·조건·기준·지속시간·연결 ID를 유지한다. 자료를 읽었다는 사실은 효과 실행을 지원한다는 뜻이 아니다.
+- `Nikke.Engine` 분리. 원본 C# `FiringModel`, `WeaponProfile`, `IRandomSource`를 바이트 그대로 보존해 기준 모델로 실행한다. P02 Core의 스탯/차지/히트 계산을 사용한다.
+- 1~5인, 최대 180초, 60fps 평타 시간축. 발사→펠릿 명중의 부모 ID, 탄 보충, 발수·명중 수·풀차지 발수·크리 횟수·구성원별 평타 피해를 기록한다.
+- OL 장탄과 상시 차속·재장전 효과를 무기 초기값에 연결한다. OL 시간 감소의 음수는 양수 속도 버프로 한 번 변환한다. P02 스탯 원값은 변경하지 않는다.
+- 관측 조건으로 지정한 공증/풀버스트 구간은 `[시작 프레임, 종료 프레임)`이다. 프레임마다 종료→시작→발사→명중 순서. 공증은 OL과 같은 스탯 기준으로 합산한다. 이 구간은 자동 스킬·팀 게이지가 만든 결과로 표시하지 않는다.
+- 상세 기록을 꺼도 동일 실행 경로·집계를 사용한다. 기록 상한에 도달하면 기록만 줄이고 계산은 계속하며 `traceTruncated`를 반환한다.
+- API로 실행하면 입력·계정/정적 자료/엔진/정수화 버전·적용 레벨·결과를 `data/local/weapon-replays/`에 자동 저장한다. 계정 스냅샷과 후속 통계 표본에서 분리한다.
+
+## 조사 중 발견한 차이
+
+1. **현행 공식 스킬 자료의 `function_phases`를 기존 DTO/로더가 읽지 못한다.** 패시브 `function_ids`만 모으면 리타의 버스트 공증 등 active 효과가 사라진다. 새 준비 도구는 before_use, before_hurt, after_use, after_hurt를 보존하며, 모르는 단계는 준비 단계에서 명시적으로 실패시킨다. 실행 런타임의 미지원 효과 진단과 별개인 자료 손실 방지다.
+2. 블랑 스킬1의 upstream 타이밍은 `hit_count:120`이나 공식 함수는 **OnUseAmmo 120**이다. 명중과 탄 소비를 같은 카운터로 구현하면 안 된다.
+3. 리타 스킬1은 공식 함수의 조건용 그룹과 연결 함수로 누적 상태를 구성한다. 설명의 ‘1/2/3회’를 단순한 일회성 if문으로 옮기지 않는다.
+4. 누아르 공증은 **User(시전자) 기준**, 리타 버스트 공증은 **FunctionTarget(수혜자) 기준**이다. 같은 StatAtk이라고 모두 수혜자 비율 버프로 만들지 않는다. 기준값을 캡처하는 시점은 후속 런타임/실측 검증 대상이다.
+5. 앨리스 스킬1은 하위 CharacterSkill 호출이다. 상위 공격력 대상 선정과 시전자 기준 차지 속도 처리를 함께 검토해야 한다. 모더니아 버스트는 CharacterSkill body의 **ChangeWeapon**이다. 함수만 실행해서는 구현되지 않는다.
+6. SG 펠릿 계수는 원본 문서와 upstream이 다르다. 검산 요청에서 `per_trigger` 또는 `per_pellet`을 필수로 지정한다. 원본 발사 모델의 클립 보충, spot_last 범위, MG 감쇠의 raw 100프레임 해석은 실측 전 비교 후보로 유지한다. 원본의 일부 주석이 확정처럼 적혀 있어도 이 새 결과는 `weapon_reference_only`다.
+
+## 출처와 채택 범위
+
+| 기능 | 출처 | 채택 방식 |
+|---|---|---|
+| 무기 프레임 상태기계·프로파일·RNG | 실제 기존 프로젝트의 `FiringModel.cs`, `WeaponProfile.cs`, `IRandomSource.cs` | `src/Nikke.Engine/Legacy/`에 원문 복사. 정답 확정이 아닌 기준 모델 |
+| 무기별 입력 | P00 고정 `roledata_clean.json` | 장탄·차지·RPM·펠릿·전이 필드를 그대로 읽고 누락/미지원 입력 거부 |
+| 공식 스킬 그래프 | 기존 `Database/raw/staticdata/assembled/skill_chains.json` | 해당 5인과 연결된 하위 그래프만 해시 고정. 원본 파일 변경 시 재검토 필요 |
+| 비교용 스킬 설명 구조·명칭 | 고정 nikke-calc `parsed_skills.json`, `parsed_nikke.json`, `name_codes.json` | 비교 자료로 보존. 공식 trigger/standard/phase와 다르면 자동 채택하지 않음 |
+| 스탯·히트·시간 반올림 | P02 Core와 기존 `OverloadProcessor` | 확정 스탯 원값, 공통 버프 및 사용자 차지식 유지. 히트 정수화 3후보 유지 |
+| 그래프 준비·평타 실행 집계·조건 구간·API 저장·검사 | 새로 작성 | `prepare_runtime.py`, `WeaponReplay.cs`, `RuntimeReplayService.cs` |
+
+정확한 파일 경로와 hash는 [P03 출처 manifest](p03-source-manifest.json)에 있다. 기존 프로젝트는 읽기만 했고 게임/개인 데이터는 Git에 포함하지 않는다.
+
+## 실행과 저장
+
+```powershell
+npm run prepare:p03
+npm run build
+npm run dev
+```
+
+- `GET /api/runtime/catalog`: 대상·자료 연결 수·실행 지원 상태.
+- `POST /api/runtime/weapon-replays`: 계정 snapshotId, characterIds, scenarioLevel, conditions를 받아 실행·저장. 기존 X-Nikke-Token 필요.
+- `GET /api/runtime/weapon-replays/{id}`: 저장된 입력과 결과 재조회.
+- 재현용 검사: `tools/data-pipeline/audit_p03.py` (로컬 API 필요). 합성 타깃·명시한 조건으로 실행하며 실제 게임 관측이라고 저장하지 않는다.
+
+프레임 1은 첫 1/60초 스텝의 완료 시각이다. 표준 180초는 10,800프레임. 정책적 수동 조작은 1명만 지정한다. 샘플 크리는 시스템 RNG를 사용하며 고정 시드를 받지 않는다. 실측 한 틱 비교에서는 크리 on/off를 명시한다.
+
+## 검증과 후속 작업
+
+최종 회귀 검사 **C# 74개(Core/Engine 37 + 입력/저장 37), Python 11개** 통과. Release 빌드 경고·오류 0, 잠금 파일 복원 및 P00/P02/P03 원문 hash 검사 통과. 추가 OL 시간 부호 검사에서도 스탯 공격력은 그대로였다. 기존 P02 API의 160명 × 4조합 = 640건과 히트 비교 48건도 다시 통과했다.
+
+실제 저장 스펙 5인의 180초 기준 실행에서 구성원 합계=effect 합계=팀 합계, SG 후보 간 동일 발수, 저장 후 재조회, 공증/풀버스트 구간, 자동 조작·고정 크리 조건의 상세/요약 일치, SG 정책 생략 거부를 확인했다. 결과는 Git 제외 `artifacts/p03/audit-summary.json`에 남긴다. 이 결과의 발수는 C# 기준 모델 출력이며 신규 실게임 관측값이 아니다.
+
+다음은 **공식 이벤트·대상·기준값·조건·스택/만료 해석과 스킬 효과 실행**이다. 현재 `skillExecutionStatus=not_connected`이며 캐릭터 스킬·조건부 큐브·애장품 교체를 자동 실행하지 않는다. 피해 숫자·실발수 검증을 마친 실전 덱 결과, P03 전체 완료, 실제 게이지 기반 버스트 사이클, 추천용 표본이라고 주장하지 않는다. P04에서 공용 게이지·버스트 사이클을 연결한다.

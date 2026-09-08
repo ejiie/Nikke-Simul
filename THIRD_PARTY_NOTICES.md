@@ -27,4 +27,6 @@ The P02 buff correction follows the user's instruction and the shared native-sta
 
 ## Newly authored for Nikke-Simul
 
+P03 copies the local legacy `FiringModel.cs`, `WeaponProfile.cs`, and `IRandomSource.cs` byte-for-byte into `src/Nikke.Engine/Legacy/` as a reference model, including its documented unresolved timing assumptions. Exact hashes and additional read-only sources are recorded in [the P03 manifest](docs/p03-source-manifest.json). The graph preparation, weapon replay aggregation, condition windows, API persistence, and tests are newly authored. Pinned nikke-calc skill/character files are retained only as local comparison inputs under its MIT notice; extracted official game data remains ignored and undistributed.
+
 The solution/project scaffolding, PowerShell setup and verification wrappers, synthetic tests and smoke executable, source manifests, and project documentation were authored for this project. They are not features imported from nikke-calc. No repository-wide license is declared in P00.

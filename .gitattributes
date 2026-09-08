@@ -12,3 +12,6 @@ src/Nikke.Core/Stats/StatTable.cs -text whitespace=cr-at-eol
 src/Nikke.Core/Data/Dto/CubeStatDto.cs -text whitespace=cr-at-eol
 src/Nikke.Core/Data/Dto/RootDto.cs -text whitespace=cr-at-eol
 src/Nikke.Core/Data/Constants/EffectType.cs -text whitespace=cr-at-eol
+src/Nikke.Engine/Legacy/FiringModel.cs -text whitespace=cr-at-eol
+src/Nikke.Engine/Legacy/WeaponProfile.cs -text whitespace=cr-at-eol
+src/Nikke.Engine/Legacy/IRandomSource.cs -text whitespace=cr-at-eol

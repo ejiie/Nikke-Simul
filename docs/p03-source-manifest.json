@@ -1,0 +1,94 @@
+[
+  {
+    "sourceRoot": "C:/Users/user/Documents/GitHub/Nikke-Dmg-Simulator",
+    "path": "SimulatorEngine/Nikke.Simulator.Core/Stats/WeaponProfile.cs",
+    "sha256": "69ba17602c98b81326ea35bdf52c621fa8ca697897c771da9d05ebbc4e376f50",
+    "destination": "src/Nikke.Engine/Legacy/WeaponProfile.cs",
+    "usage": "unchanged legacy reference model, timing assumptions retained explicitly"
+  },
+  {
+    "sourceRoot": "C:/Users/user/Documents/GitHub/Nikke-Dmg-Simulator",
+    "path": "SimulatorEngine/Nikke.Simulator.Core/Stats/IRandomSource.cs",
+    "sha256": "ba3eb003981f876cadfd308a88d6bbfebcb5da4360c06dbe62b39a42ceb0a0d8",
+    "destination": "src/Nikke.Engine/Legacy/IRandomSource.cs",
+    "usage": "unchanged legacy reference model, timing assumptions retained explicitly"
+  },
+  {
+    "sourceRoot": "C:/Users/user/Documents/GitHub/Nikke-Dmg-Simulator",
+    "path": "SimulatorEngine/Nikke.Simulator.Engine/FiringModel.cs",
+    "sha256": "1e6890d675fec9f192f48f8f3655b22ae7fb1be6b303e314fc406db592850c97",
+    "destination": "src/Nikke.Engine/Legacy/FiringModel.cs",
+    "usage": "unchanged legacy reference model, timing assumptions retained explicitly"
+  },
+  {
+    "sourceRoot": "C:/Users/user/Documents/GitHub/Nikke-Dmg-Simulator",
+    "path": "Database/raw/staticdata/assembled/skill_chains.json",
+    "sha256": "8b47a4a0122cf2bc00332bff11a1f81fc82680066eb809677452d941dfaebe30",
+    "inputKey": "chains",
+    "usage": "local ignored catalog input"
+  },
+  {
+    "sourceRoot": ".reference/legacy-simulator",
+    "path": "Database/processed/roledata_clean.json",
+    "sha256": "c5c4eee8afc23666dc51d06864ab74c1b00e56ce406a545fc05777c8c2b03f4a",
+    "inputKey": "roles",
+    "usage": "local ignored catalog input"
+  },
+  {
+    "sourceRoot": ".reference/nikke-calc",
+    "path": "data/name_codes.json",
+    "sha256": "cda0d9666324db1facc3870528bbe0539ec61460b319fe526a06e0bc7867f73f",
+    "inputKey": "names",
+    "usage": "local ignored catalog input"
+  },
+  {
+    "sourceRoot": ".reference/nikke-calc",
+    "path": "data/parsed_skills.json",
+    "sha256": "9419f8d62423b5fc9f76b6fade40a4818a1fbdddbda3022c6a8757d51fd68b9d",
+    "inputKey": "skills",
+    "usage": "local ignored catalog input"
+  },
+  {
+    "sourceRoot": ".reference/nikke-calc",
+    "path": "data/parsed_nikke.json",
+    "sha256": "f93844f04631d0bfe2c14d839dd67f8bc39fc7d2b6301f78a671f0f785cbb7b9",
+    "inputKey": "characters",
+    "usage": "local ignored catalog input"
+  },
+  {
+    "sourceRoot": "C:/Users/user/Documents/GitHub/Nikke-Dmg-Simulator",
+    "path": "Docs/FACTS.md",
+    "sha256": "e0241720730bba51975157bd97ca5d043b6204c165be101609ed602935eecd6c",
+    "usage": "read-only audit; not wholesale adoption"
+  },
+  {
+    "sourceRoot": "C:/Users/user/Documents/GitHub/Nikke-Dmg-Simulator",
+    "path": "Docs/ENGINE_GUIDE.md",
+    "sha256": "fc854c91a60c7e18ff525df344913bc0c6b110a02bdfc20d0cfd7e1cad21a83e",
+    "usage": "read-only audit; not wholesale adoption"
+  },
+  {
+    "sourceRoot": "C:/Users/user/Documents/GitHub/Nikke-Dmg-Simulator",
+    "path": "Docs/tasks/T01-skill-runtime.md",
+    "sha256": "ae504ccb614e54b01bb16153d1f9d633acf78a972b38dd40a2d237f928e8900f",
+    "usage": "read-only audit; not wholesale adoption"
+  },
+  {
+    "sourceRoot": "C:/Users/user/Documents/GitHub/Nikke-Dmg-Simulator",
+    "path": "SimulatorEngine/Nikke.Simulator.Engine/Skills/SkillChainDto.cs",
+    "sha256": "d1874d5d269a6425802a96d542ff2eae695000d3107876a066b6d613434f2758",
+    "usage": "read-only audit; not wholesale adoption"
+  },
+  {
+    "sourceRoot": "C:/Users/user/Documents/GitHub/Nikke-Dmg-Simulator",
+    "path": "SimulatorEngine/Nikke.Simulator.Engine/Skills/SkillRuntime.cs",
+    "sha256": "82984b6419eace6d2b415f9fe646404c9f64b1d2522c055ec0104c9acef2663e",
+    "usage": "read-only audit; not wholesale adoption"
+  },
+  {
+    "sourceRoot": "C:/Users/user/Documents/GitHub/Nikke-Dmg-Simulator",
+    "path": "SimulatorEngine/Nikke.Simulator.Engine/Skills/OfficialSkillEnums.cs",
+    "sha256": "19a08bb3635397d6f22949f13abc091e03735e9f5d50f5d43fb4fa77f8eb636c",
+    "usage": "read-only audit; not wholesale adoption"
+  }
+]
