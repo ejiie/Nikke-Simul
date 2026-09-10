@@ -21,6 +21,13 @@ class Client:
         return response
 
 class CollectorTests(unittest.IsolatedAsyncioTestCase):
+    def test_nickname_uses_the_selected_server_and_a_real_nonempty_string(self):
+        payload={'code':0,'data':{'basic_info':{'area_id':'83','nickname':' 묑카엘 '}}}
+        self.assertEqual('묑카엘',collector.profile_nickname(payload,83))
+        self.assertIsNone(collector.profile_nickname(payload,81))
+        for name in [None,0,{},'   ']:
+            payload['data']['basic_info']['nickname']=name
+            self.assertIsNone(collector.profile_nickname(payload,83))
     async def test_interactive_login_does_not_inject_api_headers(self):
         class Browser:
             async def new_context(self, **kwargs):

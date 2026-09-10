@@ -120,9 +120,22 @@ def main():
     args.add_argument('--refresh',action='store_true')
     args.add_argument('--update-index',action='store_true')
     opts = args.parse_args()
-    build(opts.output,opts.zip,opts.refresh,opts.update_index)
+    build(opts.output,opts.zip,opts.refresh,opts.update_index,include_account_assets=True)
 
-def build(output,zip_path=None,refresh=False,update_index=False):
+def growth_metadata(output):
+    source=ROOT.parent/'Nikke-Dmg-Simulator/Database/raw/staticdata/mpk/CharacterTable.json'
+    cache=output/'catalog/character-growth.json'
+    if source.exists():
+        raw=source.read_bytes()
+        records={str(r['name_code']):r.get('corporation_sub_type') for r in json.loads(raw)}
+        json_write(cache,dict(source=str(source),sha256=digest(raw),corporationSubtypes=records))
+    return json.loads(cache.read_bytes())['corporationSubtypes'] if cache.exists() else {}
+
+def maximum_bond(manufacturer,subtype):
+    if manufacturer=='pilgrim' or subtype==1:return 40
+    return 30 if subtype==0 else None  # Missing source data is not proof of a normal subtype.
+
+def build(output,zip_path=None,refresh=False,update_index=False,include_account_assets=False):
     output.mkdir(parents=True,exist_ok=True)
     imported_path = output/'import-manifest.private.json'
     imported = import_zip(zip_path,output) if zip_path else (json.loads(imported_path.read_text(encoding='utf-8')) if imported_path.exists() else {'characters':[],'files':[]})
@@ -145,6 +158,7 @@ def build(output,zip_path=None,refresh=False,update_index=False):
         if target.exists() and digest(target.read_bytes())==f['sha256']:
             assets[f['path']]={**f,'source':'user_zip','sourceArchiveSha256':imported.get('zipSha256')}
     characters=[]; pending=[]; unresolved=[]
+    growth=growth_metadata(output)
     weapons=dict(AR='assault_rifle',MG='machine_gun',RL='rocket_launcher',SG='shotgun',SR='sniper_rifle',SMG='submachine_gun')
     for row in index:
         name=row['name_localkey']['name']; cid=str(row['name_code'])
@@ -158,6 +172,7 @@ def build(output,zip_path=None,refresh=False,update_index=False):
         characters.append(dict(characterUid=cid,displayName=name,portraitPath='/editor/'+relative,
             labCharacterUid=reuse['characterUid'] if reuse else None,
             combatClassCode=row.get('class','').lower(),manufacturerCode=row.get('corporation','').lower(),
+            corporationSubtype=growth.get(cid),maximumBondLevel=maximum_bond(row.get('corporation','').lower(),growth.get(cid)),
             rarityCode=row.get('original_rare','').lower(),elementCode={'Electronic':'electric','Electric':'electric','Fire':'fire','Water':'water','Wind':'wind','Iron':'iron'}.get(row.get('element_id',{}).get('element',{}).get('element'),''),
             burstStep={'Step1':1,'Step2':2,'Step3':3,'AllStep':5}.get(row.get('use_burst_skill')),
             weaponCode=weapons.get(row.get('shot_id',{}).get('element',{}).get('weapon_type'),'')))
@@ -191,6 +206,14 @@ def build(output,zip_path=None,refresh=False,update_index=False):
     presentation=dict(schemaVersion=1,source='Blablalink',indexUrl=index_url,indexSha256=digest(raw),
         characters=characters,assets=list(assets.values()),unresolved=unresolved,
         importedPortraits=sum(c['labCharacterUid'] is not None for c in characters))
+    if include_account_assets:
+        from account_presentation_assets import prepare as prepare_account
+        from spec_presentation_assets import prepare as prepare_specs
+        for manifest,prepare in [('account-presentation.json',prepare_account),('spec-presentation.json',prepare_specs)]:
+            try: prepare(output)
+            except Exception as error:
+                # Each catalog keeps its previous manifest if its refresh fails.
+                unresolved.append(dict(path=manifest,error=type(error).__name__,cached=(output/manifest).exists()))
     json_write(output/'presentation.json',presentation)
     print(json.dumps(dict(characters=len(characters),zipPortraits=presentation['importedPortraits'],
         assets=len(assets),unresolved=unresolved),ensure_ascii=False),flush=True)

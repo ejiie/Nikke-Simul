@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net10.0": {
+      "nikke.contracts": {
+        "type": "Project"
+      },
+      "nikke.core": {
+        "type": "Project"
+      },
+      "nikke.data": {
+        "type": "Project",
+        "dependencies": {
+          "Nikke.Contracts": "[1.0.0, )",
+          "Nikke.Core": "[1.0.0, )",
+          "Nikke.Engine": "[1.0.0, )"
+        }
+      },
+      "nikke.engine": {
+        "type": "Project",
+        "dependencies": {
+          "Nikke.Core": "[1.0.0, )"
+        }
+      }
+    }
+  }
+}

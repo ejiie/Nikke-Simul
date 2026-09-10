@@ -9,22 +9,22 @@ namespace Nikke.Core.Tests;
 // Synthetic semantic fixtures, not copied game tables or claims about measured damage.
 public class SkillReplayTests
 {
-    private static SkillFunction F(int id, int type=1, int timing=0, long value=1000) => new() {
+    internal static SkillFunction F(int id, int type=1, int timing=0, long value=1000) => new() {
         Id=id,GroupId=id,FunctionType=type,FunctionStandard=2,FunctionTarget=1,FunctionValueType=2,FunctionValue=value,
         TimingTriggerType=timing,TimingTriggerStandard=1,DurationType=1,DurationValue=100,FullCount=1,KeepingType=2 };
-    private static SkillDefinition Passive(params int[] ids) => new() { SkillId=1,FunctionIds=ids };
-    private static SkillDefinition Active(int id=10100, int[]? functions=null, int cooldown=0) => new() {
+    internal static SkillDefinition Passive(params int[] ids) => new() { SkillId=1,FunctionIds=ids };
+    internal static SkillDefinition Active(int id=10100, int[]? functions=null, int cooldown=0) => new() {
         SkillId=id, FunctionPhases=new Dictionary<string,int[]> { ["after_use"]=functions??[] },
         Skill=new() { SkillType=8,PreferTarget=17,AttackType=4,SkillCooltime=cooldown,
             SkillValueData=[new(0,0),new(1,1),new(1,1),new(0,0),new(0,0)] } };
-    private static SkillReplayMember Member(string id="a", int[]? roots=null, SkillDefinition? burst=null,
+    internal static SkillReplayMember Member(string id="a", int[]? roots=null, SkillDefinition? burst=null,
         double attack=100, double hp=1000, string squad="test") => new(
         new WeaponReplayMember(id,new WeaponDto { weaponType="AR",inputType="DOWN",fireType="Instant",fireRate=12,endFireRate=12,
             maxAmmo=100,reloadTimeSec=1,reloadBulletRate=1,shotCount=1,muzzleCount=1 },new HitContext { StatAttack=attack },new()),hp,
         new(squad,new Dictionary<string,int> { ["skill1"]=10,["skill2"]=10,["burst"]=10 },
             new Dictionary<string,SkillDefinition> { ["skill1"]=Passive(roots??[]),["skill2"]=Passive(),["burst"]=burst??Active() }));
-    private static SkillGraph Graph(params SkillFunction[] fs) => new(fs.ToDictionary(f=>f.Id),new Dictionary<int,SkillDefinition>());
-    private static SkillReplayConditions Conditions(int frames=30) => new() { RoundingPolicy="legacy_term_floor",
+    internal static SkillGraph Graph(params SkillFunction[] fs) => new(fs.ToDictionary(f=>f.Id),new Dictionary<int,SkillDefinition>());
+    internal static SkillReplayConditions Conditions(int frames=30) => new() { RoundingPolicy="legacy_term_floor",
         Combat=new() { DurationFrames=frames,Trace=true,TraceLimit=20000 } };
     private static SkillReplayResult Run(SkillReplayMember[] ms,SkillGraph g,SkillReplayConditions? c=null) => SkillReplay.Run(ms,g,c??Conditions());
 
@@ -100,9 +100,11 @@ public class SkillReplayTests
         var cw=caster.Weapon.Weapon; cw.chargeTimeSec=1.5; cw.isChargeWeapon=true; cw.weaponType="SR"; cw.inputType="UP";
         caster=caster with { Weapon=caster.Weapon with { Hit=caster.Weapon.Hit with { ChargeApplicable=true,ChargeBase=2.5 } } };
         var g=Graph(call,charge,add) with { CharacterSkills=new Dictionary<int,SkillDefinition>{{99,sk}} };
-        var r=Run([caster,Member("b",attack:300),Member("c",attack:200)],g,Conditions(1) with {
+        var buffed=Member("c",attack:200);
+        buffed=buffed with { Weapon=buffed.Weapon with { Hit=buffed.Weapon.Hit with { AttackBuffs=[new("OL",1)] } } };
+        var r=Run([caster,Member("b",attack:300),buffed],g,Conditions(1) with {
             Combat=Conditions(1).Combat with { FullBurstWindows=[new(1,2)] } });
-        Assert.Equal(new[]{"b","c"},r.ActiveEffects.Where(e=>e.FunctionId==2).Select(e=>e.Target));
+        Assert.Equal(new[]{"c","b"},r.ActiveEffects.Where(e=>e.FunctionId==2).Select(e=>e.Target));
         Assert.All(r.ActiveEffects.Where(e=>e.FunctionId==3),e=>Assert.Equal(.07,e.Value));
         Assert.DoesNotContain(r.ActiveEffects,e=>e.FunctionId==2 && e.Target=="a");
     }

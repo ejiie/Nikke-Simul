@@ -14,12 +14,12 @@
 | 실행 파일 창 | `tools/NikkeLocalLab.ControlCenter.Desktop/Program.cs` → `src/Nikke.Desktop/Program.cs` | WinForms/WebView2 구조·크기·로딩 화면 재사용. 이 PC의 백엔드 기동·종료 및 DPI 대응 구현 |
 | CDN 경로 계산·분류 아이콘 목록 | `scripts/materialize-nll-phase-d-presentation-assets.ps1` → `tools/data-pipeline/presentation_assets.py` | 공개 리소스 경로 알고리즘을 Python으로 이식. 다운로드·캐시·검증·ZIP 매핑 추가 |
 | 계정 연결·자동 수집·정제·저장·수동 보완 | 현재 프로젝트 P01 → 새 `app.js` 연결 | 기존 세션·스냅샷 계약 유지. 이미지 갱신도 수집 성공 후 별도 백엔드 작업으로 실행 |
-| 최종 스탯·단일 히트 검산 | 현재 프로젝트 P02 `apps/web/src/calculation.ts` | 같은 모듈을 빌드하여 새 상세 탭에 연결. 스탯 계산식 변경 없음 |
+| 최종 스탯 | 현재 프로젝트 P02 C# 계산 API | Local Lab 상세의 HP·공격력·방어력 표시로 연결. 이전 웹 계산 UI 연결은 제거 |
 | 5인 스킬 시뮬레이션·결과 저장 | 현재 프로젝트 P03 | 솔로 레이드 검산 화면 추가. 구성원별 평타·각 효과의 대미지 저장 |
 
 출처 hash는 `sources.lock.json`, `docs/desktop-source-manifest.json`에 기록했다. 원본 CSS 수정 없이 필요한 연결 스타일과 작은 화면 메뉴 보정은 `simul.css`에 둔다.
 
-원본 Local Lab의 PostgreSQL, 관리자 시작 코드, 특정 PC·관리자 계정 검사, 원본 게임 실행·설치본 변경, 재화 조작 및 profile revision API는 이식하지 않았다. 현재 계정 설정은 싱크로·리사이클 룸 보완을, 장비에서는 잠금 상태 저장을 제공한다. 스킬·돌파·큐브·장비 옵션 값 자체의 편집은 현재 백엔드에 없는 기능이므로 수집 값으로 표시한다. 이식된 화면의 기능 범위를 원본의 모든 관리 기능 지원으로 해석하지 않는다.
+원본 Local Lab의 PostgreSQL, 관리자 시작 코드, 특정 PC·관리자 계정 검사, 원본 게임 실행·설치본 변경, 재화 조작 및 profile revision API는 이식하지 않았다. 계정 설정은 싱크로·리사이클 룸·공통 큐브를, 니케 상세는 레벨·호감도·돌파·코어·스킬·장비·OL·소장품·장착 큐브 편집을 제공한다. 저장은 기존 SQLite 스냅샷 계약을 사용한다. [편집 범위와 기능별 출처](desktop-spec-editor.ko.md).
 
 ## 이미지
 
@@ -55,10 +55,18 @@ npm run dev
 
 ## 검증
 
-- `npm test`: C# 99개, 기존 스탯·전투 원본 hash 및 합성 fixture.
+- `npm test`: C# 111개, 기존 스탯·전투 원본 hash 및 합성 fixture (스펙 편집 반영 후).
 - `npm run test:web`: 공용 계산·스펙 표시 모델 7개.
 - Python `unittest discover`: 14개 통과. ZIP 경로 이탈·hash 불일치·동명이인 매핑·CDN 장애 시 캐시 보존을 포함한다.
 - `tools/data-pipeline/tests/check_desktop_ui.py`: 실제 저장 계정으로 카드/검색/필터, 5인의 표시 스탯과 API 일치, 단일 히트, 5인 검산 결과 저장을 검사한다. 실계정 편집·로그인은 하지 않는다.
 - 실행 파일 `--smoke-output <로컬 경로>`: 실제 WebView2 창에서 메뉴 전환·이미지와 스크린샷, 자동 시작·종료를 확인한다. 이것은 UI 실행 검사이며 실게임 대미지 검증은 아니다.
 
 저장 계정 193명/도감 200명, 5인 × 최종 스탯 3개 API 일치, 단일 히트 검산, 버스트 1회가 지정된 30초 5인 스킬 검산을 확인했다. HTTP 실패·스크립트 오류·깨진 이미지 0. 결과는 Git 제외 `artifacts/desktop/ui/acceptance.json`, 실제 WebView2 증거는 `artifacts/desktop/acceptance/`에 있다. 백엔드 자동 시작·종료와 기존 개발 서버에 연결 후 창만 종료하는 두 경우를 모두 확인했다. 낮은 해상도에서 원본 CSS의 겹치는 미디어 규칙이 메뉴 아이콘과 글자를 동시에 숨기던 문제는 보완 스타일로 해결했다.
+
+## 2026-09-09 상세 UI 정정
+
+- 이전 웹 프론트 `calculation.ts` import와 데스크톱 빌드 연결을 제거했다.
+- Local Lab `editor.js`의 장비·성장·스킬·소장품 렌더러를 `local-lab-detail.js`로 가져왔다. 숫자 입력의 범위 검증을 추가하고, 실제 사용 성장 컨트롤은 사용자 요청에 따라 붙인 별·코어와 ±로 연결했다. `editor.css`는 원본을 유지한다.
+- 옵션 명칭은 RuntimeMaterializer의 OverloadOptionDisplayName과 동일하다. 숫자는 원본 exactValueText, 옵션 합계는 소수 둘째 자리 표시를 사용한다. 원본 카탈로그 규칙처럼 차지 속도·명중률은 양의 크기로 표시하며 계산용 부호는 바꾸지 않는다.
+- `local-lab-adapter.js`는 저장 스냅샷을 원본 UI의 projection으로 변환한다. 옵션 등급은 저장된 valueTier를 사용한다. 장비 능력치는 기존 C# 계산 결과를 연결하며 강화 중복 적용을 하지 않는다.
+- 임의로 추가했던 옵션 잠금 select와 계산 패널은 상세 화면에서 제거했다. 백엔드의 기존 저장값과 계산 API는 보존한다. 이후 [장비 이미지·스펙 편집 작업](desktop-spec-editor.ko.md)에서 Local Lab 컨트롤을 계산 미리보기 및 스냅샷 Save에 연결했다.

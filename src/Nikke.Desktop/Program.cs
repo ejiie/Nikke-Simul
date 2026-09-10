@@ -24,7 +24,7 @@ internal sealed record DesktopSettings(string ProjectRoot, string Python, int Po
 internal sealed class MainForm : Form
 {
     private readonly WebView2 view = new() { Dock = DockStyle.Fill };
-    private readonly Label loading = new() { Dock = DockStyle.Fill, Text = "지휘관 관리 도구를 준비하고 있습니다…",
+    private readonly Label loading = new() { Dock = DockStyle.Fill, Text = "Nikke Simul을 준비하고 있습니다…",
         TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Malgun Gothic",14,FontStyle.Bold),
         ForeColor = Color.FromArgb(30,63,92), BackColor = Color.FromArgb(244,248,252) };
     private readonly HttpClient http = new() { Timeout = TimeSpan.FromSeconds(2) };
@@ -38,7 +38,8 @@ internal sealed class MainForm : Form
     internal MainForm(string[] args)
     {
         arguments = args;
-        Text="Nikke Simul · 지휘관 관리 도구"; StartPosition=FormStartPosition.CenterScreen;
+        Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+        Text="Nikke Simul"; StartPosition=FormStartPosition.CenterScreen;
         MinimumSize=new Size(1180,760); Size=new Size(1500,940);
         Controls.Add(loading);
         Shown += async (_,_) =>
@@ -88,6 +89,8 @@ internal sealed class MainForm : Form
             var environment=await CoreWebView2Environment.CreateAsync(null,Path.Combine(settings.ProjectRoot,"data/local/desktop-webview"));
             await view.EnsureCoreWebView2Async(environment);
             if (closing) return;
+            // Refresh local UI resources after updates while retaining cookies and saved account selection.
+            await view.CoreWebView2.Profile.ClearBrowsingDataAsync(CoreWebView2BrowsingDataKinds.DiskCache);
             view.CoreWebView2.Settings.IsStatusBarEnabled=false;
             view.CoreWebView2.Settings.AreDefaultContextMenusEnabled=false;
             view.CoreWebView2.NavigationStarting += (_,e)=> { if (!IsLocal(e.Uri)) e.Cancel=true; };
@@ -158,10 +161,17 @@ internal sealed class MainForm : Form
         if (ready!="\"true\"") throw new InvalidOperationException("Desktop UI did not become ready");
         await view.ExecuteScriptAsync("document.querySelector('[data-tab=\"nikkes\"]').click()");
         await Task.Delay(1200,lifetime.Token);
-        var result=await view.ExecuteScriptAsync("JSON.stringify({title:document.title,cards:document.querySelectorAll('.nikke-card').length,broken:[...document.images].filter(x=>x.offsetParent!==null && x.complete && !x.naturalWidth).map(x=>x.src)})");
+        if(arguments.Contains("--smoke-home")) {
+            await view.ExecuteScriptAsync("document.querySelector('[data-tab=\"home\"]').click()");
+            var avatar=await view.ExecuteScriptAsync("!!document.querySelector('#account-list .account-profile-avatar img')?.naturalWidth");
+            if(avatar!="true")throw new InvalidOperationException("Account representative image did not load");
+        }
+        var result=await view.ExecuteScriptAsync("JSON.stringify({title:document.title,cards:document.querySelectorAll('.nikke-card').length,brandIconLoaded:!!document.querySelector('.sidebar-brand img.brand-icon')?.naturalWidth,broken:[...document.images].filter(x=>x.offsetParent!==null && x.complete && !x.naturalWidth).map(x=>x.src)})");
         await File.WriteAllTextAsync(Path.Combine(output,"desktop-smoke.json"),JsonSerializer.Deserialize<string>(result));
         await using (var stream=File.Create(Path.Combine(output,"desktop.png")))
             await view.CoreWebView2.CapturePreviewAsync(CoreWebView2CapturePreviewImageFormat.Png,stream);
+        if (!JsonSerializer.Deserialize<JsonElement>(JsonSerializer.Deserialize<string>(result)!).GetProperty("brandIconLoaded").GetBoolean())
+            throw new InvalidOperationException("Desktop header icon did not load");
         await StopAsync();
     }
 }

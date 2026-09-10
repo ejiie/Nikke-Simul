@@ -58,7 +58,17 @@ app.MapPost("/api/sync-jobs/{id}/cancel", (string id, SyncCoordinator sync) => s
 app.MapGet("/api/accounts/{id}/snapshot", (string id) => store.Current(id) is { } snapshot ? Results.Ok(snapshot) : Results.NoContent());
 app.MapGet("/api/snapshots/{id}", (string id) => store.Snapshot(id) ?? throw new KeyNotFoundException());
 app.MapGet("/api/snapshots/{id}/changes", (string id) => (store.Snapshot(id) ?? throw new KeyNotFoundException()).Changes);
-app.MapPost("/api/accounts/{id}/overrides", (string id, OverrideRequest request) => store.ApplyOverride(id, request));
+app.MapPost("/api/accounts/{id}/overrides", (string id, OverrideRequest request) =>
+{
+    if(request.CubeLevels is not null)
+    {
+        var cubes=app.Services.GetRequiredService<PresentationService>().Read()["cubes"]?.AsArray();
+        foreach(var (cubeId,level) in request.CubeLevels)
+            if(cubes?.Any(c=>c?["definitionUid"]?.ToString()==cubeId && c["levels"]!.AsArray().Any(l=>l?["level"]?.GetValue<int>()==level))!=true)
+                throw new ArgumentException("큐브 카탈로그에 없는 종류 또는 레벨입니다.");
+    }
+    return store.ApplyOverride(id, request);
+});
 var calculationPath = Path.Combine(root, "data/local/calculation");
 var calculations = new Lazy<CalculationService>(() => new CalculationService(calculationPath));
 var runtimeRoot = Path.Combine(dataRoot, "runtime");
@@ -91,10 +101,34 @@ app.MapPost("/api/runtime/skill-replays", (SkillReplayRequest request) =>
     return runtimeReplay.Value.RunSkills(store.Snapshot(request.SnapshotId) ?? throw new KeyNotFoundException(), request, calculations.Value);
 });
 app.MapGet("/api/runtime/skill-replays/{id}", (string id) => runtimeReplay.Value.ReadSkills(id));
+app.MapGet("/api/snapshots/{id}/combat-powers", (string id) =>
+{
+    var snapshot = store.Snapshot(id) ?? throw new KeyNotFoundException();
+    // Read the captured roster so older snapshots work without another account sync.
+    var powers = new Dictionary<string, long>();
+    foreach (var row in store.Raw(snapshot.RawManifestId).Characters.OfType<JsonObject>())
+    {
+        var characterId = row["name_code"]?.ToString();
+        if (characterId is not null && long.TryParse(row["combat"]?.ToString(), out var power) && power >= 0)
+            powers[characterId] = power;
+    }
+    return powers;
+});
 app.MapGet("/api/snapshots/{id}/characters/{characterId}/stats", (string id, string characterId, int? scenarioLevel) =>
 {
     if (!File.Exists(Path.Combine(calculationPath, "current.json"))) return Results.Conflict(new { message = "P02 계산 자료 준비가 필요합니다. npm run setup:sync를 실행하세요." });
     return Results.Ok(calculations.Value.Calculate(store.Snapshot(id) ?? throw new KeyNotFoundException(), characterId, scenarioLevel));
+});
+app.MapPost("/api/accounts/{id}/characters/{characterId}/preview", (string id,string characterId,CharacterEditRequest request) =>
+{
+    var next=CharacterEditService.Preview(store.Current(id)??throw new KeyNotFoundException(),characterId,request,presentation.Read());
+    return calculations.Value.Calculate(next,characterId);
+});
+app.MapPost("/api/accounts/{id}/characters/{characterId}/edit", (string id,string characterId,CharacterEditRequest request) =>
+{
+    var next=CharacterEditService.Preview(store.Current(id)??throw new KeyNotFoundException(),characterId,request,presentation.Read());
+    next.Id=Guid.NewGuid().ToString("N");
+    return store.Commit(next,expectedId:request.ExpectedSnapshotId);
 });
 app.MapPost("/api/calculations/hit", (HitRequest request) =>
 {
@@ -112,7 +146,8 @@ if (Directory.Exists(editor))
 {
     var provider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(editor);
     app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = provider, RequestPath = "/editor" });
-    app.UseStaticFiles(new StaticFileOptions { FileProvider = provider, RequestPath = "/editor" });
+    app.UseStaticFiles(new StaticFileOptions { FileProvider = provider, RequestPath = "/editor",
+        OnPrepareResponse = context => context.Context.Response.Headers.CacheControl = "no-store" });
 }
 var assets = Path.Combine(presentationRoot, "assets"); Directory.CreateDirectory(assets);
 app.UseStaticFiles(new StaticFileOptions { FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(assets), RequestPath = "/editor/assets" });

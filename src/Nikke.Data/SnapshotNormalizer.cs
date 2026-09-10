@@ -143,9 +143,12 @@ public sealed class SnapshotNormalizer
         var statSources = new Dictionary<string, string>();
         if (synchro.HasValue) statSources["synchro"] = "api";
         if (consoles is not null) foreach (var id in consoles.Keys) statSources["console:" + id] = "api";
+        var cubeLevels=builds.Where(c=>c.CubeId is not null and not "0" && c.CubeLevel is >=1 and <=15)
+            .GroupBy(c=>c.CubeId!).ToDictionary(g=>g.Key,g=>g.Max(c=>c.CubeLevel!.Value));
+        foreach(var id in cubeLevels.Keys)statSources["cube:"+id]="api";
         return new() { AccountId = accountId, OpenId = raw.OpenId, Area = raw.Area, RawManifestId = manifestId,
             GameSnapshotId = game.Id, ObservedAt = raw.CompletedAt, Characters = builds, Consoles = consoles, SynchroLevel = synchro,
-            AccountStatSources = statSources, Issues = issues };
+            AccountStatSources = statSources, CubeLevels=cubeLevels, Issues = issues };
     }
     public static string? Id(JsonNode? node) => long.TryParse(node?.ToString(), NumberStyles.None, CultureInfo.InvariantCulture, out var n) && n >= 0 ? n.ToString(CultureInfo.InvariantCulture) : null;
 }

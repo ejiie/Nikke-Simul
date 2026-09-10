@@ -37,3 +37,11 @@ The P03 skill implementation adapts the pinned legacy firing state machine into 
 사용자가 소유한 `https://github.com/ejiie/Nikke-Local-Lab`의 관리 UI 및 WebView2 shell을 사용자 명시 요청에 따라 재사용했습니다. 고정 커밋: `c05fc1c392a523b9e17ebe0cbd4811bed9c19adb`. 독립 LICENSE 파일은 확인되지 않아 임의로 MIT 등으로 재지정하지 않습니다. 기능별 출처와 변경 범위는 `docs/desktop-ui-migration.ko.md`, source hash는 `docs/desktop-source-manifest.json` 및 `sources.lock.json`을 참고하세요.
 
 캐릭터·돌파·코어·분류 이미지의 출처는 블라블라(Blablalink)입니다. 사용자 제공 ZIP 및 공개 CDN 이미지 파일은 Git에 포함하지 않고 로컬 `data/local/presentation/`에 보관합니다.
+
+## Account console artwork
+
+Console cards reuse original NIKKE game item artwork through the public nikke.gg / static.dotgg.gg mirror, following Nikke-Local-Lab. Cube artwork and Korean presentation data come from Blablalink. Downloaded artwork remains outside Git; URLs and hashes are recorded in data/local/presentation/account-presentation.json.
+
+## Equipment and collection artwork / spec editor
+
+Equipment and favorite-item Korean definitions and original artwork come from the public Blablalink resource catalog. The 2026-09-09 local cache contains 120 equipment definitions, 33 collections/favorites, and 105 images; URLs and SHA-256 receipts are in the ignored `data/local/presentation/spec-presentation.json`. Local Lab's equipment picker, enhancement/overload controls, skill/collection renderers, exact-value formatting, and option labels are reused. The versioned snapshot edit/preview API, validation and compact combined growth stepper are newly authored. See `docs/desktop-spec-editor.ko.md`.

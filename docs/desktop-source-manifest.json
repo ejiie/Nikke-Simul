@@ -21,6 +21,26 @@
       "source": "scripts/materialize-nll-phase-d-presentation-assets.ps1",
       "sourceSha256": "ff05238f2b050238c49e0d04bcc0b932008bc3796cb6cdd469887a192879df03",
       "destination": "tools/data-pipeline/presentation_assets.py"
+    },
+    {
+      "source": "src/NikkeLocalLab.Admin.Api/wwwroot/editor/editor.js",
+      "destination": "apps/desktop-ui/local-lab-detail.js",
+      "method": "Local Lab equipment/skill/collection/detail renderer functions; numericEditor adds HTML validity check. Snapshot projection, editable callbacks, compact growth stepper, preview and versioned Save in local-lab-adapter.js."
+    },
+    {
+      "source": "src/NikkeLocalLab.Admin.Api/wwwroot/editor/editor.js",
+      "destination": "apps/desktop-ui/local-lab-account.js",
+      "method": "Console/cube markup and cube renderers; console experience omitted per user request; snapshot save adapter."
+    },
+    {
+      "source": "scripts/materialize-nll-console-presentation-assets.ps1",
+      "destination": "tools/data-pipeline/account_presentation_assets.py",
+      "method": "Same original-game-art mirror and console coordinates; official Blablalink cube resource discovery."
+    },
+    {
+      "source": "scripts/materialize-nll-phase-d-presentation-assets.ps1 and RuntimeMaterializer option names",
+      "destination": "tools/data-pipeline/spec_presentation_assets.py",
+      "method": "Official Blablalink equipment/favorite tables and original artwork mapped to Local Lab supportDefinitions; pinned P01 overload values; new downloader and catalog adapter."
     }
   ]
 }

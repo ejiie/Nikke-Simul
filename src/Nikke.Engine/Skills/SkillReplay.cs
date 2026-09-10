@@ -8,12 +8,15 @@ namespace Nikke.Engine.Skills;
 // P03: a prescribed battle context drives real skill effects. Team gauge and enemy AI belong to P04/P05.
 public static class SkillReplay
 {
-    public const string Version = "p03.skills.1";
+    public const string Version = "p03.skills.2";
     public static SkillReplayResult Run(IReadOnlyList<SkillReplayMember> members, SkillGraph graph,
-        SkillReplayConditions conditions, IRandomSource random = null)
+        SkillReplayConditions conditions, IRandomSource random = null,
+        ICombatEventSink events = null, ISkillBattleDriver driver = null)
     {
         Validate(members, graph, conditions);
-        return new Battle(members, graph, conditions, random ?? SystemRandomSource.Instance).Run();
+        if (driver is not null && (conditions.Casts.Count != 0 || conditions.Combat.FullBurstWindows.Count != 0))
+            throw new ArgumentException("A driver replaces prescribed casts and full-burst windows.");
+        return new Battle(members, graph, conditions, random ?? SystemRandomSource.Instance, events, driver).Run();
     }
 
     public static IReadOnlyList<string> CheckSupport(SkillLoadout loadout, SkillGraph graph)
@@ -88,6 +91,14 @@ public static class SkillReplay
             throw new ArgumentException("시전·HP 관측의 캐릭터, 프레임, 중복과 생존 HP 비율을 확인하세요.");
         foreach (var m in members)
         {
+            if (m.Skills.FullBurstDurationFrames is < 1 or > 10800)
+                throw new ArgumentException("Invalid full-burst duration.");
+            if (m.Skills.BurstConnection is { } bp && (bp.Step is < 1 or > 5 || bp.NextStep is < 1 or > 5
+                || bp.ApplyDelayCs < 0 || bp.FullBurstDurationCs <= 0 || bp.ShotId <= 0
+                || bp.EnergyPerShotRaw < 0 || bp.TargetEnergyPerShotRaw < 0 || bp.FullChargeEnergyRaw < 0
+                || bp.UnresolvedReplacementShotIds is null
+                || SkillUnits.Frames(bp.FullBurstDurationCs) != m.Skills.FullBurstDurationFrames))
+                throw new ArgumentException("Invalid or conflicting burst source metadata.");
             if (!double.IsFinite(m.Weapon.Buffs.NormalAttackMultiplier) || m.Weapon.Buffs.NormalAttackMultiplier is <= -1 or > 1e6)
                 throw new ArgumentException("일반 공격 계수 증가량을 확인하세요.");
             StatBuffCalculator.Apply(0,m.Weapon.Buffs.Accuracy);
@@ -126,7 +137,7 @@ public static class SkillReplay
     }
     private sealed record WeaponMode(int SkillId, int Expires, double Coefficient, double Rate, long EventId, int ShotId);
 
-    private sealed class Battle
+    private sealed class Battle : ISkillBattleControl
     {
         private readonly SkillGraph graph;
         private readonly SkillReplayConditions input;
@@ -141,10 +152,89 @@ public static class SkillReplay
         private long eventCount;
         private int frame, operations;
         private bool fullBurst;
+        private readonly ICombatEventSink eventSink;
+        private readonly ISkillBattleDriver driver;
+        private readonly Dictionary<CombatEventKind,long> connectionCounts = new();
+        private readonly List<CombatEvent> timeline = [];
+        private readonly HashSet<(string,string)> frameCasts = [];
+        private long connectionSequence, timelineCount;
+        private long? currentShot;
+        private int? currentPellet;
+        private BattlePhase? commandPhase;
+        private bool publishing;
+        public int Frame => frame;
+        public FullBurstState FullBurst { get; private set; } = new(false,0,null,null,null);
 
-        public Battle(IReadOnlyList<SkillReplayMember> members, SkillGraph graph, SkillReplayConditions conditions, IRandomSource random)
+        private Actor Find(string id) => team.SingleOrDefault(a=>a.Id==id)
+            ?? throw new ArgumentException("Unknown battle member: " + id);
+        public BurstConnectionProfile GetBurstProfile(string characterId) => Find(characterId).Input.Skills.BurstConnection;
+        public CooldownState GetCooldown(string characterId, string slot = "burst")
+        {
+            var a=Find(characterId);
+            if (!a.Ready.TryGetValue(slot,out long ready)) throw new ArgumentException("Unknown skill slot: " + slot);
+            return new(a.Id,slot,(long)frame*SkillUnits.TicksPerFrame,ready,a.Input.Skills.Slots[slot].Skill is not null);
+        }
+        public SkillCastResult TryCast(string characterId, string slot = "burst")
+        {
+            if (publishing || commandPhase != BattlePhase.CastSkills) return new(BattleCommandStatus.WrongPhase);
+            var a=Find(characterId); var state=GetCooldown(characterId,slot);
+            if (!state.Castable) return new(BattleCommandStatus.NotCastable);
+            if (frameCasts.Contains((characterId,slot))) return new(BattleCommandStatus.DuplicateCast);
+            if (!state.IsReady) return new(BattleCommandStatus.NotReady);
+            return Cast(a,slot);
+        }
+        public BattleCommandStatus TryEnterFullBurst(int durationFrames, long? causeTraceId = null)
+        {
+            if (publishing || commandPhase != BattlePhase.FullBurstEntry) return BattleCommandStatus.WrongPhase;
+            if (fullBurst) return BattleCommandStatus.AlreadyActive;
+            if (durationFrames is < 1 or > 10800) return BattleCommandStatus.InvalidDuration;
+            fullBurst=true;
+            FullBurst=new(true,FullBurst.Cycle+1,frame,checked(frame+durationFrames),causeTraceId);
+            long ev=Log(driver is null ? "prescribed_full_burst_start" : "full_burst_start","team",parent:causeTraceId);
+            Publish(CombatEventKind.FullBurstEntered,ev,causeTraceId,"team",burst:FullBurst);
+            Dispatch(22,null,ev,4);
+            return BattleCommandStatus.Applied;
+        }
+        public BattleCommandStatus TryExitFullBurst()
+        {
+            if (publishing || commandPhase != BattlePhase.FullBurstExit) return BattleCommandStatus.WrongPhase;
+            if (!fullBurst) return BattleCommandStatus.AlreadyInactive;
+            fullBurst=false;
+            FullBurst=FullBurst with { Active=false,EndFrame=frame };
+            long ev=Log(driver is null ? "prescribed_full_burst_end" : "full_burst_end","team");
+            Publish(CombatEventKind.FullBurstExited,ev,FullBurst.CauseTraceId,"team",burst:FullBurst);
+            Dispatch(43,null,ev);
+            return BattleCommandStatus.Applied;
+        }
+        private void Phase(BattlePhase phase, Action prescribed = null)
+        {
+            commandPhase=phase;
+            try { if (driver is null) prescribed?.Invoke(); else driver.OnPhase(this,phase); }
+            finally { commandPhase=null; }
+        }
+        private void Publish(CombatEventKind kind, long traceId, long? parent, string source, string target=null,
+            int? sid=null, int? fid=null, ShotEventData shot=null, HitEventData hit=null,
+            CooldownChange cooldown=null, FullBurstDurationRequest duration=null, FullBurstState burst=null)
+        {
+            var e=new CombatEvent(++connectionSequence,traceId,parent,frame,(long)frame*SkillUnits.TicksPerFrame,
+                kind,source,target,sid,fid,shot,hit,cooldown,duration,burst);
+            connectionCounts[kind]=connectionCounts.GetValueOrDefault(kind)+1;
+            if (kind is CombatEventKind.SkillCast or CombatEventKind.CooldownChanged or CombatEventKind.FullBurstDurationRequested
+                or CombatEventKind.FullBurstEntered or CombatEventKind.FullBurstExited)
+            {
+                timelineCount++;
+                if (timeline.Count<20000) timeline.Add(e);
+            }
+            publishing=true;
+            try { eventSink?.OnEvent(e); }
+            finally { publishing=false; }
+        }
+
+        public Battle(IReadOnlyList<SkillReplayMember> members, SkillGraph graph, SkillReplayConditions conditions, IRandomSource random,
+            ICombatEventSink eventSink, ISkillBattleDriver driver)
         {
             this.graph = graph; input = conditions; this.random = random;
+            this.eventSink=eventSink; this.driver=driver;
             team = members.Select(m => new Actor { Input = m,
                 Gun = new(new WeaponProfile(m.Weapon.Weapon), m.Weapon.Weapon.maxAmmo,
                     new FiringControl { Mode = C.ManualCharacterId == m.Weapon.CharacterId ? ControlMode.Manual : ControlMode.Auto,
@@ -252,7 +342,7 @@ public static class SkillReplay
                 switch (f.FunctionType)
                 {
                     case 75:
-                        Damage(owner, f.Rate, $"function:{f.Id}", call, false, false);
+                        Damage(owner, f.Rate, $"function:{f.Id}", call, false, false, fid:f.Id);
                         break;
                     case 27:
                         SyncGun(target);
@@ -264,8 +354,10 @@ public static class SkillReplay
                         long old = target.Ready["burst"], now = (long)frame*SkillUnits.TicksPerFrame;
                         long delta = checked(f.FunctionValue*SkillUnits.TicksPerCs);
                         target.Ready["burst"] = delta<0 && old<=now ? old : Math.Max(now,Math.Max(now,old)+delta);
-                        Log("cooldown_change",owner.Id,target.Id,$"function:{f.Id}",call,f.Id,
+                        long changed=Log("cooldown_change",owner.Id,target.Id,$"function:{f.Id}",call,f.Id,
                             value:(target.Ready["burst"]-old)/(double)SkillUnits.TicksPerCs,basis:"centiseconds");
+                        Publish(CombatEventKind.CooldownChanged,changed,call,owner.Id,target.Id,fid:f.Id,
+                            cooldown:new("burst",delta,target.Ready["burst"]-old,old,target.Ready["burst"]));
                         break;
                     case 3:
                         double oldCover = target.CoverRatio; target.CoverRatio = Math.Min(1, oldCover + f.Rate);
@@ -346,7 +438,7 @@ public static class SkillReplay
                 var values=body.SkillValueData;
                 switch (body.SkillType)
                 {
-                    case 1: Damage(owner,SkillUnits.Rate(values[0].SkillValue),$"skill:{sk.SkillId}",cast,false,false); break;
+                    case 1: Damage(owner,SkillUnits.Rate(values[0].SkillValue),$"skill:{sk.SkillId}",cast,false,false,sid:sk.SkillId); break;
                     case 6:
                         // Shared shield, single pool. Enemy damage consumption is a P05 integration.
                         double shieldHp=MaxHp(owner)*SkillUnits.Rate(values[1].SkillValue);
@@ -386,17 +478,30 @@ public static class SkillReplay
             }).Take(count).ToArray();
         }
 
-        private void Cast(Actor owner, string slot, long? parent = null)
+        private SkillCastResult Cast(Actor owner, string slot, long? parent = null)
         {
             var sk = owner.Input.Skills.Slots[slot];
             if (sk.Skill is null || (long)frame*SkillUnits.TicksPerFrame < owner.Ready[slot]) throw new ArgumentException($"{owner.Id} {slot}: 쿨다운 중이거나 시전형 스킬이 아닙니다.");
+            long previous=owner.Ready[slot];
             owner.Ready[slot]=(long)frame*SkillUnits.TicksPerFrame+(long)sk.Skill.SkillCooltime*SkillUnits.TicksPerCs;
+            frameCasts.Add((owner.Id,slot));
             long ev=Log("skill_cast",owner.Id,effect:slot,parent:parent,sid:sk.SkillId);
-            if (slot=="burst") Log("full_burst_duration_request",owner.Id,"team",slot,ev,sid:sk.SkillId,
-                value:owner.Input.Skills.FullBurstDurationFrames,basis:"frames_for_P04_cycle");
+            Publish(CombatEventKind.SkillCast,ev,parent,owner.Id,sid:sk.SkillId);
+            Publish(CombatEventKind.CooldownChanged,ev,parent,owner.Id,owner.Id,sid:sk.SkillId,
+                cooldown:new(slot,owner.Ready[slot]-previous,owner.Ready[slot]-previous,previous,owner.Ready[slot],"cast_started"));
+            FullBurstDurationRequest request=null;
+            if (slot=="burst")
+            {
+                request=new(ev,owner.Id,owner.Input.Skills.BurstConnection?.Step,
+                    owner.Input.Skills.FullBurstDurationFrames,owner.Input.Skills.BurstConnection?.FullBurstDurationCs);
+                long req=Log("full_burst_duration_request",owner.Id,"team",slot,ev,sid:sk.SkillId,
+                    value:request.DurationFrames,basis:"frames_for_P04_cycle");
+                Publish(CombatEventKind.FullBurstDurationRequested,req,ev,owner.Id,"team",sid:sk.SkillId,duration:request);
+            }
             // Original passive order is significant: descending stage markers prevent one cast advancing three tiers.
             Dispatch(30,owner,ev,sk.SkillId/100);
             ExecuteSkill(owner,sk,ev,0);
+            return new(BattleCommandStatus.Applied,ev,request);
         }
 
         private IReadOnlyList<StatRateBuff> AttackRates(Actor a) => On(a,1).Where(e=>e.Basis!="native_caster_flat_at_application")
@@ -422,7 +527,7 @@ public static class SkillReplay
         }
         private static double[] Terms(IEnumerable<StatRateBuff> buffs) => buffs.SelectMany(b=>Enumerable.Repeat(b.Rate,b.Stacks)).ToArray();
 
-        private void Damage(Actor a, double coefficient, string effect, long parent, bool normal, bool charged)
+        private void Damage(Actor a, double coefficient, string effect, long parent, bool normal, bool charged, int? fid=null, int? sid=null)
         {
             bool crit=C.CritMode=="on" || C.CritMode=="sample" && CritSampler.RollCrit(random,
                 Math.Clamp(.15+Terms(a.Input.Weapon.Buffs.CriticalChance).Sum(),0,1));
@@ -443,8 +548,14 @@ public static class SkillReplay
             a.Damage[effect]=a.Damage.GetValueOrDefault(effect)+damage;
             if (crit) a.Crits++;
             long ev=Log("damage",a.Id,"boss",effect,parent,value:damage,basis:h.AttackStatBasis,hit:h);
+            if (normal) a.Hits++;
+            modes.TryGetValue(a.Id,out var mode);
+            Publish(normal ? CombatEventKind.NormalHit : currentShot.HasValue ? CombatEventKind.AdditionalHit : CombatEventKind.DirectSkillHit,
+                ev,parent,a.Id,"boss",sid:normal ? mode?.SkillId : sid,fid:fid,
+                hit:new(currentShot,currentPellet,mode?.ShotId ?? a.Input.Skills.BurstConnection?.ShotId,
+                    h.FullCharge,h.Crit,h.Core,h.FullBurst,damage));
             foreach (var drain in On(a,62).ToArray()) Heal(a,a,damage*drain.Value*drain.Stacks,drain.EventId,drain.Function.Id);
-            if (normal) { a.Hits++; Dispatch(31,a,ev); }
+            if (normal) Dispatch(31,a,ev);
             // Skill damage never feeds normal-hit counters, so Modernia's extra hit cannot recurse.
         }
         private void Heal(Actor source, Actor target, double amount, long parent, int fid)
@@ -459,6 +570,7 @@ public static class SkillReplay
             for (frame=1; frame<=C.DurationFrames; frame++)
             {
                 operations=0;
+                frameCasts.Clear();
                 // A HoT's last tick is delivered at its end before removing the effect (5 seconds = 5 ticks).
                 foreach (var e in effects.Where(e=>e.Function.FunctionType==2 && e.NextTick<=frame).ToArray())
                 {
@@ -473,14 +585,19 @@ public static class SkillReplay
                 foreach (var o in input.HpObservations.Where(o=>o.Frame==frame))
                 { var a=team.Single(a=>a.Id==o.CharacterId); a.Hp=MaxHp(a)*o.Ratio; Log("prescribed_hp",a.Id,a.Id,value:o.Ratio,basis:"max_hp_ratio"); }
                 RefreshConditions();
-                foreach (var window in C.FullBurstWindows.Where(w=>w.EndFrame==frame))
-                { fullBurst=false; long ev=Log("prescribed_full_burst_end","team"); Dispatch(43,null,ev); }
+                commandPhase=BattlePhase.FullBurstExit;
+                try { if (fullBurst && FullBurst.EndFrame<=frame) TryExitFullBurst(); }
+                finally { commandPhase=null; }
+                Phase(BattlePhase.FullBurstExit);
                 foreach (var a in team)
                     foreach (var slot in new[] { "skill1", "skill2" })
                         if (a.Input.Skills.Slots[slot].Skill is { SkillCooltime: > 0 } && a.Ready[slot]<=(long)frame*SkillUnits.TicksPerFrame) Cast(a,slot);
-                foreach (var cast in input.Casts.Where(s=>s.Frame==frame)) Cast(team.Single(a=>a.Id==cast.CharacterId),cast.Slot);
-                foreach (var window in C.FullBurstWindows.Where(w=>w.StartFrame==frame))
-                { fullBurst=true; long ev=Log("prescribed_full_burst_start","team"); Dispatch(22,null,ev,4); }
+                Phase(BattlePhase.CastSkills,()=> {
+                    foreach (var cast in input.Casts.Where(s=>s.Frame==frame)) Cast(Find(cast.CharacterId),cast.Slot);
+                });
+                Phase(BattlePhase.FullBurstEntry,()=> {
+                    foreach (var window in C.FullBurstWindows.Where(w=>w.StartFrame==frame)) TryEnterFullBurst(window.EndFrame-frame);
+                });
                 RefreshConditions();
                 foreach (var a in team)
                 {
@@ -489,21 +606,43 @@ public static class SkillReplay
                     var shot=a.Gun.AdvanceFrame();
                     if (!shot.Fired)
                     {
-                        if (a.Gun.CurrentAmmo>before) Log("reload_completed",a.Id,a.Id,value:a.Gun.CurrentAmmo-before);
+                        if (a.Gun.CurrentAmmo>before)
+                        {
+                            long reload=Log("reload_completed",a.Id,a.Id,value:a.Gun.CurrentAmmo-before);
+                            Publish(CombatEventKind.ReloadCompleted,reload,null,a.Id,a.Id,
+                                shot:new(a.Input.Skills.BurstConnection?.ShotId,before,a.Gun.CurrentAmmo,a.Gun.UnlimitedAmmo,false,0));
+                        }
                         continue;
                     }
                     a.Shots++;
                     long shotId=Log("shot",a.Id,"boss","normal_attack",value:a.Gun.CurrentAmmo,basis:a.Gun.UnlimitedAmmo?"unlimited_ammo":"ammo_after_shot");
-                    if (!a.Gun.UnlimitedAmmo) { a.AmmoConsumed++; Dispatch(3,a,shotId); }
                     modes.TryGetValue(a.Id,out var mode);
                     int pellets=shot.PelletsPerShot*a.Input.Weapon.Weapon.muzzleCount;
+                    currentShot=shotId; currentPellet=null;
+                    var shotData=new ShotEventData(mode?.ShotId ?? a.Input.Skills.BurstConnection?.ShotId,before,
+                        a.Gun.CurrentAmmo,a.Gun.UnlimitedAmmo,shot.IsFullCharge,pellets);
+                    Publish(CombatEventKind.Shot,shotId,null,a.Id,"boss",sid:mode?.SkillId,shot:shotData);
+                    if (!a.Gun.UnlimitedAmmo)
+                    {
+                        a.AmmoConsumed++;
+                        Publish(CombatEventKind.AmmoConsumed,shotId,shotId,a.Id,a.Id,shot:shotData);
+                        Dispatch(3,a,shotId);
+                    }
+                    // OnUseAmmo may change weapon mode; retain the original resolution order.
+                    modes.TryGetValue(a.Id,out mode);
                     double coefficient=mode is null ? a.Input.Weapon.Hit.Coefficient : mode.Coefficient*(1+a.Input.Weapon.Buffs.NormalAttackMultiplier);
                     if (a.Input.Weapon.Weapon.weaponType=="SG" && C.PelletCoefficientPolicy=="per_trigger") coefficient/=pellets;
                     for (int pellet=0; pellet<pellets; pellet++)
+                    {
+                        currentPellet=pellet;
                         Damage(a,coefficient,mode is null?"normal_attack":$"skill:{mode.SkillId}:weapon",shotId,true,shot.IsFullCharge);
+                    }
+                    currentShot=null; currentPellet=null;
                     RefreshConditions(shotId);
                 }
+                Phase(BattlePhase.AfterHits);
             }
+            frame=C.DurationFrames;
             var members=team.Select(a=>new SkillMemberResult(a.Id,a.Damage.Values.Sum(),a.Damage,a.Shots,a.Hits,a.Crits,a.AmmoConsumed,
                 a.Gun.CurrentAmmo,a.Gun.MaxAmmo,a.Hp,MaxHp(a),a.CoverRatio,a.Ready.ToDictionary(p=>p.Key,p=>SkillUnits.ReadyFrame(p.Value)))).ToArray();
             return new(Version,"prescribed_context_provisional","selected_five_effects_connected",input,members.Sum(m=>m.Damage),members,
@@ -518,7 +657,10 @@ public static class SkillReplay
                  "Caster ATK grants use native caster ATK; healing snapshots final caster max HP at application. Snapshot timing remains a measurement target.",
                  "Cover HP must be supplied for real cover targeting; absent cover inputs mean equal undamaged unit-size cover fixtures.",
                  "Lowest HP/cover target basis is an explicit comparison policy; verify the actual skill recipient before selecting a game rule.",
-                 "Conditional cube/favorite effects are not connected. These runs are not validated raid recommendation samples."]);
+                 "Conditional cube/favorite effects are not connected. These runs are not validated raid recommendation samples."])
+            { Connection=new("p03.connection.1",true,false,connectionSequence,new Dictionary<CombatEventKind,long>(connectionCounts),
+                timeline.ToArray(),timelineCount>timeline.Count,FullBurst,
+                team.SelectMany(a=>a.Ready.Keys.Select(slot=>GetCooldown(a.Id,slot))).ToArray()) };
         }
     }
 }

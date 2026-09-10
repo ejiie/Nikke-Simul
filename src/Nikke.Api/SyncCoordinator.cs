@@ -61,6 +61,7 @@ public sealed class SyncCoordinator(SnapshotStore store, CollectorProcess collec
             var connection = store.Connection(id) ?? throw new KeyNotFoundException();
             if (connection.Status != "select_account") throw new InvalidOperationException("서버 선택 상태가 아닙니다.");
             var choice = connection.Choices.FirstOrDefault(x => x.Area == area) ?? throw new ArgumentException("조회된 서버를 선택하세요.");
+            if(connection.Area!=area||connection.OpenId!=choice.OpenId){connection.Nickname=null;connection.ProfileIconId=null;connection.AvatarPath=null;}
             connection.Area = area; connection.OpenId = choice.OpenId;
             connection.AccountId = Wire.Hash($"blablalink:{choice.OpenId}:{area}");
             connection.Status = "ready"; connection.Message = null; store.SaveConnection(connection);
@@ -122,7 +123,16 @@ public sealed class SyncCoordinator(SnapshotStore store, CollectorProcess collec
             var snapshot = new SnapshotNormalizer().Normalize(raw, game, job.AccountId, connection.OpenId!, connection.Area!.Value, manifest);
             job.Issues = snapshot.Issues; job.Collected = snapshot.Characters.Count;
             if (!snapshot.Valid) throw new CollectorFailure("validation_failed", "수집 데이터 검증에 실패했습니다. 이전 정상 스펙을 유지합니다.");
-            lock (gate) { token.ThrowIfCancellationRequested(); store.Commit(snapshot, job, cancellation: token); }
+            lock (gate) {
+                token.ThrowIfCancellationRequested(); store.Commit(snapshot, job, cancellation: token);
+                if (!string.IsNullOrWhiteSpace(raw.Nickname)) { connection.Nickname=raw.Nickname.Trim();store.SaveConnection(connection); }
+                if (raw.ProfileIconId is >=0) {
+                    if(connection.ProfileIconId!=raw.ProfileIconId)connection.AvatarPath=null;
+                    connection.ProfileIconId=raw.ProfileIconId;
+                    if(raw.ProfileIconId>0 && raw.AvatarPath==$"/editor/assets/account-avatars/{raw.ProfileIconId}.png")connection.AvatarPath=raw.AvatarPath;
+                    store.SaveConnection(connection);
+                }
+            }
             // Image refresh is independent; a CDN outage cannot invalidate a successfully stored account snapshot.
             if (Environment.GetEnvironmentVariable("NIKKE_TEST_FIXTURE") is null) presentation?.Start(false);
         }

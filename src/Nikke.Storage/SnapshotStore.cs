@@ -143,7 +143,7 @@ public sealed class SnapshotStore
             if (job is not null && previous is not null) CarryOverrides(previous, snapshot);
             snapshot.PreviousId = previous?.Id; snapshot.Revision = (previous?.Revision ?? 0) + 1;
             snapshot.SavedAt = DateTimeOffset.UtcNow;
-            snapshot.ContentHash = Wire.Hash(Wire.Canonical(JsonNode.Parse(Wire.Serialize(new { snapshot.Characters, snapshot.Consoles, snapshot.SynchroLevel, snapshot.GameSnapshotId }))));
+            snapshot.ContentHash = Wire.Hash(Wire.Canonical(JsonNode.Parse(Wire.Serialize(new { snapshot.Characters, snapshot.Consoles, snapshot.CubeLevels, snapshot.SynchroLevel, snapshot.GameSnapshotId }))));
             snapshot.Changes = Changes(previous, snapshot);
             Execute(db, tx, "INSERT INTO snapshots VALUES($id,$account,$revision,$json)", ("$id", snapshot.Id), ("$account", snapshot.AccountId), ("$revision", snapshot.Revision), ("$json", Wire.Serialize(snapshot)));
             Execute(db, tx, "INSERT INTO accounts VALUES($id,$snapshot) ON CONFLICT(id) DO UPDATE SET current_id=excluded.current_id", ("$id", snapshot.AccountId), ("$snapshot", snapshot.Id));
@@ -168,6 +168,8 @@ public sealed class SnapshotStore
             if (field == "synchro") next.SynchroLevel = old.SynchroLevel;
             else if (field.StartsWith("console:") && old.Consoles?.TryGetValue(field[8..], out var level) == true)
             { next.Consoles ??= []; next.Consoles[field[8..]] = level; }
+            else if (field.StartsWith("cube:") && old.CubeLevels.TryGetValue(field[5..], out var cubeLevel))
+            { SetCubeLevel(next, field[5..], cubeLevel); }
             next.AccountStatSources[field] = source; next.AccountStatsSource = "api+manual";
         }
     }
@@ -189,7 +191,11 @@ public sealed class SnapshotStore
             }
             else
             {
-                if (request.SynchroLevel is null && request.Consoles is null) throw new ArgumentException("보완 값을 입력하세요.");
+                if (request.SynchroLevel is null && request.Consoles is null && request.CubeLevels is null) throw new ArgumentException("보완 값을 입력하세요.");
+                if(request.CubeLevels?.Any(x=>!int.TryParse(x.Key,out var tid)||tid<=0||x.Value<1||x.Value>15)==true)
+                    throw new ArgumentException("큐브 레벨 범위를 확인하세요.");
+                if(request.CubeLevels is not null)foreach(var (id,level) in request.CubeLevels)
+                { SetCubeLevel(next,id,level);next.AccountStatSources["cube:"+id]="manual"; }
                 if (request.SynchroLevel is < 1 or > 10000 || request.Consoles?.Any(x => x.Value < 0 || x.Value > 10000 || !new[] { "1001", "1101", "1102", "1103", "1201", "1202", "1203", "1204", "1205" }.Contains(x.Key)) == true) throw new ArgumentException("계정 스탯 범위를 확인하세요.");
                 if (request.SynchroLevel.HasValue && request.SynchroLevel != next.SynchroLevel)
                 { next.SynchroLevel = request.SynchroLevel; next.AccountStatSources["synchro"] = "manual"; }
@@ -204,6 +210,12 @@ public sealed class SnapshotStore
             }
             return Commit(next, expectedId: current.Id);
         }
+    }
+    private static void SetCubeLevel(AccountSnapshot snapshot,string id,int level)
+    {
+        snapshot.CubeLevels[id]=level;
+        for(var i=0;i<snapshot.Characters.Count;i++)
+            if(snapshot.Characters[i].CubeId==id)snapshot.Characters[i]=snapshot.Characters[i] with { CubeLevel=level };
     }
     private static List<string> Changes(AccountSnapshot? previous, AccountSnapshot next)
     {
@@ -222,6 +234,7 @@ public sealed class SnapshotStore
         }
         foreach (var removed in previous.Characters.Where(x => next.Characters.All(n => n.CharacterId != x.CharacterId))) changes.Add($"{removed.Name}: 로스터에서 제외");
         if (previous.SynchroLevel != next.SynchroLevel || Wire.Serialize(previous.Consoles) != Wire.Serialize(next.Consoles)) changes.Add("계정 스탯 변경");
+        if(Wire.Serialize(previous.CubeLevels)!=Wire.Serialize(next.CubeLevels))changes.Add("계정 큐브 레벨 변경");
         if (changes.Count == 0) changes.Add("스펙 변경 없음");
         return changes;
     }

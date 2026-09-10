@@ -1,20 +1,26 @@
 /* Product adapters around the unchanged Local Lab editor.css. */
+.sidebar-brand .brand-icon{object-fit:contain;transform:none;background:none;flex-shrink:0;}
+.account-profile-avatar{overflow:hidden;flex-shrink:0;background:#edf0f4;}
+.account-profile-avatar img{display:block;width:100%;height:100%;object-fit:contain;}
+/* User-requested growth order: three limit-break stars, then core 1+ only. */
+.growth-progress-row{grid-column:1/-1;}
+.growth-progress-controls{display:flex;align-items:center;justify-content:center;gap:10px;}
+.growth-progress-controls>button{width:32px;min-height:32px;padding:0;background:#19aaf0;border-color:#0a9ee8;color:#fff;font-size:1.1rem;}
+.growth-joined{display:flex;align-items:center;gap:0;}
+.growth-joined .growth-stars{gap:0;}
+.growth-joined .growth-stars button{width:30px;min-height:30px;padding:0;}
+.growth-joined .detail-core-evolve{width:38px;height:38px;margin:0;font-size:.65rem;}
+.equipment-manufacturer{display:flex!important;align-items:center;gap:6px;font-size:.7rem;}
+.equipment-manufacturer input{width:auto;}
+#character-cube-editor{margin-top:16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+.growth-stars button:disabled{opacity:1;}
 .simul-status { position:fixed;bottom:0;left:0;right:0;z-index:30;background:#edf5fa;border-top:1px solid #d4e3ed;padding:8px 24px;font-size:13px;min-height:34px; }
 .simul-status:empty{display:none;}
 .workspace {padding-bottom:40px;}
 .account-card {width:100%;display:flex;align-items:center;gap:18px;text-align:left;}
 .account-card>span:nth-child(2){display:grid;gap:6px;flex:1;}
 .account-card.selected{border-color:var(--primary);}
-.detail-system-icon{width:30px;height:30px;object-fit:contain;margin-right:12px;}
-.detail-system-icon[src*="burst-"]{background:#32363b;padding:6px;}
-.growth-panel{display:flex;flex-wrap:wrap;gap:18px;align-items:center;}
-.growth-panel>span{display:grid;gap:8px;}
 .simul-large{font-size:28px;}
-.simul-option-row{grid-template-columns:minmax(0,1fr) 75px 95px;align-items:center;}
-.simul-option-row>span,.simul-option-row>strong{font-size:13px;}
-.simul-option-row>strong{text-align:right;color:var(--overload-accent);}
-.equipment-icon{color:white;font-weight:800;}
-.equipment-enhancement input[readonly]{width:100%;text-align:center;}
 .simul-team{display:flex;flex-wrap:wrap;gap:25px;}
 .simul-team label,.action-row label{display:flex;align-items:center;gap:8px;}
 input[type=checkbox]{width:auto;}
@@ -23,16 +29,6 @@ input[type=checkbox]{width:auto;}
 .simul-result-grid dl div{display:flex;justify-content:space-between;gap:12px;font-size:13px;}
 .simul-result-grid dt{overflow-wrap:anywhere;}.simul-result-grid dd{margin:0;white-space:nowrap;}
 pre{max-height:400px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;}
-.calculation .fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;}
-.calculation .fields label{display:grid;gap:6px;}
-.calculation .hit-flags{display:flex;flex-wrap:wrap;gap:14px;margin:18px 0;}
-.calculation .hit-flags label{display:flex;align-items:center;gap:6px;}
-.calculation .final-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
-.calculation .final-stats>div{padding:20px;background:#f0f6fb;border-radius:12px;}
-.calculation .final-stats dd{margin:6px 0 0;font-size:24px;font-weight:800;}
-.calculation .muted{color:var(--muted);font-size:13px;}.calculation details{margin-top:18px;}
-.calculation .notice{color:#a35c0a;}
-.calculation table{width:100%;border-collapse:collapse;}.calculation th,.calculation td{padding:8px;text-align:left;}
-.calculation h3{margin:0 0 16px;}
 /* The source's <=820 and <=1050 rules hide labels and icons simultaneously. */
 @media(max-width:1050px){.tab-button span:last-child{display:inline;}.sidebar-brand>div:last-child{display:block;}.tab-button{width:auto;justify-content:center;}.main-nav{overflow-x:auto;}}
+@media(max-width:500px){.nikke-detail{margin-left:-10px;margin-right:-10px;}}

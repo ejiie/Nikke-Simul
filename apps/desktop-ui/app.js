@@ -1,5 +1,6 @@
+import { mountAccountCards, accountCubeDrafts } from './local-lab-account.js';
 import { connectRenderer, renderNikkeCards, appendPortrait } from './cards.js';
-import { mountCalculation } from './generated/calculation.js';
+import { renderLocalLabDetail, updateDetailReport, detailPreviewFailed, detailDirty } from './local-lab-adapter.js';
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -7,8 +8,7 @@ const num=v=>v==null?'미확인':Number(v).toLocaleString('ko-KR',{maximumFracti
 const time=v=>new Date(v).toLocaleString('ko-KR');
 const parts={head:'머리',torso:'몸통',arm:'팔',leg:'다리'};
 const consoles={'1001':'공용','1101':'화력형','1102':'방어형','1103':'지원형','1201':'엘리시온','1202':'미실리스','1203':'테트라','1204':'필그림','1205':'어브노멀'};
-const optionNames={StatAtk:'공격력',IncElementDmg:'우월 코드',StatAmmoLoad:'장탄 수',StatCritical:'크리티컬 확률',StatCriticalDamage:'크리티컬 대미지',StatChargeTime:'차지 시간',StatChargeDamage:'차지 대미지',StatAccuracyCircle:'명중',IncHurtDef:'방어력',StatDef:'방어력'};
-const pageTitles={home:['지휘관 관리','홈'],account:['계정 정보','계정 설정'],nikkes:['전체 니케','니케 관리'],raid:['대미지 검산','솔로 레이드'],import:['블라블라 연결','계정 가져오기'],advanced:['문제 해결','고급 진단']};
+const pageTitles={home:['NIKKE SIMUL','홈'],account:['계정 정보','계정 설정'],nikkes:['전체 니케','니케 관리'],raid:['대미지 검산','솔로 레이드'],import:['블라블라 연결','계정 가져오기'],advanced:['문제 해결','고급 진단']};
 const state={presentation:{characters:[]},presentationByCharacter:new Map(),combatPowerByCharacter:new Map(),currentProfile:null,selectedNikkeUid:null};
 let boot={token:'',connections:[],jobs:[]},snapshot=null,busy=false,refreshing=false;
 let connectionId=localStorage.getItem('nikke-sync-connection'),snapshotId=null,selectedPage='home',detailSequence=0;
@@ -16,6 +16,7 @@ let imageStatus='idle',imageRevision=0,lastReplay=null;
 const build=id=>snapshot?.characters.find(c=>c.characterId===id);
 const connection=()=>boot.connections.find(c=>c.id===connectionId)??boot.connections.find(c=>c.status==='ready')??boot.connections[0];
 const job=()=>boot.jobs.find(j=>j.connectionId===connection()?.id);
+const accountAvatar=c=>`<span class="commander-avatar account-profile-avatar">${c?.avatarPath?`<img src="${esc(c.avatarPath)}" alt="${esc(c.nickname||'계정')} 대표 캐릭터">`:'<span aria-label="대표 이미지 미수집">—</span>'}</span>`;
 const active=j=>j&&['queued','running','cancelling'].includes(j.status);
 connectRenderer({state,effectiveProfileValue:(field,id)=>({integerValue:build(id)?.[field==='limit_break'?'limitBreak':'core']}),
   configuredCharacterLevel:id=>build(id)?.level,openNikkeDetail});
@@ -60,10 +61,12 @@ async function refresh(force=false){
     if(selected){connectionId=selected.id;localStorage.setItem('nikke-sync-connection',selected.id);}
     const next=selected?.accountId?await api(`/accounts/${selected.accountId}/snapshot`):null;
     if(force||next?.id!==snapshotId){
+      const powers=next?await api(`/snapshots/${next.id}/combat-powers`):{};
+      state.combatPowerByCharacter=new Map(Object.entries(powers));
       snapshot=next;snapshotId=next?.id??null;
       state.currentProfile={values:(snapshot?.characters??[]).map(c=>({fieldCode:'character_level',subjectUid:c.characterId}))};
       includeSavedCharacters();renderNikkeCards();renderAccount();renderDiagnostics();
-      if(state.selectedNikkeUid&&!$('nikke-detail').hidden)await openNikkeDetail(state.selectedNikkeUid,false);
+      if(state.selectedNikkeUid&&!$('nikke-detail').hidden&&!detailDirty())await openNikkeDetail(state.selectedNikkeUid,false);
     }
     renderAccounts();renderSync();
     const update=await api('/presentation/status');
@@ -77,9 +80,9 @@ async function refresh(force=false){
 }
 function renderAccounts(){
   const current=connection();
-  $('top-account-name').textContent=current?`계정 ${boot.connections.indexOf(current)+1}`:'계정을 연결하세요';
+  $('top-account-name').textContent=current?(current.nickname?.trim()||'닉네임 미수집'):'계정을 연결하세요';
   $('top-account-detail').textContent=current?.choices.find(c=>c.area===current.area)?.label??'로컬 전용';
-  $('account-list').innerHTML=boot.connections.length?boot.connections.map((c,i)=>`<li><button type="button" class="account-card ${c.id===current?.id?'selected':''}" data-connection="${esc(c.id)}"><span class="commander-avatar">C</span><span><strong>계정 ${i+1} · ${esc(c.choices.find(a=>a.area===c.area)?.label??'연결 중')}</strong><small>${c.id===current?.id&&snapshot?`보유 ${snapshot.characters.length}명 · 싱크로 Lv. ${num(snapshot.synchroLevel)}`:esc(c.message??'저장된 스펙 열기')}</small></span><span class="status-pill neutral">${c.id===current?.id?'선택됨':'선택'}</span></button></li>`).join(''):'<li class="surface empty-state">아직 연결된 계정이 없습니다. 계정 가져오기에서 블라블라에 로그인하세요.</li>';
+  $('account-list').innerHTML=boot.connections.length?boot.connections.map(c=>`<li><button type="button" class="account-card ${c.id===current?.id?'selected':''}" data-connection="${esc(c.id)}">${accountAvatar(c)}<span><strong>${esc(c.nickname?.trim()||'닉네임 미수집')} · ${esc(c.choices.find(a=>a.area===c.area)?.label??'연결 중')}</strong><small>${c.id===current?.id&&snapshot?`보유 ${snapshot.characters.length}명 · 싱크로 Lv. ${num(snapshot.synchroLevel)}`:esc(c.message??'저장된 스펙 열기')}</small></span><span class="status-pill neutral">${c.id===current?.id?'선택됨':'선택'}</span></button></li>`).join(''):'<li class="surface empty-state">아직 연결된 계정이 없습니다. 계정 가져오기에서 블라블라에 로그인하세요.</li>';
   $('account-list').querySelectorAll('[data-connection]').forEach(b=>b.onclick=()=>act(async()=>{connectionId=b.dataset.connection;localStorage.setItem('nikke-sync-connection',connectionId);}));
 }
 function renderSync(){
@@ -102,28 +105,44 @@ function renderSync(){
 function renderAccount(){
   const target=$('account-content');
   if(!snapshot){target.innerHTML='<div class="surface empty-state">계정을 연결하면 싱크로와 리사이클 룸 정보가 표시됩니다.</div>';return;}
-  target.innerHTML=`<div class="section-heading"><div><p class="eyebrow">계정 정보</p><h2>계정 설정</h2><p>수집 값에 누락이 있으면 실제 게임 값을 입력해 보완하세요.</p></div><span class="status-pill neutral">저장 ${snapshot.revision}회</span></div><form id="account-form"><article class="surface profile-summary"><div class="commander-avatar">C</div><div class="profile-name-block"><strong>현재 계정</strong><small>마지막 수집 ${time(snapshot.observedAt)}</small></div><label>싱크로 레벨<input name="synchro" type="number" min="1" max="10000" value="${snapshot.synchroLevel??''}"></label></article><article class="surface console-panel"><div class="card-title"><div><h3>리사이클 룸 콘솔</h3><p>빈칸은 미확인 값입니다.</p></div></div><div class="form-grid">${Object.entries(consoles).map(([id,name])=>`<label>${name}<input name="console-${id}" type="number" min="0" max="10000" value="${snapshot.consoles?.[id]??''}"></label>`).join('')}</div></article><div class="account-save-bar surface"><div><strong>변경 사항 저장</strong><span>새 스냅샷으로 저장합니다.</span></div><button class="primary" type="submit">Save</button></div></form>`;
+  target.innerHTML=`<div class="section-heading"><div><p class="eyebrow">계정 정보</p><h2>계정 설정</h2><p>수집 값에 누락이 있으면 실제 게임 값을 입력해 보완하세요.</p></div><span class="status-pill neutral">저장 ${snapshot.revision}회</span></div><form id="account-form"><article class="surface profile-summary">${accountAvatar(connection())}<div class="profile-name-block"><strong>현재 계정</strong><small>마지막 수집 ${time(snapshot.observedAt)}</small></div><label>싱크로 레벨<input name="synchro" type="number" min="1" max="10000" value="${snapshot.synchroLevel??''}"></label></article><div id="account-cards"></div><div class="account-save-bar surface"><div><strong>변경 사항 저장</strong><span>새 스냅샷으로 저장합니다.</span></div><button class="primary" type="submit">Save</button></div></form>`;
+  mountAccountCards($('account-cards'),snapshot,state.presentation);
   const expected=snapshot.id,account=snapshot.accountId;
-  $('account-form').onsubmit=e=>{e.preventDefault();const form=new FormData(e.currentTarget),values={};for(const id of Object.keys(consoles)){const v=form.get('console-'+id);if(v!=='')values[id]=Number(v);}act(async()=>{await api(`/accounts/${account}/overrides`,'POST',{expectedSnapshotId:expected,synchroLevel:form.get('synchro')===''?null:Number(form.get('synchro')),consoles:values});status('계정 스탯을 저장했습니다.');});};
+  $('account-form').onsubmit=e=>{e.preventDefault();const form=new FormData(e.currentTarget),values={};for(const id of Object.keys(consoles)){const v=form.get('console-'+id);if(v!==null&&v!=='')values[id]=Number(v);}act(async()=>{await api(`/accounts/${account}/overrides`,'POST',{expectedSnapshotId:expected,synchroLevel:form.get('synchro')===''?null:Number(form.get('synchro')),consoles:values,cubeLevels:accountCubeDrafts()});status('계정 스탯을 저장했습니다.');});};
 }
 async function openNikkeDetail(id,scroll=true){
   const sequence=++detailSequence;state.selectedNikkeUid=id;
   const item=state.presentationByCharacter.get(id),c=build(id);
+  renderLocalLabDetail(null,item);
+  $('equipment-summary').textContent='스펙을 불러오는 중…';
   $('nikke-browser').hidden=true;$('nikke-detail').hidden=false;
   if(scroll)window.scrollTo({top:0,behavior:'instant'});
   $('nikke-selected-name').textContent=item?.displayName??c?.name??'이름 미확인';
   const portrait=$('selected-nikke-portrait');portrait.replaceChildren();appendPortrait(portrait,item?.portraitPath,item?.displayName);
-  $('nikke-selected-tags').innerHTML=[['job',item?.combatClassCode],['burst',item?.burstStep===5?'p':item?.burstStep],['code',item?.elementCode]].filter(x=>x[1]).map(([type,code])=>`<img class="detail-system-icon" src="/editor/assets/ui/${type}-${esc(code)}.png" alt="${esc(code)}">`).join('');
-  $('nikke-core-panel').innerHTML=c?`<span>레벨 <strong>${num(c.level)}</strong></span><span>한계돌파 <strong>${num(c.limitBreak)}</strong></span><span>코어 강화 <strong>${c.core===7?'MAX':num(c.core)}</strong></span><span>호감도 <strong>${num(c.bond)}</strong></span>`:'<p>미보유 니케</p>';
-  $('equipment-summary').replaceChildren();$('equipment-list').replaceChildren();$('skill-editor').replaceChildren();$('collection-editor').replaceChildren();
-  if(!c){$('equipment-summary').textContent='보유 계정 스펙이 없습니다.';return;}
-  $('equipment-list').innerHTML=c.equipment.map(eq=>`<article class="surface equipment-card"><div class="equipment-card-header"><span class="equipment-icon">${esc(parts[eq.slot]??eq.slot)}<span class="equipment-tier-badge">T${num(eq.tier)}</span></span><div class="equipment-stat-panel"><strong>${esc(parts[eq.slot]??eq.slot)} 장비</strong><p>수집된 장비 · T${num(eq.tier)}</p></div><label class="equipment-enhancement">강화<input value="${num(eq.level)}" readonly aria-label="${esc(parts[eq.slot])} 강화"></label></div><div class="overload-list"><strong class="equipment-column-title overload-column-title">장비 효과</strong><small class="equipment-effect-notice">효과의 수치는 전투 진입 시 적용됩니다.</small>${eq.lines.map(line=>`<div class="overload-row simul-option-row overload-level-${line.valueTier??0}"><span>${esc(line.presence==='absent'?'옵션 없음':optionNames[line.optionType]??line.optionType??'미확인')}</span><strong>${line.presence==='absent'?'—':line.normalizedValue==null?'미확인':num(line.normalizedValue*(line.unit==='ratio'?100:1))+(line.unit==='ratio'?'%':'')}</strong><select aria-label="${esc(parts[eq.slot])} ${line.lineIndex}줄 잠금" data-lock-slot="${esc(eq.slot)}" data-line="${line.lineIndex}" ${line.presence!=='present'?'disabled':''}>${[['unknown','미확인'],['locked','잠금'],['unlocked','해제']].map(([v,l])=>`<option value="${v}" ${line.lockState===v?'selected':''}>${l}</option>`).join('')}</select></div>`).join('')}</div></article>`).join('');
-  const expected=snapshot.id,account=snapshot.accountId;
-  $('equipment-list').querySelectorAll('[data-lock-slot]').forEach(select=>select.onchange=()=>{const eq=c.equipment.find(x=>x.slot===select.dataset.lockSlot);act(async()=>{await api(`/accounts/${account}/overrides`,'POST',{expectedSnapshotId:expected,characterId:id,slot:eq.slot,lineIndex:Number(select.dataset.line),lockState:select.value,fingerprint:eq.fingerprint});status('잠금 상태를 새 스냅샷에 저장했습니다.');});});
-  $('skill-editor').innerHTML=Object.entries(c.skills).map(([slot,lv])=>`<article class="surface skill-card"><p class="eyebrow">${slot==='3'?'BURST':'SKILL '+esc(slot)}</p><h3>${slot==='3'?'버스트 스킬':'스킬 '+esc(slot)}</h3><strong class="simul-large">Lv. ${num(lv)}</strong></article>`).join('');
-  $('collection-editor').innerHTML=`<h3>소장품·하모니 큐브</h3><div class="form-grid"><div>소장품 등급 <strong>${esc(c.collectionGrade??'미확인')}</strong></div><div>소장품 레벨 <strong>${num(c.collectionLevel)}</strong></div><div>애장품 단계 <strong>${num(c.favoriteStage)}</strong></div><div>큐브 레벨 <strong>${num(c.cubeLevel)}</strong></div></div>`;
-  mountCalculation($('equipment-summary'),snapshot.id,id,api);
-  if(sequence===detailSequence)$('equipment-summary').querySelector('#load-stats')?.click();
+  const expected=snapshot?.id,account=snapshot?.accountId;
+  let previewTimer;
+  const handlers={accountId:account,cubeLevels:snapshot?.cubeLevels,
+    onChange:(draft,revision)=>{
+      clearTimeout(previewTimer);
+      previewTimer=setTimeout(async()=>{
+        try{const report=await api(`/accounts/${account}/characters/${id}/preview`,'POST',{expectedSnapshotId:expected,build:draft});
+          if(sequence===detailSequence)updateDetailReport(report,revision);
+        }catch(error){if(sequence===detailSequence){detailPreviewFailed(error.message,revision);status(error.message);}}
+      },200);
+    },
+    onSave:async draft=>{
+      clearTimeout(previewTimer);
+      await api(`/accounts/${account}/characters/${id}/edit`,'POST',{expectedSnapshotId:expected,build:draft});
+      renderLocalLabDetail(null,item); // End the saved draft before refreshing the new revision.
+      await refresh(true);status('변경한 스펙을 새 스냅샷으로 저장했습니다.');
+    }};
+  if(c){
+    try{
+      const report=await api(`/snapshots/${snapshot.id}/characters/${id}/stats`);
+      if(sequence===detailSequence)renderLocalLabDetail(c,item,state.combatPowerByCharacter.get(id),report,state.presentation,handlers);
+    }catch(error){if(sequence===detailSequence){renderLocalLabDetail(c,item,state.combatPowerByCharacter.get(id),null,state.presentation,handlers);detailPreviewFailed(error.message,0);status(error.message);}}
+  }else renderLocalLabDetail(null,item);
+
 }
 function renderDiagnostics(){
   const issues=(snapshot?.issues??[]).filter(i=>i.code!=='duplicate_identical');

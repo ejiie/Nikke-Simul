@@ -118,6 +118,18 @@ def checked(payload, field=None):
         raise CollectorError("schema", "필수 계정 데이터 필드가 없습니다.")
     return data
 
+def profile_nickname(payload, area):
+    info=(payload.get('data') or {}).get('basic_info') if payload.get('code')==0 else None
+    if not isinstance(info,dict) or str(info.get('area_id'))!=str(area):return None
+    name=info.get('nickname')
+    return name.strip() if isinstance(name,str) and name.strip() else None
+
+def profile_icon_id(payload,area):
+    info=(payload.get('data') or {}).get('basic_info') if payload.get('code')==0 else None
+    if not isinstance(info,dict) or str(info.get('area_id'))!=str(area):return None
+    value=info.get('icon_id')
+    return value if type(value) is int and value>=0 else None
+
 async def login(args):
     from playwright.async_api import async_playwright
     async with async_playwright() as p:
@@ -183,6 +195,20 @@ async def collect(args):
         body = {"intl_open_id": args.openid, "nikke_area_id": args.area}
         try:
             first = checked(await post(client, "Game/GetUserCharacters", body, raw["responses"]), "characters")
+            try:
+                profile=await post(client,"Game/GetUserProfileBasicInfo",body,raw["responses"])
+                raw['nickname']=profile_nickname(profile,args.area)
+                raw['profileIconId']=profile_icon_id(profile,args.area)
+                if raw['profileIconId']:
+                    try:
+                        from profile_avatar_assets import prepare
+                        raw['avatarPath']=await asyncio.to_thread(prepare,raw['profileIconId'],Path(args.session).parent.parent/'presentation')
+                    except Exception:
+                        raw['avatarPath']=None  # Artwork availability does not invalidate collected specs.
+            except CollectorError as error:
+                if error.code in ('reauth_required','account_mismatch'):raise
+                # Optional display metadata must not discard an otherwise valid roster.
+                raw['nickname']=None
             raw["characters"] = first["characters"]
             codes = [c["name_code"] for c in first["characters"]]
             if not codes:

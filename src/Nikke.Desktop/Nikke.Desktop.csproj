@@ -9,6 +9,7 @@
     <AssemblyName>Nikke Simul</AssemblyName>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon Condition="Exists('../../data/local/desktop-branding/app.ico')">../../data/local/desktop-branding/app.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup><PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4191.47" /></ItemGroup>
   <Target Name="RemoveUnusedWebViewWpfReference" BeforeTargets="ResolveAssemblyReferences">

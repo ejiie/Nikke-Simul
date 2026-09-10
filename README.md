@@ -2,7 +2,11 @@
 
 Solo Raid의 대미지 시뮬레이션, 비중복 5덱 선정, 장비별 육성 효율 분석을 위한 프로젝트입니다.
 
+[니케 PvE 전투·육성 조사](docs/nikke-pve-combat-growth-research.ko.md): 무기·버스트·스탯·장비·큐브·소장품·레이드 시스템과 현재 구현의 차이를 정리했습니다. 확인일 2026-09-09.
+
 **Windows 실행 파일 UI:** Nikke-Local-Lab의 화면·카드·상세 탭과 WinForms/WebView2 창을 이식했습니다. [이식 범위·이미지 출처·실행 방법](docs/desktop-ui-migration.ko.md).
+
+**스펙 편집:** 상세 화면에서 장비·OL·스킬·성장·소장품·큐브를 변경하고 Save로 저장합니다. 공식 장비 이미지와 Local Lab 선택 UI를 사용하며, 별 3개와 코어 배지를 붙여 ±로 조정합니다. [편집·저장 범위와 출처](docs/desktop-spec-editor.ko.md).
 
 **P03 진행 중:** 리타·블랑·누아르·앨리스·모더니아의 공식 스킬 효과를 시간축에 연결했습니다. 실제 계정 스킬 레벨로 버프·추가타·무기 변경을 실행하고 효과별 결과를 API와 실행 파일의 솔로 레이드 검산 화면으로 저장합니다. [스킬 구현 범위·출처](docs/p03-skill-runtime.ko.md) · [진행 기록](docs/p03-progress.ko.md) · [틱 대미지 측정 조건](docs/p03-measurement-guide.ko.md). 현재 버스트 시전과 풀버스트 구간은 지정 조건이며 실제 팀 게이지·보스 기믹·실측 대조는 후속 작업입니다.
 

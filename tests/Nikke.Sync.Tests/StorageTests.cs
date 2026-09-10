@@ -63,6 +63,27 @@ public class StorageTests : IDisposable
     {
         store.Commit(Prepared()); Assert.Null(store.Current("another-account"));
     }
+    [Fact] public void Cube_level_is_shared_and_revisioned_without_changing_source_snapshot()
+    {
+        var prepared=Prepared();
+        prepared.Characters.Add(prepared.Characters[0] with {CharacterId="102"});
+        var first=store.Commit(prepared);
+        var next=store.ApplyOverride("account",new(first.Id,null,null,null,null,null,CubeLevels:new(){["5"]=10}));
+        Assert.All(next.Characters,c=>Assert.Equal(10,c.CubeLevel));
+        Assert.Equal(10,next.CubeLevels["5"]);
+        Assert.All(store.Snapshot(first.Id)!.Characters,c=>Assert.Equal(7,c.CubeLevel));
+        Assert.NotEqual(first.ContentHash,next.ContentHash);
+        Assert.Equal("manual",next.AccountStatSources["cube:5"]);
+        Assert.Throws<ArgumentException>(()=>store.ApplyOverride("account",new(next.Id,null,null,null,null,null,CubeLevels:new(){["5"]=16})));
+    }
+    [Fact] public void Fresh_cube_observation_replaces_manual_level_on_sync()
+    {
+        var first=store.Commit(Prepared());
+        store.ApplyOverride("account",new(first.Id,null,null,null,null,null,CubeLevels:new(){["5"]=10}));
+        var next=store.Commit(Prepared(),store.CreateJob(Connected()).Job);
+        Assert.Equal(7,next.CubeLevels["5"]);Assert.Equal(7,next.Characters[0].CubeLevel);
+        Assert.Equal("api",next.AccountStatSources["cube:5"]);
+    }
     [Fact] public void Raw_manifest_and_game_snapshot_ids_are_immutable()
     {
         var id = Guid.NewGuid().ToString("N"); var raw = Fixtures.Raw(); store.SaveRaw(id, raw, Fixtures.Game());
@@ -77,6 +98,21 @@ public class StorageTests : IDisposable
         var next = store.Commit(Prepared(Fixtures.Raw() with { Outpost = null }), store.CreateJob(Connected()).Job);
         Assert.Equal(450, next.SynchroLevel); Assert.Equal("manual", next.AccountStatSources["synchro"]);
         Assert.Null(next.Consoles); // Unchanged API value was not silently promoted to manual.
+    }
+    [Fact] public void Character_edit_publishes_a_revision_and_sync_restores_observed_build()
+    {
+        var first=store.Commit(Prepared());
+        var edited=CharacterEditService.Preview(first,"101",new(first.Id,first.Characters[0] with {Level=500}),CharacterEditTests.Catalog());
+        edited.Id=Guid.NewGuid().ToString("N");
+        var next=store.Commit(edited,expectedId:first.Id);
+        Assert.Equal(first.Id,next.PreviousId);Assert.Equal(500,next.Characters[0].Level);
+        Assert.Equal("manual",next.Characters[0].BuildSource);
+        Assert.Equal(400,store.Snapshot(first.Id)!.Characters[0].Level);
+        Assert.Equal(first.RawManifestId,next.RawManifestId);
+        Assert.Throws<InvalidOperationException>(()=>store.Commit(Prepared(),expectedId:first.Id));
+        var synced=store.Commit(Prepared(),store.CreateJob(Connected()).Job);
+        Assert.Equal(400,synced.Characters[0].Level);Assert.Equal("api",synced.Characters[0].BuildSource);
+        Assert.Equal(500,store.Snapshot(next.Id)!.Characters[0].Level);
     }
     public void Dispose()
     {

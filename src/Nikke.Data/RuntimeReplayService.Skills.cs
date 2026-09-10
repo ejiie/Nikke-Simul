@@ -16,7 +16,8 @@ public sealed partial class RuntimeReplayService
 {
     private static readonly JsonSerializerOptions OfficialJson = new() { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
     private SkillGraph Graph() => new(catalog["functions"]!.AsObject().ToDictionary(p=>int.Parse(p.Key),p=>p.Value!.Deserialize<SkillFunction>(OfficialJson)!),
-        catalog["characterSkills"]!.AsObject().ToDictionary(p=>int.Parse(p.Key),p=>p.Value!.Deserialize<SkillDefinition>(OfficialJson)!));
+        catalog["characterSkills"]!.AsObject().ToDictionary(p=>int.Parse(p.Key),p=>p.Value!.Deserialize<SkillDefinition>(OfficialJson)!))
+        { GaugeConstants = catalog["gaugeConstants"]?.Deserialize<GaugeSourceConstants>(Wire.Json) };
 
     private SkillLoadout Loadout(string id, IReadOnlyDictionary<string,int> levels)
     {
@@ -32,14 +33,19 @@ public sealed partial class RuntimeReplayService
         // Official public role metadata is preferred; old catalog fallback is explicitly pinned upstream metadata.
         string squad = source["sourceRole"]?["squad"]?.GetValue<string>() ?? source["upstreamCharacter"]!["squad"]!.GetValue<string>();
         int burstCs=source["sourceRole"]?["burstDurationCs"]?.GetValue<int>() ?? source["official"]!["burst_duration"]!.GetValue<int>();
-        return new(squad,levels,slots) { FullBurstDurationFrames=SkillUnits.Frames(burstCs) };
+        return new(squad,levels,slots) { FullBurstDurationFrames=SkillUnits.Frames(burstCs),
+            BurstConnection=source["burstConnection"]?.Deserialize<BurstConnectionProfile>(Wire.Json) };
     }
     private object SkillSupport(string id)
     {
         var graph=Graph();
         var levels=Enumerable.Range(1,10).Select(lv=>new { level=lv, unsupported=SkillReplay.CheckSupport(
             Loadout(id,new Dictionary<string,int> { ["skill1"]=lv,["skill2"]=lv,["burst"]=lv }),graph) }).ToArray();
-        return new { allLevelsExecutable=levels.All(l=>l.unsupported.Count==0), levels, gameVerified=false };
+        var profile=Loadout(id,new Dictionary<string,int> { ["skill1"]=1,["skill2"]=1,["burst"]=1 }).BurstConnection;
+        return new { allLevelsExecutable=levels.All(l=>l.unsupported.Count==0), levels, gameVerified=false,
+            connectionReady=levels.All(l=>l.unsupported.Count==0), burstSourceAvailable=profile is not null && graph.GaugeConstants is not null,
+            burstConnection=profile, gaugeFormulaStatus=graph.GaugeConstants?.FormulaStatus ?? "missing",
+            automaticCycleReady=false };
     }
     public SavedSkillReplay RunSkills(AccountSnapshot snapshot, SkillReplayRequest request, CalculationService calculation)
     {

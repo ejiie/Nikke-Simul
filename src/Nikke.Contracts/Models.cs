@@ -23,6 +23,9 @@ public record Issue(string Severity, string Code, string Path, string Message);
 public record AreaChoice(int Area, string Label, int CharacterCount, string OpenId);
 public sealed record AccountConnection
 {
+    public int? ProfileIconId { get; set; }
+    public string? AvatarPath { get; set; }
+    public string? Nickname { get; set; }
     public string Id { get; init; } = Guid.NewGuid().ToString("N");
     public string Status { get; set; } = "awaiting_login";
     public string? OpenId { get; set; }
@@ -61,6 +64,9 @@ public sealed record GameSnapshot
 }
 public sealed record RawEnvelope
 {
+    public int? ProfileIconId { get; init; }
+    public string? AvatarPath { get; init; }
+    public string? Nickname { get; init; }
     public int SchemaVersion { get; init; } = 1;
     public string Source { get; init; } = "blablalink";
     public string CollectorVersion { get; init; } = "p01.1";
@@ -101,6 +107,7 @@ public sealed record Equipment
 }
 public sealed record CharacterBuild
 {
+    public string BuildSource { get; init; } = "api";
     public string CharacterId { get; init; } = "";
     public string Name { get; init; } = "";
     public bool CatalogKnown { get; init; }
@@ -139,6 +146,7 @@ public sealed record AccountSnapshot
     public string ContentHash { get; set; } = "";
     public int? SynchroLevel { get; set; }
     public Dictionary<string, int>? Consoles { get; set; }
+    public Dictionary<string, int> CubeLevels { get; set; } = [];
     public string AccountStatsSource { get; set; } = "api";
     public Dictionary<string, string> AccountStatSources { get; set; } = [];
     public List<CharacterBuild> Characters { get; init; } = [];
@@ -148,6 +156,8 @@ public sealed record AccountSnapshot
     public bool Valid => !Issues.Any(x => x.Severity == "error");
 }
 public record OverrideRequest(string ExpectedSnapshotId, string? CharacterId, string? Slot, int? LineIndex,
-    string? LockState, string? Fingerprint, int? SynchroLevel = null, Dictionary<string, int>? Consoles = null);
+    string? LockState, string? Fingerprint, int? SynchroLevel = null, Dictionary<string, int>? Consoles = null,
+    Dictionary<string, int>? CubeLevels = null);
 public record RunInputReference(string AccountSnapshotId, string GameSnapshotId, int ManualRevision,
     string ScenarioId, string TeamId, string TacticId);
+public record CharacterEditRequest(string ExpectedSnapshotId, CharacterBuild Build);

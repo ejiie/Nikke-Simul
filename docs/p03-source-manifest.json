@@ -117,5 +117,31 @@
     "path": "calculator/damage.py",
     "sha256": "0c145eede842d01a3401cdb23d08e5b3ba8eec9f8545c7a7db915a6e5b204590",
     "usage": "read-only changed-weapon normal-attack classification and coefficient modifier comparison"
+  },
+  {
+    "sourceRoot": "C:/Users/user/Documents/GitHub/Nikke-Dmg-Simulator",
+    "path": "Database/processed/burst_gauge_table.json",
+    "sha256": "bed0dfb5f63e5f2ba004fb8afc13c1feb7d238f958c8a1c27c0d7a1cec81170d",
+    "usage": "Raw gauge constants; verified against ConfigBattle KV; fill formula not inferred",
+    "inputKey": "gaugeTable"
+  },
+  {
+    "sourceRoot": "C:/Users/user/Documents/GitHub/Nikke-Dmg-Simulator",
+    "path": "Database/raw/staticdata/sd_bin_json/ConfigBattleTable_kv.json",
+    "sha256": "3df23223908b740c7bf8e66ea4f9f0871559f947c4179a45cb181650b14a41e2",
+    "usage": "Gauge constants source comparison; only selected constants enter ignored catalog",
+    "inputKey": "gaugeConfig"
+  },
+  {
+    "sourceRoot": "C:/Users/user/Documents/GitHub/Nikke-Dmg-Simulator",
+    "path": "DataPipeline/crawler/getFromLocalSdBin.py",
+    "sha256": "a65f7551dfd1042c9bf5e8e3d40adc3305fa63820862dd94c2aa7bd287a3f9cc",
+    "usage": "Read-only ConfigBattle extraction provenance"
+  },
+  {
+    "sourceRoot": "C:/Users/user/Documents/GitHub/Nikke-Dmg-Simulator",
+    "path": "SimulatorEngine/Nikke.Simulator.Engine/Events/BattleEvent.cs",
+    "sha256": "f282e7d47ac20eba0cbf29fa3cccf54265bc3d083602dad20c0f90c6e93ede50",
+    "usage": "Event classification reference only; new ID-based contract without legacy Combatant dependency"
   }
 ]

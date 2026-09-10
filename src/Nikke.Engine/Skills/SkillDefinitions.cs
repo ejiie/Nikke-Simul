@@ -57,9 +57,13 @@ public record SkillLoadout(string Squad, IReadOnlyDictionary<string, int> Levels
     IReadOnlyDictionary<string, SkillDefinition> Slots)
 {
     public int FullBurstDurationFrames { get; init; } = 600;
+    public BurstConnectionProfile BurstConnection { get; init; }
 }
 public record SkillGraph(IReadOnlyDictionary<int, SkillFunction> Functions,
-    IReadOnlyDictionary<int, SkillDefinition> CharacterSkills);
+    IReadOnlyDictionary<int, SkillDefinition> CharacterSkills)
+{
+    public GaugeSourceConstants GaugeConstants { get; init; }
+}
 public record SkillReplayMember(WeaponReplayMember Weapon, double NativeHp, SkillLoadout Skills);
 public record SkillCast(int Frame, string CharacterId, string Slot = "burst");
 public record HpObservation(int Frame, string CharacterId, double Ratio);
@@ -89,7 +93,11 @@ public record SharedShieldView(string Source, int SkillId, double Hp, int Expire
 public record SkillReplayResult(string RulesVersion, string Status, string SkillExecutionStatus,
     SkillReplayConditions Conditions, double TotalDamage, IReadOnlyList<SkillMemberResult> Members,
     IReadOnlyList<SkillTrace> Events, long EventCount, bool TraceTruncated,
-    IReadOnlyList<SkillEffectView> ActiveEffects, IReadOnlyList<SharedShieldView> SharedShields, IReadOnlyList<string> Limitations);
+    IReadOnlyList<SkillEffectView> ActiveEffects, IReadOnlyList<SharedShieldView> SharedShields, IReadOnlyList<string> Limitations)
+{
+    // Absent on p03.skills.1 saved records. Never retrofit readiness onto an old run.
+    public BattleConnectionSummary Connection { get; init; }
+}
 
 public static class SkillUnits
 {

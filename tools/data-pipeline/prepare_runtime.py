@@ -12,6 +12,51 @@ TARGETS = ('리타', '블랑', '누아르', '앨리스', '모더니아')
 PHASES = ('before_use', 'before_hurt', 'after_use', 'after_hurt')
 
 
+def gauge_constants(table, config):
+    """Verify the derived table against its pinned ConfigBattle KV source; no fill formula inferred."""
+    fields = {'per_sec': 'sec', 'use_skill': 'use_skill', 'skill_hit': 'skill_hit',
+              'shot_hit': 'shot_hit', 'hurt': 'hurt', 'cover_hurt': 'cover_hurt', 'empty_ammo': 'empty_ammo'}
+    pairs = [('burst_energy_max', table['burst_energy_max'])]
+    pairs += [('ulti_gauge_' + suffix, table['ally'][key]) for key, suffix in fields.items()]
+    pairs += [('ulti_gauge_kill_' + suffix, table['ally']['kill'][key])
+              for key, suffix in [('minion', 'm'), ('elite', 'e'), ('centurion', 'c'), ('boss', 'b')]]
+    for key, value in pairs:
+        if type(value) is not int or value < 0 or value != int(config[key]):
+            raise ValueError('Gauge source mismatch: ' + key)
+    if table['burst_energy_max'] <= 0:
+        raise ValueError('Gauge capacity must be positive')
+    return {'capacityRaw': table['burst_energy_max'], 'allyRaw': dict(pairs[1:]),
+            'formulaStatus': 'unverified', 'unit': 'raw'}
+
+
+def burst_connection(character, weapon, role):
+    # Only stages present in the selected five; do not invent numeric AllStep semantics.
+    steps = {'Step1': 1, 'Step2': 2, 'Step3': 3, 'StepFull': 4}
+    burst = weapon['burst']
+    for key, normalized in [('use_burst_skill', 'useBurstSkill'), ('change_burst_step', 'changeBurstStep')]:
+        if steps[role[key]] != character[key] or role[key] != burst[normalized]:
+            raise ValueError('Burst stage source mismatch: ' + key)
+    for key, normalized in [('burst_apply_delay', 'applyDelaySec'), ('burst_duration', 'durationSec')]:
+        if role[key] != character[key] or role[key] != round(burst[normalized] * 100):
+            raise ValueError('Burst time source mismatch: ' + key)
+    for key, normalized in [('burst_energy_pershot', 'energyPerShot'),
+                            ('target_burst_energy_pershot', 'targetEnergyPerShot'),
+                            ('full_charge_burst_energy', 'fullChargeEnergy')]:
+        if role['shot'][key] != burst[normalized]:
+            raise ValueError('Weapon gauge source mismatch: ' + key)
+    replacements = set()
+    for slot in character['skills'].values():
+        for definition in slot['levels'].values():
+            body = definition.get('skill') or {}
+            if body.get('skill_type') == 7:
+                replacements.add(body['skill_value_data'][2]['skill_value'])
+    return {'step': character['use_burst_skill'], 'nextStep': character['change_burst_step'],
+            'applyDelayCs': character['burst_apply_delay'], 'fullBurstDurationCs': character['burst_duration'],
+            'shotId': character['shot_id'], 'energyPerShotRaw': burst['energyPerShot'],
+            'targetEnergyPerShotRaw': burst['targetEnergyPerShot'], 'fullChargeEnergyRaw': burst['fullChargeEnergy'],
+            'unresolvedReplacementShotIds': sorted(replacements)}
+
+
 def digest(data):
     return hashlib.sha256(data).hexdigest()
 
@@ -79,6 +124,7 @@ def assemble(chains, roles, names, upstream_skills, upstream_characters, source_
             role = source_roles['roster'][key]
             selected[key]['sourceRole'] = {'squad': role['squad'], 'skills': role['skills'],
                                            'burstDurationCs': role['burst_duration']}
+            selected[key]['burstConnection'] = burst_connection(character, weapon, role)
     return {'schemaVersion': 1, 'characters': selected, 'functions': functions,
             'characterSkills': character_skills, 'missing': sorted(set(missing)),
             'skillExecutionStatus': 'not_connected'}
@@ -98,6 +144,8 @@ def main():
         inputs[source['inputKey']] = json.loads(content)
         hashes[source['inputKey']] = source['sha256']
     catalog = assemble(inputs['chains'], inputs['roles'], inputs['names'], inputs['skills'], inputs['characters'], inputs['sourceRoles'])
+    catalog['gaugeConstants'] = gauge_constants(inputs['gaugeTable'], inputs['gaugeConfig'])
+    catalog['connectionSchemaVersion'] = 1
     catalog['sourceHashes'] = hashes
     content = json.dumps(catalog, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()
     version = digest(content)

@@ -22,9 +22,27 @@ public sealed class PresentationService(string root, string output, string pytho
         lock(gate) { stopping.Cancel(); pending=work; }
         try { await pending.WaitAsync(cancellationToken); } catch (OperationCanceledException) { }
     }
-    public JsonNode Read() => File.Exists(Path.Combine(output,"presentation.json"))
+    public JsonNode Read()
+    {
+        var result = File.Exists(Path.Combine(output,"presentation.json"))
         ? JsonNode.Parse(File.ReadAllText(Path.Combine(output,"presentation.json")))!
         : new JsonObject { ["characters"] = new JsonArray(), ["unresolved"] = new JsonArray(), ["source"] = "not_prepared" };
+        var accountPath=Path.Combine(output,"account-presentation.json");
+        if(File.Exists(accountPath))
+        {
+            var account=JsonNode.Parse(File.ReadAllText(accountPath))!;
+            result["consoles"]=account["consoles"]?.DeepClone();
+            result["cubes"]=account["cubes"]?.DeepClone();
+        }
+        var specPath=Path.Combine(output,"spec-presentation.json");
+        if(File.Exists(specPath))
+        {
+            var spec=JsonNode.Parse(File.ReadAllText(specPath))!;
+            result["supportDefinitions"]=spec["supportDefinitions"]?.DeepClone();
+            result["overloadOptions"]=spec["overloadOptions"]?.DeepClone();
+        }
+        return result;
+    }
     public object Status() { lock(gate) return new { status, message, revision }; }
     public object Start(bool refreshExisting = true)
     {

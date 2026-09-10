@@ -11,7 +11,7 @@ from audit_p03 import request
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def main():
+def main(output=None):
     boot = request('/bootstrap')
     token = boot['token']
     catalog = request('/runtime/catalog')
@@ -72,7 +72,7 @@ def main():
             raise AssertionError('Invalid skill replay was accepted')
         except urllib.error.HTTPError as e:
             assert e.code==400
-    out=ROOT/'artifacts/p03'; out.mkdir(parents=True,exist_ok=True)
+    out=output if output is not None else ROOT/'artifacts/p03'; out.mkdir(parents=True,exist_ok=True)
     summary={'gameObservation':'none', 'runtimeDataId':catalog['runtimeDataId'], 'characters':5,
              'skillLevelsAudited':10, 'slotLevelDefinitions':150, 'roundingPoliciesCompared':3,
              'durationFrames':10800, 'savedReplaysChecked':3, 'traceSummaryParity':True,

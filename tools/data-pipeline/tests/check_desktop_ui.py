@@ -36,24 +36,19 @@ async def main():
         checked=[]
         for cid in ['5011','5008','5009','5004','5044']:
             await page.locator(f'.nikke-card[data-character-uid="{cid}"]').click()
-            await page.locator('[data-stat="atk"]').wait_for()
-            report=get(f'/snapshots/{snapshot["id"]}/characters/{cid}/stats')
-            for field in ['hp','atk','def']:
-                shown=float((await page.locator(f'[data-stat="{field}"]').inner_text()).replace(',',''))
-                assert shown==report['nativeStats'][field],(cid,field,shown,report['nativeStats'][field])
+            await page.wait_for_function("Array.from(document.querySelectorAll('.equipment-stat-rows')).some(el=>!el.textContent.includes('미확인'))")
+            assert await page.locator('.overload-row > select').count()==12
+            assert await page.locator('.overload-row > label > select').count()==12
+            assert await page.locator('[data-lock-slot],.calculation,.simul-option-row').count()==0
             checked.append(cid)
             if cid=='5004':
-                await page.screenshot(path=str(OUTPUT/'alice-detail.png'))
-                await page.locator('.hit-workbench summary').first.click()
-                await page.locator('.hit-form button[type="submit"]').click()
-                await page.locator('.hit-result table').first.wait_for()
-                results['hitComparison']=True
+                await page.screenshot(path=str(OUTPUT/'alice-detail.png'),full_page=True)
                 await page.locator('[data-detail-tab="skill"]').click()
                 expected=next(c for c in snapshot['characters'] if c['characterId']==cid)['skills']
-                assert [int(x.split('.')[-1]) for x in await page.locator('#skill-editor .simul-large').all_text_contents()]==list(expected.values())
+                assert [int(v) for v in await page.locator('#skill-editor input').evaluate_all('(items)=>items.map(i=>i.value)')]==list(expected.values())
                 await page.locator('[data-detail-tab="equipment"]').click()
             await page.locator('#nikke-detail-back').click()
-        results['nativeStatsChecked']=checked
+        results['localLabDetailsChecked']=checked
         await page.locator('#nikke-search').fill('레드 후드')
         for step in ['1','2','3']:
             await page.locator(f'[data-filter-select="nikke-filter-burst"][data-filter-value="{step}"]').click()

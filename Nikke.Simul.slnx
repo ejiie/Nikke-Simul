@@ -11,4 +11,5 @@
   <Project Path="tools/Nikke.Smoke/Nikke.Smoke.csproj" />
   <Project Path="tools/Nikke.SyncAudit/Nikke.SyncAudit.csproj" />
   <Project Path="tools/Nikke.CalculationAudit/Nikke.CalculationAudit.csproj" />
+  <Project Path="tools/connection-audit/ConnectionAudit.csproj" />
 </Solution>
