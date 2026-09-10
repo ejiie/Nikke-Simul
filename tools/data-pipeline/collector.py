@@ -40,6 +40,20 @@ class CollectorError(Exception):
         super().__init__(message)
         self.code = code
 
+def runtime_failure(exc):
+    # Match known signatures only. Never expose raw Playwright text: it may contain
+    # request URLs, headers or authentication metadata.
+    text = str(exc)
+    if 'ERR_NETWORK_ACCESS_DENIED' in text:
+        return CollectorError('network_access_denied',
+            '수집기의 네트워크 접근이 차단되었습니다. 백엔드 실행 권한이나 방화벽 설정을 확인한 뒤 다시 로그인하세요.')
+    if "Executable doesn't exist" in text:
+        return CollectorError('browser_missing',
+            '로그인용 브라우저를 찾지 못했습니다. Microsoft Edge 설치 상태를 확인하세요.')
+    if any(code in text for code in ('ERR_NAME_NOT_RESOLVED', 'ERR_CONNECTION_', 'ERR_INTERNET_DISCONNECTED')):
+        return CollectorError('network', '블라블라 로그인 페이지에 연결하지 못했습니다. 네트워크 연결을 확인한 뒤 다시 시도하세요.')
+    return CollectorError('collector_failure', '수집기를 실행하지 못했습니다. 연결 상태와 브라우저 설치를 확인하세요.')
+
 class Blob(ctypes.Structure):
     _fields_ = [("cbData", wintypes.DWORD), ("pbData", ctypes.POINTER(ctypes.c_ubyte))]
 
@@ -251,9 +265,10 @@ def main():
         emit("error", code=exc.code, message=str(exc))
     except ImportError:
         emit("error", code="dependency", message="수집기 의존성을 설치하세요 (npm run setup:sync).")
-    except Exception:
+    except Exception as exc:
         # Do not echo HTTP/Playwright exception strings; they can contain request metadata.
-        emit("error", code="collector_failure", message="수집기를 실행하지 못했습니다. 연결 상태와 브라우저 설치를 확인하세요.")
+        failure = runtime_failure(exc)
+        emit("error", code=failure.code, message=str(failure))
     return 1
 
 if __name__ == "__main__":

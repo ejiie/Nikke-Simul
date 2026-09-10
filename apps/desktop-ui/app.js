@@ -1,3 +1,4 @@
+import { createFormation } from './formation.js';
 import { mountAccountCards, accountCubeDrafts } from './local-lab-account.js';
 import { connectRenderer, renderNikkeCards, appendPortrait } from './cards.js';
 import { renderLocalLabDetail, updateDetailReport, detailPreviewFailed, detailDirty } from './local-lab-adapter.js';
@@ -8,17 +9,21 @@ const num=v=>v==null?'미확인':Number(v).toLocaleString('ko-KR',{maximumFracti
 const time=v=>new Date(v).toLocaleString('ko-KR');
 const parts={head:'머리',torso:'몸통',arm:'팔',leg:'다리'};
 const consoles={'1001':'공용','1101':'화력형','1102':'방어형','1103':'지원형','1201':'엘리시온','1202':'미실리스','1203':'테트라','1204':'필그림','1205':'어브노멀'};
-const pageTitles={home:['NIKKE SIMUL','홈'],account:['계정 정보','계정 설정'],nikkes:['전체 니케','니케 관리'],raid:['대미지 검산','솔로 레이드'],import:['블라블라 연결','계정 가져오기'],advanced:['문제 해결','고급 진단']};
+const pageTitles={home:['NIKKE SIMUL','홈'],account:['계정 정보','계정 설정'],nikkes:['전체 니케','니케 관리'],raid:['대미지 검산','솔로 레이드'],formation:['솔로 레이드','편성'],import:['블라블라 연결','계정 가져오기'],advanced:['문제 해결','고급 진단']};
 const state={presentation:{characters:[]},presentationByCharacter:new Map(),combatPowerByCharacter:new Map(),currentProfile:null,selectedNikkeUid:null};
 let boot={token:'',connections:[],jobs:[]},snapshot=null,busy=false,refreshing=false;
 let connectionId=localStorage.getItem('nikke-sync-connection'),snapshotId=null,selectedPage='home',detailSequence=0;
 let imageStatus='idle',imageRevision=0,lastReplay=null;
+let detailOrigin={page:'nikkes',scroll:0};
 const build=id=>snapshot?.characters.find(c=>c.characterId===id);
 const connection=()=>boot.connections.find(c=>c.id===connectionId)??boot.connections.find(c=>c.status==='ready')??boot.connections[0];
 const job=()=>boot.jobs.find(j=>j.connectionId===connection()?.id);
 const accountAvatar=c=>`<span class="commander-avatar account-profile-avatar">${c?.avatarPath?`<img src="${esc(c.avatarPath)}" alt="${esc(c.nickname||'계정')} 대표 캐릭터">`:'<span aria-label="대표 이미지 미수집">—</span>'}</span>`;
 const active=j=>j&&['queued','running','cancelling'].includes(j.status);
-connectRenderer({state,effectiveProfileValue:(field,id)=>({integerValue:build(id)?.[field==='limit_break'?'limitBreak':'core']}),
+const formation=createFormation({api,getSnapshot:()=>snapshot,getItem:id=>state.presentationByCharacter.get(id),getBuild:build,status,
+  showSelector:()=>{setPage('formation');window.scrollTo({top:0,behavior:'instant'});},
+  showRaid:()=>{setPage('raid');window.scrollTo({top:0,behavior:'instant'});},renderCards:renderNikkeCards});
+connectRenderer({state,isSelecting:()=>selectedPage==='formation',isChosen:id=>formation.contains(id),selectCharacter:id=>formation.select(id),effectiveProfileValue:(field,id)=>({integerValue:build(id)?.[field==='limit_break'?'limitBreak':'core']}),
   configuredCharacterLevel:id=>build(id)?.level,openNikkeDetail});
 
 async function api(path,method='GET',body){
@@ -36,8 +41,13 @@ async function act(action){
 }
 function setPage(tab){
   selectedPage=tab;
-  document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===tab)));
-  document.querySelectorAll('[data-tab-panel]').forEach(p=>p.hidden=p.dataset.tabPanel!==tab);
+  detailSequence++;
+  $('nikke-detail').hidden=true;$('nikke-browser').hidden=false;
+  $('formation-editor').hidden=tab!=='formation';
+  if(tab==='nikkes'||tab==='formation')renderNikkeCards();
+  const panel=tab==='formation'?'nikkes':tab,nav=tab==='formation'?'raid':tab;
+  document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===nav)));
+  document.querySelectorAll('[data-tab-panel]').forEach(p=>p.hidden=p.dataset.tabPanel!==panel);
   $('page-eyebrow').textContent=pageTitles[tab][0];$('page-title').textContent=pageTitles[tab][1];
 }
 async function loadPresentation(){
@@ -59,21 +69,27 @@ async function refresh(force=false){
   try{
     boot=await api('/bootstrap');$('test-banner').hidden=!boot.testMode;const selected=connection();
     if(selected){connectionId=selected.id;localStorage.setItem('nikke-sync-connection',selected.id);}
+    else{connectionId=null;localStorage.removeItem('nikke-sync-connection');}
     const next=selected?.accountId?await api(`/accounts/${selected.accountId}/snapshot`):null;
     if(force||next?.id!==snapshotId){
       const powers=next?await api(`/snapshots/${next.id}/combat-powers`):{};
       state.combatPowerByCharacter=new Map(Object.entries(powers));
+      const accountChanged=snapshot?.accountId!==next?.accountId;
       snapshot=next;snapshotId=next?.id??null;
+      if(accountChanged){detailSequence++;state.selectedNikkeUid=null;$('nikke-detail').hidden=true;$('nikke-browser').hidden=false;}
       state.currentProfile={values:(snapshot?.characters??[]).map(c=>({fieldCode:'character_level',subjectUid:c.characterId}))};
       includeSavedCharacters();renderNikkeCards();renderAccount();renderDiagnostics();
+      formation.render();
       if(state.selectedNikkeUid&&!$('nikke-detail').hidden&&!detailDirty())await openNikkeDetail(state.selectedNikkeUid,false);
     }
+    // A formation load failure must not prevent the account/catalogue from loading.
+    try{await formation.load();}catch(error){status(`편성을 불러오지 못했습니다. ${error.message}`);}
     renderAccounts();renderSync();
     const update=await api('/presentation/status');
     if(update.status!==imageStatus||update.revision!==imageRevision){
       imageStatus=update.status;imageRevision=update.revision;
       if(imageStatus!=='idle')status(update.message);
-      if(['succeeded','partial'].includes(imageStatus)){await loadPresentation();renderNikkeCards();renderDiagnostics();}
+      if(['succeeded','partial'].includes(imageStatus)){await loadPresentation();renderNikkeCards();formation.render();renderDiagnostics();}
     }
     document.body.dataset.ready='true';
   }catch(error){status(error.message);}finally{refreshing=false;}
@@ -87,6 +103,7 @@ function renderAccounts(){
 }
 function renderSync(){
   const c=connection(),j=job();
+  const failure=boot.connectionFailure?`<p role="alert">${esc(boot.connectionFailure.message)}</p>`:'';
   let content='<p>처음 한 번 로그인하면 수집 → 정제 → 저장이 자동으로 진행됩니다.</p>';
   if(c?.status==='awaiting_login')content=`<p role="status">${esc(c.message??'열린 브라우저에서 로그인하세요.')}</p>`;
   else if(c?.status==='select_account')content=`<p>사용할 서버를 선택하세요.</p><div class="action-row">${c.choices.map(a=>`<button data-area="${a.area}">${esc(a.label)} · ${a.characterCount}명</button>`).join('')}</div>`;
@@ -94,7 +111,7 @@ function renderSync(){
   else if(active(j))content=`<p>${j.stage==='validating'?'정제·검증 중':'스펙 수집 중'} · ${j.collected} / ${j.expected||'확인 중'}명</p><progress value="${j.collected}" max="${j.expected||1}"></progress><button id="cancel-sync">수집 취소</button>`;
   else if(j&&j.status!=='succeeded')content=`<p>${esc(j.message??'수집이 중단되었습니다. 다시 시도하세요.')}</p>`;
   else if(snapshot)content=`<p>마지막 수집 ${time(snapshot.observedAt)} · 저장 이력 ${snapshot.revision}회 · ${snapshot.characters.length}명</p>`;
-  $('import-content').innerHTML=`<div class="section-heading"><div><p class="eyebrow">ACCOUNT SYNC</p><h2>계정 가져오기</h2><p>블라블라 계정의 육성 현황을 이 PC에 저장합니다.</p></div></div><article class="surface"><div class="action-row"><button id="connect" class="primary" ${busy||c?.status==='awaiting_login'?'disabled':''}>${c?'다른 계정 연결':'블라블라 계정 연결'}</button><button id="sync" ${busy||c?.status!=='ready'||active(j)?'disabled':''}>내 스펙 동기화</button></div>${content}</article><article class="surface"><h3>캐릭터·분류 이미지</h3><p>출처: 블라블라 · 저장된 이미지는 오프라인에서도 표시됩니다.</p><button id="refresh-images" ${imageStatus==='running'?'disabled':''}>${imageStatus==='running'?'이미지 수집 중…':'블라블라 이미지 갱신'}</button></article>`;
+  $('import-content').innerHTML=`<div class="section-heading"><div><p class="eyebrow">ACCOUNT SYNC</p><h2>계정 가져오기</h2><p>블라블라 계정의 육성 현황을 이 PC에 저장합니다.</p></div></div><article class="surface"><div class="action-row"><button id="connect" class="primary" ${busy||c?.status==='awaiting_login'?'disabled':''}>${c?'다른 계정 연결':'블라블라 계정 연결'}</button><button id="sync" ${busy||c?.status!=='ready'||active(j)?'disabled':''}>내 스펙 동기화</button></div>${failure}${content}</article><article class="surface"><h3>캐릭터·분류 이미지</h3><p>출처: 블라블라 · 저장된 이미지는 오프라인에서도 표시됩니다.</p><button id="refresh-images" ${imageStatus==='running'?'disabled':''}>${imageStatus==='running'?'이미지 수집 중…':'블라블라 이미지 갱신'}</button></article>`;
   $('connect').onclick=()=>act(async()=>{const c=await api('/connections','POST');connectionId=c.id;});
   $('sync').onclick=()=>act(()=>api('/sync-jobs','POST',{connectionId:c.id}));
   if($('reauth'))$('reauth').onclick=()=>act(()=>api(`/connections/${c.id}/reauth`,'POST'));
@@ -111,6 +128,8 @@ function renderAccount(){
   $('account-form').onsubmit=e=>{e.preventDefault();const form=new FormData(e.currentTarget),values={};for(const id of Object.keys(consoles)){const v=form.get('console-'+id);if(v!==null&&v!=='')values[id]=Number(v);}act(async()=>{await api(`/accounts/${account}/overrides`,'POST',{expectedSnapshotId:expected,synchroLevel:form.get('synchro')===''?null:Number(form.get('synchro')),consoles:values,cubeLevels:accountCubeDrafts()});status('계정 스탯을 저장했습니다.');});};
 }
 async function openNikkeDetail(id,scroll=true){
+  if(scroll && $('nikke-detail').hidden)detailOrigin={page:selectedPage,scroll:window.scrollY};
+  $('nikke-detail-back').textContent=detailOrigin.page==='formation'?'‹ 편성':'‹ 니케 도감';
   const sequence=++detailSequence;state.selectedNikkeUid=id;
   const item=state.presentationByCharacter.get(id),c=build(id);
   renderLocalLabDetail(null,item);
@@ -149,18 +168,25 @@ function renderDiagnostics(){
   $('advanced-content').innerHTML=`<div class="section-heading"><div><h2>고급 진단</h2><p>누락된 스펙과 저장 출처를 확인합니다.</p></div></div><article class="surface"><h3>수집 확인</h3>${issues.length?`<ul>${issues.map(i=>`<li>${esc(i.path)} · ${esc(i.message)}</li>`).join('')}</ul>`:'<p>검토할 항목이 없습니다.</p>'}</article><article class="surface"><h3>최근 변경</h3><ul>${(snapshot?.changes??[]).slice(0,30).map(v=>`<li>${esc(v)}</li>`).join('')}</ul></article><article class="surface"><h3>화면·이미지 출처</h3><p>화면: Nikke-Local-Lab · 이미지: 블라블라 및 사용자 제공 ZIP</p><p>캐릭터 ${state.presentation.characters.length}명 · ZIP 연결 ${state.presentation.importedPortraits??0}명 · 미수집 ${state.presentation.unresolved?.length??0}개</p></article>`;
 }
 function renderRaid(){
-  const ids=['5011','5008','5009','5004','5044'];
-  $('raid-content').innerHTML=`<div class="section-heading"><div><p class="eyebrow">SOLO RAID CHALLENGE</p><h2>솔로 레이드 검산</h2><p>현재 5인의 평타·스킬 효과를 조건별로 검산합니다. 팀 게이지와 자동 버스트 사이클은 준비 중입니다.</p></div></div><form id="replay-form"><article class="surface"><h3>편성</h3><div class="simul-team">${ids.map(id=>`<label><input type="checkbox" name="member" value="${id}" checked>${esc(state.presentationByCharacter.get(id)?.displayName??id)}</label>`).join('')}</div></article><article class="surface"><h3>전투 조건</h3><div class="form-grid"><label>시간 (초)<input name="seconds" type="number" value="180" min="1" max="600" required></label><label>적 방어력<select name="defense"><option value="30925">30,925 · 누적 20억 전</option><option value="31784">31,784 · 누적 20억 후</option></select></label><label>크리티컬<select name="crit"><option value="off">끔</option><option value="sample">확률 적용</option><option value="on">항상 크리</option></select></label><label>정수화<select name="rounding"><option value="legacy_term_floor">C# 항별 내림</option><option value="final_round_even">최종 반올림</option><option value="nested_floor">항별 + 단계별 내림</option></select></label><label>샷건 계수<select name="pellet"><option value="per_trigger">발사 1회</option><option value="per_pellet">펠릿마다</option></select></label><label>검산 레벨 (선택)<input name="level" type="number" min="1" max="10000" placeholder="계정 레벨"></label></div><div class="action-row">${[['core','코어 명중'],['distance','적정 거리'],['element','우월 코드']].map(([v,l])=>`<label><input name="${v}" type="checkbox">${l}</label>`).join('')}</div><p class="microcopy">방어력은 이번 검산 전체에 고정됩니다. 누적 대미지에 따른 자동 전환은 아직 적용하지 않습니다.</p></article><article class="surface"><h3>버스트 시점 지정</h3><div class="form-grid"><label>버스트 사용<select name="burst"><option value="none">사용 안 함</option><option value="5004">리타 → 블랑 → 앨리스 (1회)</option><option value="5044">리타 → 블랑 → 모더니아 (1회)</option></select></label><label>시작 시점 (초)<input name="burstAt" type="number" min="0.1" step="0.1" value="10"></label></div><p class="microcopy">선택 시 지정 시점의 버스트와 풀버스트 구간을 입력으로 저장합니다. 자동 사이클 결과가 아닙니다.</p></article><div class="account-save-bar surface"><div><strong>검산 후 자동 저장</strong><span>편성·실제 스킬 레벨·조건·구성원별 효과 대미지를 보존합니다.</span></div><button id="run-replay" class="primary" type="submit">대미지 검산</button></div></form><div id="replay-result" aria-live="polite"></div>`;
+  $('raid-content').innerHTML=`<div class="section-heading"><div><p class="eyebrow">SOLO RAID CHALLENGE</p><h2>솔로 레이드 검산</h2><p>평타·스킬 효과를 조건별로 검산합니다. 현재 검산 지원: 리타·블랑·누아르·앨리스·모더니아. 팀 게이지 충전부터 풀버스트 종료 후 재충전까지 자동으로 실행합니다. 게이지·타이밍은 실측 검증 전입니다.</p></div></div><form id="replay-form"><article class="surface"><h3>편성</h3><div id="raid-team" class="formation-slots" aria-label="저장된 편성"></div></article><article class="surface"><h3>전투 조건</h3><div class="form-grid"><label>시간 (초)<input name="seconds" type="number" value="180" min="1" max="600" required></label><label>적 방어력<select name="defense"><option value="30925">30,925 · 누적 20억 전</option><option value="31784">31,784 · 누적 20억 후</option></select></label><label>크리티컬<select name="crit"><option value="off">끔</option><option value="sample">확률 적용</option><option value="on">항상 크리</option></select></label><label>정수화<select name="rounding"><option value="legacy_term_floor">C# 항별 내림</option><option value="final_round_even">최종 반올림</option><option value="nested_floor">항별 + 단계별 내림</option></select></label><label>샷건 계수<select name="pellet"><option value="per_trigger">발사 1회</option><option value="per_pellet">펠릿마다</option></select></label><label>검산 레벨 (선택)<input name="level" type="number" min="1" max="10000" placeholder="계정 레벨"></label></div><div class="action-row">${[['core','코어 명중'],['distance','적정 거리'],['element','우월 코드']].map(([v,l])=>`<label><input name="${v}" type="checkbox">${l}</label>`).join('')}</div><p class="microcopy">방어력은 이번 검산 전체에 고정됩니다. 누적 대미지에 따른 자동 전환은 아직 적용하지 않습니다.</p></article><article class="surface"><h3>버스트 실행</h3><div class="form-grid"><label>버스트 사용<select name="burst"><option value="auto">자동 사이클</option><option value="none">사용 안 함</option><option value="5004">리타 → 블랑 → 앨리스 (1회)</option><option value="5044">리타 → 블랑 → 모더니아 (1회)</option></select></label><label data-prescribed-burst>시작 시점 (초)<input name="burstAt" type="number" min="0.1" step="0.1" value="10"></label></div><p class="microcopy">자동은 편성 순서대로 준비된 니케를 사용합니다. 1회 검산을 선택하면 지정 시점을 사용합니다.</p></article><article class="surface" id="automatic-burst-options"><div class="form-grid"><label>버스트 III 우선순위<select name="burstRotation"><option value="">편성 순서</option><option value="5004,5044">앨리스 → 모더니아 반복</option><option value="5044,5004">모더니아 → 앨리스 반복</option><option value="5004">앨리스 우선</option><option value="5044">모더니아 우선</option><option value="5009">누아르 우선</option></select></label><label>우선 니케가 쿨다운 중이면<select name="burstUnavailable"><option value="next_ready">사용 가능한 다음 니케</option><option value="wait_preferred">우선 니케 대기</option></select></label><label>직접 조작<select name="manualCharacter"><option value="">모두 자동</option><option value="5011">리타</option><option value="5008">블랑</option><option value="5009">누아르</option><option value="5004">앨리스</option><option value="5044">모더니아</option></select></label><label>차지 방식<select name="manualStyle"><option value="full_charge">풀차지</option><option value="tap">톡톡이</option></select></label></div></article><div class="account-save-bar surface"><div><strong>검산 후 자동 저장</strong><span>편성·실제 스킬 레벨·조건·구성원별 효과 대미지를 보존합니다.</span></div><button id="run-replay" class="primary" type="submit">대미지 검산</button></div></form><div id="replay-result" aria-live="polite"></div>`;
+  formation.render();
+  const modeControl=$('replay-form').elements.burst;
+  modeControl.onchange=()=>{
+    $('automatic-burst-options').hidden=modeControl.value!=='auto';
+    document.querySelector('[data-prescribed-burst]').hidden=['auto','none'].includes(modeControl.value);
+  };
+  modeControl.onchange();
   $('replay-form').onsubmit=async e=>{
     e.preventDefault();if(!snapshot){status('계정을 먼저 연결하세요.');return;}
-    const form=new FormData(e.currentTarget),members=form.getAll('member'),b3=form.get('burst');
+    const form=new FormData(e.currentTarget),members=formation.members(),b3=form.get('burst');
+    if(!members.length){status('니케를 선택하고 편성을 저장하세요.');return;}
     const seconds=Number(form.get('seconds')),frame=Math.round(Number(form.get('burstAt'))*60);
-    if(b3!=='none'&&!['5011','5008',b3].every(id=>members.includes(id))){status('버스트 순서에 포함된 니케를 모두 편성하세요.');return;}
-    const windows=b3==='none'?[]:[{startFrame:frame+2,endFrame:Math.min(seconds*60,frame+2+(b3==='5044'?900:600))}];
+    if(!['none','auto'].includes(b3)&&!['5011','5008',b3].every(id=>members.includes(id))){status('버스트 순서에 포함된 니케를 모두 편성하세요.');return;}
+    const windows=['none','auto'].includes(b3)?[]:[{startFrame:frame+2,endFrame:Math.min(seconds*60,frame+2+(b3==='5044'?900:600))}];
     if(windows.some(w=>w.startFrame>=w.endFrame)){status('버스트 시점은 전투 종료보다 앞서야 합니다.');return;}
     const request={snapshotId:snapshot.id,characterIds:members,scenarioLevel:form.get('level')===''?null:Number(form.get('level')),
-      conditions:{roundingPolicy:form.get('rounding'),casts:b3==='none'?[]:['5011','5008',b3].map((id,i)=>({frame:frame+i,characterId:id,slot:'burst'})),
-        combat:{durationFrames:seconds*60,enemyDefense:Number(form.get('defense')),critMode:form.get('crit'),core:form.has('core'),properDistance:form.has('distance'),elementAdvantage:form.has('element'),pelletCoefficientPolicy:form.get('pellet'),fullBurstWindows:windows,trace:false,targetLabel:'solo_raid_challenge'}}};
+      conditions:{autoBurst:b3==='auto'?{burst3Rotation:String(form.get('burstRotation')||'').split(',').filter(Boolean),unavailablePolicy:form.get('burstUnavailable')}:null,roundingPolicy:form.get('rounding'),casts:['none','auto'].includes(b3)?[]:['5011','5008',b3].map((id,i)=>({frame:frame+i,characterId:id,slot:'burst'})),
+        combat:{manualCharacterId:b3==='auto'?form.get('manualCharacter'):'',manualStyle:b3==='auto'?form.get('manualStyle'):'full_charge',durationFrames:seconds*60,enemyDefense:Number(form.get('defense')),critMode:form.get('crit'),core:form.has('core'),properDistance:form.has('distance'),elementAdvantage:form.has('element'),pelletCoefficientPolicy:form.get('pellet'),fullBurstWindows:windows,trace:false,targetLabel:'solo_raid_challenge'}}};
     $('run-replay').disabled=true;$('replay-result').textContent='검산 중…';
     try{lastReplay=await api('/runtime/skill-replays','POST',request);renderReplay(lastReplay);status('검산 결과를 저장했습니다.');}
     catch(error){$('replay-result').textContent=error.message;}
@@ -168,7 +194,15 @@ function renderRaid(){
   };
 }
 function renderReplay(saved){
-  $('replay-result').innerHTML=`<article class="surface"><p class="eyebrow">검산 결과 · ${time(saved.createdAt)}</p><h2>총 대미지 ${num(saved.result.totalDamage)}</h2><p>실측 오차 검증 전 · 지정한 조건의 시뮬레이션 결과</p><div class="simul-result-grid">${saved.result.members.map(m=>`<article><h3>${esc(state.presentationByCharacter.get(m.characterId)?.displayName??m.characterId)}</h3><strong>${num(m.damage)}</strong><dl>${Object.entries(m.effects).map(([effect,dmg],index)=>`<div><dt>${esc(effectLabel(saved,m.characterId,effect,index))}</dt><dd>${num(dmg)}</dd></div>`).join('')}</dl></article>`).join('')}</div><details><summary>저장 결과 원문</summary><pre>${esc(JSON.stringify(saved,null,2))}</pre></details></article>`;
+  $('replay-result').innerHTML=`<article class="surface"><p class="eyebrow">검산 결과 · ${time(saved.createdAt)}</p><h2>총 대미지 ${num(saved.result.totalDamage)}</h2><p>실측 오차 검증 전 · 지정한 조건의 시뮬레이션 결과</p>${renderBurstSummary(saved.result.teamBurst)}<div class="simul-result-grid">${saved.result.members.map(m=>`<article><h3>${esc(state.presentationByCharacter.get(m.characterId)?.displayName??m.characterId)}</h3><strong>${num(m.damage)}</strong><dl>${Object.entries(m.effects).map(([effect,dmg],index)=>`<div><dt>${esc(effectLabel(saved,m.characterId,effect,index))}</dt><dd>${num(dmg)}</dd></div>`).join('')}</dl></article>`).join('')}</div><details><summary>저장 결과 원문</summary><pre>${esc(JSON.stringify(saved,null,2))}</pre></details></article>`;
+}
+function renderBurstSummary(team){
+  if(!team)return '';
+  const name=id=>esc(state.presentationByCharacter.get(id)?.displayName??id??'—');
+  const seconds=frame=>num(frame/60);
+  const reasons={missing_stage_1:'버스트 I 니케 없음',missing_stage_2:'버스트 II 니케 없음',missing_stage_3:'버스트 III 니케 없음',cooldown_stage_1:'버스트 I 쿨다운 대기',cooldown_stage_2:'버스트 II 쿨다운 대기',cooldown_stage_3:'버스트 III 쿨다운 대기'};
+  const events=team.timeline.filter(e=>['burst_cast','waiting','stage_expired'].includes(e.kind));
+  return `<section class="surface"><h3>자동 버스트 사이클</h3><p>풀버스트 ${num(team.fullBursts.length)}회 · 유지 ${seconds(team.fullBurstFrames)}초${team.waitingReason?' · '+esc(reasons[team.waitingReason]??team.waitingReason):''}</p><div class="table-scroll"><table><thead><tr><th>회차</th><th>버스트 III</th><th>풀버스트 진입</th><th>종료</th><th>구간 대미지</th></tr></thead><tbody>${team.fullBursts.map(w=>`<tr><td>${w.cycle}</td><td>${name(w.caster)}</td><td>${seconds(w.startFrame)}초</td><td>${w.endFrame===null?'진행 중 (예정 '+seconds(w.plannedEndFrame)+'초)':seconds(w.endFrame)+'초'}</td><td>${num(Object.values(w.memberDamage).reduce((sum,v)=>sum+v,0))}</td></tr>`).join('')}</tbody></table></div><details><summary>충전 기여·시전·대기 기록</summary><p>${Object.entries(team.acceptedGaugeByMember).map(([id,value])=>name(id)+' '+num(value/team.sourceConstants.capacityRaw*100)+'%').join(' · ')}</p><p class="microcopy">충전 기여는 전투 전체에서 실제 게이지에 반영된 누적량입니다.</p><div class="table-scroll"><table><thead><tr><th>시각</th><th>단계</th><th>동작</th><th>니케</th><th>쿨다운 종료</th></tr></thead><tbody>${events.map(e=>`<tr><td>${seconds(e.frame)}초</td><td>${['충전','I','II','III','풀버스트'][e.step]}</td><td>${e.kind==='burst_cast'?'시전':e.kind==='stage_expired'?'단계 대기 만료':esc(reasons[e.reason]??e.reason)}</td><td>${name(e.characterId)}</td><td>${e.readyAtFrame===null?'—':seconds(e.readyAtFrame)+'초'}</td></tr>`).join('')}</tbody></table></div>${team.timelineTruncated?'<p>상세 기록 상한 도달 · 사이클 합계는 전체 전투 기준입니다.</p>':''}</details></section>`;
 }
 function effectLabel(saved,id,effect,index){
   if(effect==='normal_attack')return '평타';
@@ -187,7 +221,7 @@ $('refresh-accounts').onclick=()=>refresh(true);
 $('nikke-search').oninput=()=>renderNikkeCards();
 document.querySelectorAll('[id^="nikke-filter-"]').forEach(s=>s.onchange=()=>renderNikkeCards());
 document.querySelectorAll('[data-filter-select]').forEach(b=>b.onclick=()=>{const id=b.dataset.filterSelect;$(id).value=b.dataset.filterValue;document.querySelectorAll(`[data-filter-select="${id}"]`).forEach(x=>x.setAttribute('aria-pressed',String(x===b)));renderNikkeCards();});
-$('nikke-detail-back').onclick=()=>{detailSequence++;$('nikke-detail').hidden=true;$('nikke-browser').hidden=false;renderNikkeCards();};
+$('nikke-detail-back').onclick=()=>{setPage(detailOrigin.page);formation.render();window.scrollTo({top:detailOrigin.scroll,behavior:'instant'});};
 document.querySelectorAll('[data-detail-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-detail-tab]').forEach(x=>x.setAttribute('aria-selected',String(x===b)));document.querySelectorAll('[data-detail-pane]').forEach(p=>p.hidden=p.dataset.detailPane!==b.dataset.detailTab);});
 try{await loadPresentation();renderRaid();await refresh(true);if(!boot.connections.length)setPage('import');}catch(error){status(error.message);}
 setInterval(()=>refresh(),2000);

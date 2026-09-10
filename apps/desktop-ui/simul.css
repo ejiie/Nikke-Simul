@@ -21,8 +21,45 @@
 .account-card>span:nth-child(2){display:grid;gap:6px;flex:1;}
 .account-card.selected{border-color:var(--primary);}
 .simul-large{font-size:28px;}
-.simul-team{display:flex;flex-wrap:wrap;gap:25px;}
-.simul-team label,.action-row label{display:flex;align-items:center;gap:8px;}
+.action-row label{display:flex;align-items:center;gap:8px;}
+.formation-heading{display:flex;align-items:center;gap:16px;margin-bottom:20px;}
+.formation-heading h2{margin:0;}
+.formation-heading .primary{margin-left:auto;}
+.formation-slots{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;max-width:690px;}
+.formation-slot{position:relative;min-width:0;aspect-ratio:1;overflow:hidden;padding:0;border:1px solid #aeb3b8;border-bottom:4px solid #f4c20b;border-radius:4px;background:#eff0f2;}
+.formation-slot:hover,.formation-slot:focus-visible{outline:2px solid #16adf2;outline-offset:2px;}
+.formation-slot-empty{display:grid;place-items:center;border-bottom:1px solid #aeb3b8;background:repeating-linear-gradient(135deg,#f2f3f5 0 8px,#e9ebee 8px 9px);color:#59616b;font-size:clamp(28px,5vw,52px);font-weight:400;}
+.formation-face{position:absolute;inset:0;}
+.formation-face>img{width:100%;height:100%;object-fit:cover;object-position:center 40%;}
+.formation-face .portrait-fallback{display:grid;place-items:center;height:100%;font-size:32px;}
+.formation-icon{position:absolute;z-index:2;object-fit:contain;width:23%;height:23%;filter:drop-shadow(0 1px 1px #535353);}
+.formation-weapon{top:3%;left:3%;}
+.formation-burst{top:29%;left:3%;}
+.formation-hex{display:grid;place-items:center;clip-path:polygon(50% 0,94% 25%,94% 75%,50% 100%,6% 75%,6% 25%);background:#fff;filter:none;}
+.formation-hex::before{content:'';position:absolute;inset:1px;clip-path:inherit;background:#24272a;}
+.formation-hex>img{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:68%;height:68%;object-fit:contain;object-position:center;}
+.formation-burst.formation-hex>img{width:52%;height:48%;}
+.formation-weapon.formation-hex{background:#33383d;}
+.formation-weapon.formation-hex::before{background:#fff;}
+.formation-weapon.formation-hex>img{filter:brightness(0);}
+/* The catalogue shares its cards with the formation picker; both use black hex badges. */
+.encyclopedia-grid .nikke-icon-rail > :is(.weapon,.burst){position:relative;display:grid;place-items:center;clip-path:polygon(50% 0,94% 25%,94% 75%,50% 100%,6% 75%,6% 25%);background:#e8e8e8;color:#fff;}
+.encyclopedia-grid .nikke-icon-rail > :is(.weapon,.burst)::before{content:'';position:absolute;inset:1px;clip-path:inherit;background:#000;}
+/* Anchor images to the badge itself: inherited justify-content otherwise shrinks the
+   auto grid track before percentage image sizing, and portrait styles align ink to the top. */
+.encyclopedia-grid .nikke-portrait .nikke-icon-rail :is(.weapon,.burst) img.card-system-icon{position:absolute;inset:auto;left:50%;top:50%;transform:translate(-50%,-50%);object-fit:contain;object-position:center;filter:none;}
+.encyclopedia-grid .nikke-icon-rail .weapon .card-system-icon{width:78% !important;height:78% !important;}
+.encyclopedia-grid .nikke-icon-rail .burst .card-system-icon{width:60% !important;height:52% !important;}
+.formation-element{bottom:18%;right:3%;}
+.formation-growth{position:absolute;top:3%;right:2%;display:flex;align-items:center;justify-content:flex-end;width:69%;height:24%;}
+.formation-growth>img{width:23%;height:100%;object-fit:contain;min-width:0;}
+.formation-growth .core-evolve{flex:0 0 30%;width:30%;height:100%;font-size:clamp(6px,.7vw,10px);line-height:1;text-shadow:0 1px 1px #000;}
+.formation-name{position:absolute;bottom:0;left:0;right:0;padding:4px;background:rgb(255 255 255 / 90%);font-size:clamp(9px,1vw,13px);font-weight:900;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.formation-divider{border:0;border-top:2px solid #363c44;margin:24px 0;}
+.formation-choice{touch-action:pan-y;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;}
+.encyclopedia-grid .formation-choice[aria-pressed="true"]{box-shadow:inset 0 0 0 4px #16adf2;border-color:#16adf2;}
+.formation-choice[aria-pressed="true"]::after{content:'편성됨';position:absolute;top:5px;right:5px;z-index:6;background:#167faf;color:white;padding:3px 6px;font-size:12px;}
+@media(max-width:600px){.formation-slots{gap:5px;}.formation-heading{gap:8px;}.formation-heading .primary{padding:10px;}.formation-growth .core-evolve{font-size:6px;}}
 input[type=checkbox]{width:auto;}
 .simul-result-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;}
 .simul-result-grid>article{padding:18px;border:1px solid #dce6ee;border-radius:14px;}
@@ -32,3 +69,7 @@ pre{max-height:400px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;}
 /* The source's <=820 and <=1050 rules hide labels and icons simultaneously. */
 @media(max-width:1050px){.tab-button span:last-child{display:inline;}.sidebar-brand>div:last-child{display:block;}.tab-button{width:auto;justify-content:center;}.main-nav{overflow-x:auto;}}
 @media(max-width:500px){.nikke-detail{margin-left:-10px;margin-right:-10px;}}
+/* P04 results retain Local Lab typography and contain wide timelines on narrow windows. */
+#replay-result .table-scroll{max-width:100%;overflow-x:auto;}
+#replay-result .table-scroll table{width:100%;border-collapse:collapse;white-space:nowrap;}
+#replay-result .table-scroll th,#replay-result .table-scroll td{padding:10px 14px;text-align:left;border-bottom:1px solid #d4d9df;}

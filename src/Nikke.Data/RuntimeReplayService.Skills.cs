@@ -45,7 +45,8 @@ public sealed partial class RuntimeReplayService
         return new { allLevelsExecutable=levels.All(l=>l.unsupported.Count==0), levels, gameVerified=false,
             connectionReady=levels.All(l=>l.unsupported.Count==0), burstSourceAvailable=profile is not null && graph.GaugeConstants is not null,
             burstConnection=profile, gaugeFormulaStatus=graph.GaugeConstants?.FormulaStatus ?? "missing",
-            automaticCycleReady=false };
+            automaticCycleReady=levels.All(l=>l.unsupported.Count==0) && profile is not null && graph.GaugeConstants is not null,
+            automaticGaugeModel="source_full_charge_v2", automaticGaugeFormulaStatus="reference_candidate" };
     }
     public SavedSkillReplay RunSkills(AccountSnapshot snapshot, SkillReplayRequest request, CalculationService calculation)
     {
@@ -72,7 +73,7 @@ public sealed partial class RuntimeReplayService
             reports.Add(report);
         }
         var result=SkillReplay.Run(members,Graph(),request.Conditions);
-        var saved=new SavedSkillReplay(Guid.NewGuid().ToString("N"),"skill_reference_replay",DateTimeOffset.UtcNow,snapshot.Id,snapshot.GameSnapshotId,
+        var saved=new SavedSkillReplay(Guid.NewGuid().ToString("N"),request.Conditions.AutoBurst is null ? "skill_reference_replay" : "team_burst_replay",DateTimeOffset.UtcNow,snapshot.Id,snapshot.GameSnapshotId,
             reports[0].CalculationDataId,runtimeId,reports[0].StatRulesVersion,Nikke.Core.Combat.HitCalculator.Version,
             reports.ToDictionary(r=>r.CharacterId,r=>r.AppliedLevel),members,result);
         string folder=Path.Combine(Path.GetDirectoryName(replayRoot)!,"skill-replays"); Directory.CreateDirectory(folder);

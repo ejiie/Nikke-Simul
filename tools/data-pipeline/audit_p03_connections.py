@@ -12,7 +12,7 @@ def main():
     audit_p03_skills.main(out)
     catalog=request('/runtime/catalog')
     assert all(c['support']['connectionReady'] and c['support']['burstSourceAvailable']
-               and not c['support']['gameVerified'] and not c['support']['automaticCycleReady']
+               and not c['support']['gameVerified'] and c['support']['automaticCycleReady']
                and c['support']['gaugeFormulaStatus']=='unverified' for c in catalog['characters'])
     replays=json.loads((out/'skill-audit-replays.json').read_text(encoding='utf-8'))
     detailed=json.loads((out/'skill-audit-trace.json').read_text(encoding='utf-8'))

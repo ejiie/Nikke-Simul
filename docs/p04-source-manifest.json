@@ -1,0 +1,44 @@
+[
+  {
+    "repository": "https://github.com/d34d633f/nikke-einkk",
+    "commit": "f96f59ea04239b790dfcb309dcd181ac95c755c5",
+    "localPath": "artifacts/p04/source/battle_simulator.dart",
+    "sha256": "adcc42b29c7406690da1bf88626dcbffeafa8ee41be6a1e54efadc6d00231c9e"
+  },
+  {
+    "repository": "https://github.com/d34d633f/nikke-einkk",
+    "commit": "f96f59ea04239b790dfcb309dcd181ac95c755c5",
+    "localPath": "artifacts/p04/source/battle_skill.dart",
+    "sha256": "36e7eb3eb3bcac92882066d752743f8ed79871df4883dcb20827402f00e49ef0"
+  },
+  {
+    "repository": "https://github.com/d34d633f/nikke-einkk",
+    "commit": "f96f59ea04239b790dfcb309dcd181ac95c755c5",
+    "localPath": "artifacts/p04/source/events-burst_gen_event.dart",
+    "sha256": "ebefeab3f5e3dff33a75c57c1b8936646873e68e82156ea51de79f391a5b4622"
+  },
+  {
+    "repository": "https://github.com/d34d633f/nikke-einkk",
+    "commit": "f96f59ea04239b790dfcb309dcd181ac95c755c5",
+    "localPath": "artifacts/p04/source/events-change_burst_step_event.dart",
+    "sha256": "8e635a22564723b5f140195eb8212fd1b4565ebec1954a2d1fcfe4c70ed1f829"
+  },
+  {
+    "repository": "https://github.com/d34d633f/nikke-einkk",
+    "commit": "f96f59ea04239b790dfcb309dcd181ac95c755c5",
+    "localPath": "artifacts/p04/source/function.dart",
+    "sha256": "f1bb09d852f55bc170f92def06eef9f6221716cbf222aee653063e98047fbe98"
+  },
+  {
+    "repository": "https://github.com/d34d633f/nikke-einkk",
+    "commit": "f96f59ea04239b790dfcb309dcd181ac95c755c5",
+    "localPath": "artifacts/p04/source/LICENSE",
+    "sha256": "bac11f627c36d4b69293269676794fcd1ef6f7f67aceb00f1e5e286877824e79"
+  },
+  {
+    "repository": "https://github.com/d34d633f/nikke-einkk",
+    "commit": "f96f59ea04239b790dfcb309dcd181ac95c755c5",
+    "localPath": "artifacts/p04/source/nikke.dart",
+    "sha256": "388a7b0d17bfa9c3f033fd81d70f05a612cfdbf26d1256cff32358e6f8456c83"
+  }
+]

@@ -1,9 +1,10 @@
 // Adapted from Nikke-Local-Lab c05fc1c392a523b9e17ebe0cbd4811bed9c19adb editor.js.
 // Card DOM, icon rails, growth strip and filters retained; account adapter lives in app.js.
+import { bindCardGesture } from './card-gesture.js';
 const byId=id=>document.getElementById(id);
 const value=id=>byId(id).value.trim();
-let state,effectiveProfileValue,configuredCharacterLevel,openNikkeDetail;
-export function connectRenderer(context){({state,effectiveProfileValue,configuredCharacterLevel,openNikkeDetail}=context);}
+let state,effectiveProfileValue,configuredCharacterLevel,openNikkeDetail,isSelecting,isChosen,selectCharacter;
+export function connectRenderer(context){({state,effectiveProfileValue,configuredCharacterLevel,openNikkeDetail,isSelecting=()=>false,isChosen=()=>false,selectCharacter}=context);}
 const uiAssetRoot='/editor/assets/ui';
 const manufacturerLabels = Object.freeze({
   elysion: "엘리시온", missilis: "미실리스", tetra: "테트라",
@@ -128,6 +129,11 @@ export function renderNikkeCards(subjects = null, ownedSubjects = null) {
     card.dataset.owned = String(isOwned);
     card.dataset.rarity = item.rarityCode || "unknown";
     card.setAttribute("aria-current", String(state.selectedNikkeUid === subjectUid));
+    if (isSelecting()) {
+      card.setAttribute('aria-pressed', String(isChosen(subjectUid)));
+      card.classList.add('formation-choice');
+      card.title = '클릭: 편성 · 1초 누르기 / Alt+Enter: 상세';
+    }
     const portrait = document.createElement("span");
     portrait.className = "nikke-portrait";
     appendPortrait(portrait, item.portraitPath, item.displayName, true);
@@ -217,11 +223,11 @@ export function renderNikkeCards(subjects = null, ownedSubjects = null) {
     identity.append(limitStrip, name);
     body.append(levelBadge, identity);
     card.append(portrait, body);
-    card.addEventListener("click", () => {
+    bindCardGesture(card, { isSelecting, select: () => selectCharacter(subjectUid), detail: () => {
       state.selectedNikkeUid = subjectUid;
       byId("nikke-subject").value = subjectUid;
       openNikkeDetail(subjectUid);
-    });
+    }});
     target.appendChild(card);
   }
   if (visible.length === 0) {

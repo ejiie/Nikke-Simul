@@ -30,7 +30,7 @@ public sealed partial class RuntimeReplayService
         if (catalog["schemaVersion"]!.GetValue<int>() != 1) throw new InvalidDataException("Unsupported runtime catalog schema");
     }
 
-    public object Summary() => new { runtimeDataId = runtimeId, phase = "P03 skills", skillExecutionStatus = "selected_five_effects_connected",
+    public object Summary() => new { runtimeDataId = runtimeId, phase = "P04 team burst", skillExecutionStatus = "selected_five_effects_connected",
         weaponReferenceSkillExecutionStatus = "not_connected", skillReplayAvailable = true,
         weaponReferenceAvailable = true, functions = catalog["functions"]!.AsObject().Count,
         characterSkills = catalog["characterSkills"]!.AsObject().Count, missing = catalog["missing"]!.DeepClone(),

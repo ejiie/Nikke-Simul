@@ -72,6 +72,7 @@ public record SkillReplayConditions
     public WeaponReplayConditions Combat { get; init; } = new();
     public string RoundingPolicy { get; init; } = "";
     public IReadOnlyList<SkillCast> Casts { get; init; } = [];
+    public TeamBurstOptions AutoBurst { get; init; }
     public IReadOnlyDictionary<string, double> InitialHpRatios { get; init; } = new Dictionary<string, double>();
     public IReadOnlyList<HpObservation> HpObservations { get; init; } = [];
     // Absolute cover HP is not derived by the P02 stat calculator. A fixture can supply it for target ranking.
@@ -97,6 +98,7 @@ public record SkillReplayResult(string RulesVersion, string Status, string Skill
 {
     // Absent on p03.skills.1 saved records. Never retrofit readiness onto an old run.
     public BattleConnectionSummary Connection { get; init; }
+    public TeamBurstSummary TeamBurst { get; init; }
 }
 
 public static class SkillUnits

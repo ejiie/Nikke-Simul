@@ -21,6 +21,15 @@ class Client:
         return response
 
 class CollectorTests(unittest.IsolatedAsyncioTestCase):
+    def test_runtime_error_distinguishes_network_denial_from_browser_install_without_leaking_details(self):
+        cases = [('net::ERR_NETWORK_ACCESS_DENIED', 'network_access_denied'),
+                 ("Executable doesn't exist", 'browser_missing'),
+                 ('net::ERR_NAME_NOT_RESOLVED', 'network'), ('unexpected failure', 'collector_failure')]
+        for text, code in cases:
+            failure = collector.runtime_failure(Exception(text + ' https://example.test/?token=synthetic-secret'))
+            self.assertEqual(code, failure.code)
+            self.assertNotIn('synthetic-secret', str(failure))
+            self.assertNotIn('example.test', str(failure))
     def test_nickname_uses_the_selected_server_and_a_real_nonempty_string(self):
         payload={'code':0,'data':{'basic_info':{'area_id':'83','nickname':' 묑카엘 '}}}
         self.assertEqual('묑카엘',collector.profile_nickname(payload,83))

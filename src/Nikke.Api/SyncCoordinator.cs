@@ -10,7 +10,7 @@ public sealed class SyncCoordinator(SnapshotStore store, CollectorProcess collec
     private readonly object gate = new();
     private readonly Dictionary<string, (CancellationTokenSource Cancellation, Task Task)> running = [];
     private bool stopping;
-    public Task StartAsync(CancellationToken cancellationToken) { store.RecoverInterrupted(); return Task.CompletedTask; }
+    public Task StartAsync(CancellationToken cancellationToken) { store.RecoverInterrupted(); store.PruneFailedConnections(); return Task.CompletedTask; }
     public async Task StopAsync(CancellationToken cancellationToken)
     {
         Task[] tasks;
@@ -27,6 +27,7 @@ public sealed class SyncCoordinator(SnapshotStore store, CollectorProcess collec
             var connection = id is null ? new AccountConnection() : store.Connection(id) ?? throw new KeyNotFoundException();
             if (store.Jobs().Any(x => x.ConnectionId == connection.Id && x.Status is "queued" or "running" or "cancelling")) throw new InvalidOperationException("진행 중인 동기화가 끝난 뒤 다시 연결하세요.");
             connection.Status = "awaiting_login"; connection.ErrorCode = null; connection.Message = "열린 브라우저에서 로그인하세요.";
+            store.ClearConnectionFailure();
             store.SaveConnection(connection);
             Launch("auth-" + connection.Id, async token =>
             {
@@ -49,6 +50,10 @@ public sealed class SyncCoordinator(SnapshotStore store, CollectorProcess collec
                 {
                     lock (gate) { connection.Status = "reauth_required"; connection.ErrorCode = ex is CollectorFailure cf ? cf.Code : ex is OperationCanceledException ? "login_interrupted" : "login_failure";
                         connection.Message = ex is CollectorFailure ? ex.Message : "로그인을 완료하지 못했습니다. 다시 연결하세요."; store.SaveConnection(connection); }
+                }
+                finally
+                {
+                    lock (gate) { store.CleanupAttemptFiles(connection.Id); store.PruneFailedConnections(); }
                 }
             });
             return connection;
@@ -148,6 +153,10 @@ public sealed class SyncCoordinator(SnapshotStore store, CollectorProcess collec
                 job.FinishedAt = DateTimeOffset.UtcNow; store.SaveJob(job);
                 if (job.ErrorCode == "reauth_required") { connection.Status = "reauth_required"; connection.Message = job.Message; store.SaveConnection(connection); }
             }
+        }
+        finally
+        {
+            lock (gate) { store.CleanupAttemptFiles(job.Id); store.PruneFailedConnections(); }
         }
     }
 }

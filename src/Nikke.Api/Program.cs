@@ -46,7 +46,7 @@ app.Use(async (context, next) =>
     catch (ArgumentException ex) { context.Response.StatusCode = 400; await context.Response.WriteAsJsonAsync(new { message = ex.Message }); }
     catch (InvalidOperationException ex) { context.Response.StatusCode = 409; await context.Response.WriteAsJsonAsync(new { message = ex.Message }); }
 });
-app.MapGet("/api/bootstrap", () => new { token, connections = store.Connections(), jobs = store.Jobs().Take(30),
+app.MapGet("/api/bootstrap", () => new { token, connections = store.Connections(), jobs = store.Jobs().Take(30), connectionFailure = store.LastConnectionFailure(),
     game = new { game.Id, characters = game.Names.Count }, testMode = Environment.GetEnvironmentVariable("NIKKE_TEST_FIXTURE") is not null });
 app.MapGet("/api/connections/{id}", (string id) => store.Connection(id) ?? throw new KeyNotFoundException());
 app.MapPost("/api/connections", (SyncCoordinator sync) => Results.Accepted(value: sync.Connect()));
@@ -56,6 +56,8 @@ app.MapPost("/api/sync-jobs", (StartSync request, SyncCoordinator sync) => { var
 app.MapGet("/api/sync-jobs/{id}", (string id) => store.Job(id) ?? throw new KeyNotFoundException());
 app.MapPost("/api/sync-jobs/{id}/cancel", (string id, SyncCoordinator sync) => sync.Cancel(id));
 app.MapGet("/api/accounts/{id}/snapshot", (string id) => store.Current(id) is { } snapshot ? Results.Ok(snapshot) : Results.NoContent());
+app.MapGet("/api/accounts/{id}/formation", (string id) => store.Formation(id));
+app.MapPut("/api/accounts/{id}/formation", (string id, SaveFormation request) => store.SaveFormation(id, request.Slots));
 app.MapGet("/api/snapshots/{id}", (string id) => store.Snapshot(id) ?? throw new KeyNotFoundException());
 app.MapGet("/api/snapshots/{id}/changes", (string id) => (store.Snapshot(id) ?? throw new KeyNotFoundException()).Changes);
 app.MapPost("/api/accounts/{id}/overrides", (string id, OverrideRequest request) =>

@@ -5,7 +5,7 @@ using Nikke.Simulator.Engine;
 
 namespace Nikke.Engine.Skills;
 
-// P03: a prescribed battle context drives real skill effects. Team gauge and enemy AI belong to P04/P05.
+// Prescribed measurements and the P04 controller share the same effect/weapon execution.
 public static class SkillReplay
 {
     public const string Version = "p03.skills.2";
@@ -14,6 +14,17 @@ public static class SkillReplay
         ICombatEventSink events = null, ISkillBattleDriver driver = null)
     {
         Validate(members, graph, conditions);
+        if (conditions.AutoBurst is not null)
+        {
+            if (driver is not null || conditions.Casts.Count != 0 || conditions.Combat.FullBurstWindows.Count != 0)
+                throw new ArgumentException("자동 버스트와 지정 시전·풀버스트 구간을 함께 사용할 수 없습니다.");
+            var rng = random ?? SystemRandomSource.Instance;
+            var controller = new TeamBurstController(members, graph, conditions, rng, events);
+            var result = new Battle(members, graph, conditions, rng, controller, controller).Run();
+            return result with { RulesVersion = TeamBurstController.Version, Status = "automatic_cycle_provisional",
+                TeamBurst = controller.Summary(conditions.Combat.DurationFrames),
+                Limitations = result.Limitations.Skip(1).Prepend("Automatic gauge uses a versioned reference candidate; gauge formula and timing await game measurements.").ToArray() };
+        }
         if (driver is not null && (conditions.Casts.Count != 0 || conditions.Combat.FullBurstWindows.Count != 0))
             throw new ArgumentException("A driver replaces prescribed casts and full-burst windows.");
         return new Battle(members, graph, conditions, random ?? SystemRandomSource.Instance, events, driver).Run();
@@ -553,7 +564,7 @@ public static class SkillReplay
             Publish(normal ? CombatEventKind.NormalHit : currentShot.HasValue ? CombatEventKind.AdditionalHit : CombatEventKind.DirectSkillHit,
                 ev,parent,a.Id,"boss",sid:normal ? mode?.SkillId : sid,fid:fid,
                 hit:new(currentShot,currentPellet,mode?.ShotId ?? a.Input.Skills.BurstConnection?.ShotId,
-                    h.FullCharge,h.Crit,h.Core,h.FullBurst,damage));
+                    h.FullCharge,h.Crit,h.Core,h.FullBurst,damage) { ChargeRatioRaw = normal ? a.Gun.LastShotChargeRatioRaw : 0 });
             foreach (var drain in On(a,62).ToArray()) Heal(a,a,damage*drain.Value*drain.Stacks,drain.EventId,drain.Function.Id);
             if (normal) Dispatch(31,a,ev);
             // Skill damage never feeds normal-hit counters, so Modernia's extra hit cannot recurse.

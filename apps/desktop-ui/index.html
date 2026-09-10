@@ -48,6 +48,15 @@
 
         <section class="tab-panel page" data-tab-panel="nikkes" hidden>
           <div id="nikke-browser">
+            <section id="formation-editor" hidden>
+              <button id="formation-cancel" class="detail-back" type="button">‹ 솔로 레이드 · 취소</button>
+              <article class="surface">
+                <div class="formation-heading"><h2>편성</h2><span id="formation-count" class="status-pill neutral">0 / 5</span><button id="formation-save" class="primary" type="button">편성 저장</button></div>
+                <div id="formation-team" class="formation-slots" aria-label="편성 중인 니케"></div>
+                <p class="microcopy">니케를 누르면 왼쪽 빈칸부터 채웁니다. 편성된 칸을 누르면 해제합니다. 상세는 1초 이상 누르기 또는 Alt+Enter.</p>
+              </article>
+              <hr class="formation-divider">
+            </section>
             <div class="section-heading nikke-list-heading"><div><p class="eyebrow">전체 니케</p><h2>니케 도감</h2><p>보유 니케는 전투력 높은 순으로 표시됩니다. 검색과 분류로 빠르게 찾으세요.</p></div><span id="nikke-count" class="status-pill neutral">보유 0 / 전체 0</span></div>
             <div class="nikke-filter-shell surface">
               <label class="search-field"><span class="visually-hidden">니케 검색</span><input id="nikke-search" type="search" placeholder="니케 이름 검색"></label>

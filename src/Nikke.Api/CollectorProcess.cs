@@ -28,19 +28,27 @@ public sealed class CollectorProcess(string projectRoot, string dataRoot, string
         if (action == "collect")
         { start.ArgumentList.Add("--openid"); start.ArgumentList.Add(connection.OpenId!); start.ArgumentList.Add("--area"); start.ArgumentList.Add(connection.Area!.Value.ToString()); }
         using var process = Process.Start(start) ?? throw new CollectorFailure("launch", "수집기를 시작하지 못했습니다.");
-        using var registration = token.Register(() => { try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch (InvalidOperationException) { } });
-        var errors = process.StandardError.ReadToEndAsync(token); // Drain; never expose possible request metadata.
-        CollectorFailure? failure = null;
-        while (await process.StandardOutput.ReadLineAsync(token) is { } line)
+        try
         {
-            JsonNode? packet;
-            try { packet = JsonNode.Parse(line); } catch { continue; }
-            if (packet is null) continue;
-            if (packet["type"]?.ToString() == "error") failure = new(packet["code"]?.ToString() ?? "collector", packet["message"]?.ToString() ?? "수집 실패");
-            else if (packet["type"]?.ToString() == "progress") progress(packet);
+            using var registration = token.Register(() => { try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch (InvalidOperationException) { } });
+            var errors = process.StandardError.ReadToEndAsync(token); // Drain; never expose possible request metadata.
+            CollectorFailure? failure = null;
+            while (await process.StandardOutput.ReadLineAsync(token) is { } line)
+            {
+                JsonNode? packet;
+                try { packet = JsonNode.Parse(line); } catch { continue; }
+                if (packet is null) continue;
+                if (packet["type"]?.ToString() == "error") failure = new(packet["code"]?.ToString() ?? "collector", packet["message"]?.ToString() ?? "수집 실패");
+                else if (packet["type"]?.ToString() == "progress") progress(packet);
+            }
+            await process.WaitForExitAsync(token); await errors;
+            if (failure is not null) throw failure;
+            if (process.ExitCode != 0 || !File.Exists(ResultPath(runId))) throw new CollectorFailure("collector", "수집기를 완료하지 못했습니다.");
         }
-        await process.WaitForExitAsync(token); await errors;
-        if (failure is not null) throw failure;
-        if (process.ExitCode != 0 || !File.Exists(ResultPath(runId))) throw new CollectorFailure("collector", "수집기를 완료하지 못했습니다.");
+        finally
+        {
+            // Temporary files can be removed only after the writer has fully stopped.
+            if (!process.HasExited) { process.Kill(entireProcessTree: true); await process.WaitForExitAsync(CancellationToken.None); }
+        }
     }
 }

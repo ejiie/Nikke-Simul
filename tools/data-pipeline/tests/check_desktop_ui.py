@@ -24,6 +24,12 @@ async def main():
     async with async_playwright() as p:
         browser=await p.chromium.launch(channel='msedge',headless=True)
         page=await browser.new_page(viewport={'width':1500,'height':940},device_scale_factor=1)
+        # Keep this smoke's fixed P03 inputs without overwriting the user's saved formation.
+        async def fixture_formation(route):
+            if route.request.method == 'GET':
+                await route.fulfill(json={'accountId':snapshot['accountId'],'slots':['5011','5008','5009','5004','5044']})
+            else: await route.continue_()
+        await page.route('**/api/accounts/*/formation',fixture_formation)
         page.on('pageerror',lambda e:errors.append(str(e)))
         page.on('response',lambda r:failed.append((r.status,r.url)) if r.status>=400 else None)
         await page.goto(BASE+'/editor/')

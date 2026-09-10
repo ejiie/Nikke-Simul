@@ -45,3 +45,7 @@ Console cards reuse original NIKKE game item artwork through the public nikke.gg
 ## Equipment and collection artwork / spec editor
 
 Equipment and favorite-item Korean definitions and original artwork come from the public Blablalink resource catalog. The 2026-09-09 local cache contains 120 equipment definitions, 33 collections/favorites, and 105 images; URLs and SHA-256 receipts are in the ignored `data/local/presentation/spec-presentation.json`. Local Lab's equipment picker, enhancement/overload controls, skill/collection renderers, exact-value formatting, and option labels are reused. The versioned snapshot edit/preview API, validation and compact combined growth stepper are newly authored. See `docs/desktop-spec-editor.ko.md`.
+
+## d34d633f/nikke-einkk (P04 mathematical reference)
+
+Pinned commit: f96f59ea04239b790dfcb309dcd181ac95c755c5. MIT License, Copyright (c) 2025 Yome; original notice preserved in third-party/nikke-einkk.LICENSE. P04's newly authored C# controller references normal-hit gauge mathematics and burst-stage transitions from lib/model/battle/events/burst_gen_event.dart, nikke.dart, battle_simulator.dart and battle_skill.dart. See docs/p04-team-burst.ko.md for adopted rules, conflicting/unapplied raw fields, timing policies and remaining validation. No complete Dart runtime is imported.

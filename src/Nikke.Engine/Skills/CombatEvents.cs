@@ -32,6 +32,7 @@ public sealed record ShotEventData(int? WeaponShotId, int AmmoBefore, int AmmoAf
 public sealed record HitEventData(long? ShotTraceId, int? PelletIndex, int? WeaponShotId,
     bool FullCharge, bool Crit, bool Core, bool FullBurst, double Damage)
 {
+    public int ChargeRatioRaw { get; init; }
     // P04 must resolve gauge eligibility from event kind and pinned rules, not normal-hit participation.
     public string GaugeEligibility => "unresolved";
 }

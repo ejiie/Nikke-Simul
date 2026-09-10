@@ -22,6 +22,8 @@ public sealed class SnapshotStore
             CREATE TABLE IF NOT EXISTS snapshots(id TEXT PRIMARY KEY, account_id TEXT NOT NULL, revision INTEGER NOT NULL, payload TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS accounts(id TEXT PRIMARY KEY, current_id TEXT NOT NULL REFERENCES snapshots(id));
             CREATE TABLE IF NOT EXISTS game_snapshots(id TEXT PRIMARY KEY, payload TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS solo_formations(id TEXT PRIMARY KEY REFERENCES accounts(id), payload TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS connection_notices(id TEXT PRIMARY KEY, payload TEXT NOT NULL);
             PRAGMA user_version=1;
             """);
     }
@@ -51,10 +53,105 @@ public sealed class SnapshotStore
     }
     public AccountConnection? Connection(string id) => Get<AccountConnection>("connections", id);
     public List<AccountConnection> Connections() => All<AccountConnection>("connections");
+    public ConnectionFailureNotice? LastConnectionFailure() => Get<ConnectionFailureNotice>("connection_notices", "latest");
+    public void ClearConnectionFailure()
+    {
+        lock (gate) { using var db = Open(); Execute(db, null, "DELETE FROM connection_notices WHERE id='latest'"); }
+    }
+    public int PruneFailedConnections()
+    {
+        lock (gate)
+        {
+            var snapshots = All<AccountSnapshot>("snapshots");
+            var jobs = Jobs(); var removed = 0;
+            foreach (var connection in Connections().OrderBy(c => c.UpdatedAt))
+            {
+                var ownJobs = jobs.Where(j => j.ConnectionId == connection.Id).ToArray();
+                if (connection.Status is "awaiting_login" or "select_account"
+                    || ownJobs.Any(j => j.Status is "queued" or "running" or "cancelling" or "succeeded")
+                    || connection.AccountId is not null && (snapshots.Any(s => s.AccountId == connection.AccountId)
+                        || jobs.Any(j => j.AccountId == connection.AccountId && j.Status is "queued" or "running" or "cancelling"))) continue;
+                var last = ownJobs.OrderByDescending(j => j.FinishedAt).FirstOrDefault();
+                if (connection.Status != "reauth_required" && last?.Status is not ("failed" or "cancelled" or "interrupted")) continue;
+                // Remove only this failed attempt's files. Saved raw manifests are immutable evidence.
+                if (!CleanupAttemptFiles(connection.Id, session: true)) continue;
+                bool cleaned = true;
+                foreach (var job in ownJobs)
+                    cleaned &= CleanupAttemptFiles(job.Id, raw: !snapshots.Any(s => s.RawManifestId == job.Id));
+                if (!cleaned) continue;
+                var notice = new ConnectionFailureNotice(last?.FinishedAt ?? connection.UpdatedAt, connection.ErrorCode ?? last?.ErrorCode ?? "connection_failed",
+                    connection.Message ?? last?.Message ?? "계정 수집을 완료하지 못했습니다. 다시 연결하세요.");
+                using var db = Open(); using var tx = db.BeginTransaction();
+                foreach (var job in ownJobs) Execute(db, tx, "DELETE FROM jobs WHERE id=$id", ("$id", job.Id));
+                Execute(db, tx, "DELETE FROM connections WHERE id=$id", ("$id", connection.Id));
+                Execute(db, tx, "INSERT INTO connection_notices VALUES('latest',$json) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload",
+                    ("$json", Wire.Serialize(notice)));
+                tx.Commit(); removed++;
+            }
+            return removed;
+        }
+    }
+    public bool CleanupAttemptFiles(string id, bool session = false, bool raw = false)
+    {
+        // IDs from older or malformed records cannot become filesystem paths.
+        if (!Guid.TryParseExact(id, "N", out _)) return true;
+        var relative = new List<string> { Path.Combine("staging", id + ".json"), Path.Combine("staging", id + ".json.tmp") };
+        if (session) relative.AddRange([Path.Combine("sessions", id + ".bin"), Path.Combine("sessions", id + ".tmp")]);
+        if (raw) relative.AddRange([Path.Combine("raw", id, "envelope.json"), Path.Combine("raw", id, "manifest.json")]);
+        try
+        {
+            foreach (var name in relative)
+            {
+                var path = Path.GetFullPath(Path.Combine(Root, name));
+                if (!path.StartsWith(Root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) return false;
+                for (var dir = Path.GetDirectoryName(path); dir is not null && dir.Length >= Root.Length; dir = Path.GetDirectoryName(dir))
+                    if (Directory.Exists(dir) && File.GetAttributes(dir).HasFlag(FileAttributes.ReparsePoint)) return false;
+                if (File.Exists(path))
+                {
+                    if (File.GetAttributes(path).HasFlag(FileAttributes.ReparsePoint)) return false;
+                    File.Delete(path);
+                }
+            }
+            if (raw)
+            {
+                var directory = Path.Combine(Root, "raw", id);
+                if (Directory.Exists(directory) && !Directory.EnumerateFileSystemEntries(directory).Any()) Directory.Delete(directory);
+            }
+            return true;
+        }
+        catch (IOException) { return false; }
+        catch (UnauthorizedAccessException) { return false; }
+    }
     public SyncJob? Job(string id) => Get<SyncJob>("jobs", id);
     public List<SyncJob> Jobs() => All<SyncJob>("jobs");
     public AccountSnapshot? Snapshot(string id) => Get<AccountSnapshot>("snapshots", id);
     public GameSnapshot? Game(string id) => Get<GameSnapshot>("game_snapshots", id);
+    public Formation Formation(string accountId)
+    {
+        lock (gate)
+        {
+            _ = Current(accountId) ?? throw new KeyNotFoundException();
+            return Get<Formation>("solo_formations", accountId) ?? new(accountId, new string?[5]);
+        }
+    }
+    public Formation SaveFormation(string accountId, string?[]? slots)
+    {
+        lock (gate)
+        {
+            var snapshot = Current(accountId) ?? throw new KeyNotFoundException();
+            if (slots is null || slots.Length != 5) throw new ArgumentException("편성은 빈칸을 포함해 5칸이어야 합니다.");
+            var members = slots.Where(id => id is not null).ToArray();
+            if (members.Distinct(StringComparer.Ordinal).Count() != members.Length)
+                throw new ArgumentException("같은 니케를 중복 편성할 수 없습니다.");
+            if (members.Any(id => !snapshot.Characters.Any(c => c.CharacterId == id)))
+                throw new ArgumentException("해당 계정이 보유한 니케만 편성할 수 있습니다.");
+            var value = new Formation(accountId, slots.ToArray(), DateTimeOffset.UtcNow);
+            using var db = Open();
+            Execute(db, null, "INSERT INTO solo_formations VALUES($id,$json) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload",
+                ("$id", accountId), ("$json", Wire.Serialize(value)));
+            return value;
+        }
+    }
     public void SaveGame(GameSnapshot game)
     {
         lock (gate)

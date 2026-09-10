@@ -15,6 +15,67 @@ public class StorageTests : IDisposable
         return new SnapshotNormalizer().Normalize(raw, Fixtures.Game(), "account", "synthetic-account", 83, manifest);
     }
     private AccountConnection Connected() => new() { Id = "connection", Status = "ready", AccountId = "account", OpenId = "synthetic-account", Area = 83 };
+    [Fact] public void Failed_new_login_removes_placeholder_and_only_its_temporary_files()
+    {
+        var failed = new AccountConnection { Status="reauth_required", ErrorCode="network_access_denied", Message="연결 실패" };
+        store.SaveConnection(failed);
+        foreach (var file in new[] { $"staging/{failed.Id}.json", $"staging/{failed.Id}.json.tmp", $"sessions/{failed.Id}.bin", $"sessions/{failed.Id}.tmp", "sessions/unrelated.bin" })
+        { var path=Path.Combine(root,file);Directory.CreateDirectory(Path.GetDirectoryName(path)!);File.WriteAllText(path,"synthetic"); }
+        Assert.Equal(1, store.PruneFailedConnections()); Assert.Null(store.Connection(failed.Id));
+        Assert.Empty(Directory.GetFiles(Path.Combine(root,"staging")));
+        Assert.Equal(new[]{Path.Combine(root,"sessions","unrelated.bin")},Directory.GetFiles(Path.Combine(root,"sessions")));
+        Assert.Equal("network_access_denied",store.LastConnectionFailure()!.Code);
+        Assert.Equal(0,store.PruneFailedConnections());
+    }
+    [Fact] public void Failed_initial_collection_removes_job_and_unpublished_raw_but_keeps_saved_accounts()
+    {
+        var failed=new AccountConnection { Status="ready",AccountId="empty" };store.SaveConnection(failed);
+        var job=store.CreateJob(failed).Job;job.Status="failed";job.FinishedAt=DateTimeOffset.UtcNow;store.SaveJob(job);
+        store.SaveRaw(job.Id,Fixtures.Raw(),Fixtures.Game());
+        var saved=store.Commit(Prepared());var connection=Connected() with { Status="reauth_required" };store.SaveConnection(connection);
+        Assert.Equal(1,store.PruneFailedConnections());Assert.Null(store.Connection(failed.Id));Assert.Null(store.Job(job.Id));
+        Assert.False(Directory.Exists(Path.Combine(root,"raw",job.Id)));
+        Assert.NotNull(store.Connection(connection.Id));Assert.Equal(saved.Id,store.Current("account")!.Id);
+        Assert.NotNull(store.Raw(saved.RawManifestId));
+    }
+    [Fact] public void Cleanup_preserves_active_login_server_selection_and_active_collection()
+    {
+        foreach(var status in new[]{"awaiting_login","select_account"})store.SaveConnection(new(){Status=status});
+        var collecting=new AccountConnection {Status="ready",AccountId="pending"};store.SaveConnection(collecting);store.CreateJob(collecting);
+        Assert.Equal(0,store.PruneFailedConnections());Assert.Equal(3,store.Connections().Count);
+        store.RecoverInterrupted();Assert.Equal(2,store.PruneFailedConnections());
+        Assert.Equal("select_account",Assert.Single(store.Connections()).Status);
+    }
+    [Fact] public void Malformed_connection_id_cannot_delete_files_outside_attempt_directories()
+    {
+        var target=Path.Combine(root,"keep.bin");File.WriteAllText(target,"keep");
+        store.SaveConnection(new(){Id="../keep",Status="reauth_required"});
+        Assert.Equal(1,store.PruneFailedConnections());Assert.Equal("keep",File.ReadAllText(target));
+    }
+    [Fact] public void Formation_preserves_slots_across_restart_and_snapshot_updates_and_isolates_accounts()
+    {
+        var first = store.Commit(Prepared());
+        Assert.Equal(new string?[5], store.Formation("account").Slots);
+        var slots = new string?[] { null, first.Characters[0].CharacterId, null, null, null };
+        store.SaveFormation("account", slots);
+        store.Commit(Prepared());
+        Assert.Equal(slots, new SnapshotStore(root).Formation("account").Slots);
+        Assert.NotNull(store.Formation("account").SavedAt);
+        var other = Prepared() with { AccountId = "other" }; store.Commit(other);
+        Assert.Equal(new string?[5], store.Formation("other").Slots);
+        store.SaveFormation("account", new string?[5]);
+        Assert.Equal(new string?[5], new SnapshotStore(root).Formation("account").Slots);
+        Assert.Equal(Wire.Serialize(first.Characters), Wire.Serialize(store.Snapshot(first.Id)!.Characters));
+    }
+    [Fact] public void Invalid_formation_does_not_overwrite_saved_team()
+    {
+        var first = store.Commit(Prepared()); var id = first.Characters[0].CharacterId;
+        var slots = new string?[] { id, null, null, null, null }; store.SaveFormation("account", slots);
+        foreach (var invalid in new string?[]?[] { null, [], new string?[6], [id,id,null,null,null], ["unknown",null,null,null,null], ["",null,null,null,null] })
+            Assert.Throws<ArgumentException>(() => store.SaveFormation("account", invalid));
+        Assert.Throws<KeyNotFoundException>(() => store.SaveFormation("missing", slots));
+        Assert.Equal(slots, store.Formation("account").Slots);
+    }
     [Fact] public void Invalid_snapshot_does_not_overwrite_current()
     {
         var first = store.Commit(Prepared()); var invalid = Prepared(); invalid.Issues.Add(new("error", "test", "", "bad"));
