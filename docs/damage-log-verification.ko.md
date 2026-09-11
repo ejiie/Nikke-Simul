@@ -110,3 +110,7 @@ SHA-256은 동일 증거 루트 `evidence-hashes.json`에도 있다.
 | 독립 로그 summary.json | `5aa61056d286da838a3450a356cfcca3dc175f4d2546b5afeb535443f6af4826` |
 
 결과 커밋은 아래 후속 기록에 명시한다. 수정본 통합 및 실제 API/브라우저 재검사가 끝나기 전에는 제품 전체 검수 통과를 선언하지 않는다.
+
+## 결과 커밋
+
+검수 도구·테스트·재현 보고 결과: `514daf4` (`test(q3): reproduce integrated damage log and tactic boundary failures`), 제품 기준 `a0738accb16500e52621811fac0dac7259cb7f76`. 이 뒤 문서 커밋은 결과 ID만 추가하며 제품이나 검증 도구 변경은 없다. 최종 `git diff --cached --check` 및 기준 대비 `src`/`apps` diff 없음 확인. 원본 `package-lock.json`만 기존 미추적 상태로 남았다. 미완료는 U3 수정 고정본에서 25개 수용 검사 재실행, Director의 실제 API/브라우저 통합, 실게임 관측 대조다.
