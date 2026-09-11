@@ -15,6 +15,26 @@ public class StorageTests : IDisposable
         return new SnapshotNormalizer().Normalize(raw, Fixtures.Game(), "account", "synthetic-account", 83, manifest);
     }
     private AccountConnection Connected() => new() { Id = "connection", Status = "ready", AccountId = "account", OpenId = "synthetic-account", Area = 83 };
+    [Fact] public void Tactic_storage_is_separate_and_checks_snapshot_and_formation_preconditions()
+    {
+        var first = store.Commit(Prepared());
+        var slots = new string?[] { first.Characters[0].CharacterId, null, null, null, null };
+        store.SaveFormation("account", slots);
+        var formationJson = Wire.Serialize(store.Formation("account"));
+        var request = new SaveBurstTactic(first.Id, slots, new BurstTacticSettings());
+        var saved = store.SaveBurstTactic("account", request);
+        Assert.Equal(Wire.Serialize(saved), Wire.Serialize(new SnapshotStore(root).BurstTactic("account")));
+        Assert.Equal(formationJson, Wire.Serialize(store.Formation("account")));
+        Assert.Equal(Wire.Serialize(first), Wire.Serialize(store.Snapshot(first.Id)));
+        store.SaveFormation("account", new string?[5]);
+        Assert.Throws<InvalidOperationException>(() => store.SaveBurstTactic("account", request));
+        Assert.Equal(slots, store.BurstTactic("account")!.FormationSlots);
+        store.SaveFormation("account", slots);
+        store.Commit(Prepared());
+        Assert.Throws<InvalidOperationException>(() => store.SaveBurstTactic("account", request));
+        store.Commit(Prepared() with { AccountId = "other" });
+        Assert.Null(store.BurstTactic("other"));
+    }
     [Fact] public void Failed_new_login_removes_placeholder_and_only_its_temporary_files()
     {
         var failed = new AccountConnection { Status="reauth_required", ErrorCode="network_access_denied", Message="연결 실패" };
