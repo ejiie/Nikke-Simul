@@ -8,7 +8,7 @@ import unittest
 from check_damage_log_integration import verify_exports
 
 
-def fixture():
+def fixture(metadata_padding=""):
     entries = [dict(frame=60, seconds=1, hitId=9, shotId=7, source="5004", damage=1.25, cumulativeDamage=1.25),
                dict(frame=60, seconds=1, hitId=10, shotId=7, source="5004", damage=2.5, cumulativeDamage=3.75)]
     saved = dict(id="synthetic", accountSnapshotId="snapshot", gameSnapshotId="game", calculationDataId="calculation",
@@ -16,6 +16,8 @@ def fixture():
                  result=dict(conditions=dict(combat=dict(durationFrames=10800)), members=[dict(characterId="5004", damage=3.75)],
                              damageLog=dict(schemaVersion=1, status="complete", truncated=False, truncationReason=None,
                                             characterId="5004", eventCount=2, totalDamage=3.75, entries=entries)))
+    if metadata_padding:
+        saved["inputs"] = {"fixturePadding": metadata_padding}
     envelope = dict(exportSchemaVersion=1, collectionStatus="complete", replay=copy.deepcopy(saved))
     metadata = copy.deepcopy(envelope)
     del metadata["replay"]["result"]["damageLog"]["entries"]
@@ -31,6 +33,11 @@ def fixture():
 
 
 class IntegrationAssertions(unittest.TestCase):
+    def test_large_actual_replay_metadata_and_parser_limit_restoration(self):
+        previous_limit = csv.field_size_limit()
+        self.assertEqual(2, verify_exports(*fixture("x" * 200000))["hits"])
+        self.assertEqual(previous_limit, csv.field_size_limit())
+
     def test_valid_multihit_preserves_distinct_shot_count(self):
         self.assertEqual(dict(hits=2, distinctShots=1, damage=3.75), verify_exports(*fixture()))
 

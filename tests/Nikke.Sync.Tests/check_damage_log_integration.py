@@ -39,7 +39,14 @@ def verify_exports(saved, retrieved, envelope, csv_text):
     member = next(m for m in result["members"] if m["characterId"] == log["characterId"])
     assert math.isclose(cumulative, log["totalDamage"], rel_tol=1e-12)
     assert math.isclose(cumulative, member["damage"], rel_tol=1e-12)
-    rows = list(csv.DictReader(io.StringIO(csv_text)))
+    # Real replay metadata contains full skill inputs and exceeds Python's 128 KiB default.
+    # This validates the already-loaded response without truncating any field.
+    previous_limit = csv.field_size_limit()
+    try:
+        csv.field_size_limit(max(previous_limit, len(csv_text)))
+        rows = list(csv.DictReader(io.StringIO(csv_text)))
+    finally:
+        csv.field_size_limit(previous_limit)
     assert rows[0]["recordType"] == "metadata" and all(r["recordType"] == "hit" for r in rows[1:])
     expected_metadata = copy.deepcopy(envelope)
     del expected_metadata["replay"]["result"]["damageLog"]["entries"]
@@ -91,6 +98,7 @@ def main():
         assert conditions["combat"]["durationFrames"] == 10800
         assert conditions["damageLog"]["characterId"] == "5004"
         assert conditions["combat"].get("critMode", "off") == "off", "Use deterministic conditions"
+        assert not conditions["combat"].get("manualCharacterId"), "Manual reclick timing samples RNG; use auto firing for exact replay equality"
         auto = conditions["autoBurst"]
         assert auto["stageDelayMinFrames"] == auto["stageDelayMaxFrames"], "Fix sampled timing for replay comparison"
         tactic = auto["tactic"]

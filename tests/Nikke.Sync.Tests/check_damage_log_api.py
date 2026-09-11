@@ -18,6 +18,7 @@ import uuid
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--dotnet", required=True)
+parser.add_argument("--expect-unintegrated", action="store_true", help="Only for the historical Backend-only checkout without E1")
 args = parser.parse_args()
 root = Path(__file__).resolve().parents[2]
 checks = []
@@ -94,8 +95,10 @@ with tempfile.TemporaryDirectory(prefix="store-", dir=run_root) as folder:
             assert request("runtime/skill-replays/" + uuid.uuid4().hex)[0] == 404
             checks.append("invalid and missing IDs")
             for conditions in [{"damageLog": {}}, {"autoBurst": {"tactic": {}}}]:
-                assert request("runtime/skill-replays", {"conditions": conditions}, "POST")[0] == 409
-            checks.append("unintegrated engine features rejected")
+                expected = 409 if args.expect_unintegrated else 400
+                status, body, _ = request("runtime/skill-replays", {"conditions": conditions}, "POST")
+                assert status == expected, (status, body)
+            checks.append("unintegrated engine features rejected" if args.expect_unintegrated else "integrated engine requests require snapshot")
             assert request("runtime/skill-replays", {"conditions": {"autoBurst": {"tactics": {"version": 2}}}}, "POST")[0] == 400
             assert request("runtime/skill-replays", {"conditions": []}, "POST")[0] == 400
             with closing(sqlite3.connect(data / "accounts.db")) as db:
