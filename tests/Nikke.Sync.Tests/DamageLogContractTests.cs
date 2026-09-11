@@ -7,6 +7,32 @@ namespace Nikke.Sync.Tests;
 
 public sealed class DamageLogContractTests
 {
+    [Theory]
+    [InlineData("{}")] [InlineData("{\"conditions\":[]}")]
+    [InlineData("{\"conditions\":{\"damageLog\":true}}")]
+    [InlineData("{\"conditions\":{\"autoBurst\":{\"tactic\":[]}}}")]
+    [InlineData("{\"conditions\":{},\"Conditions\":{}}")]
+    [InlineData("{\"conditions\":{},\"characterIds\":12}")]
+    [InlineData("{\"conditions\":{\"autoBurst\":{\"tactics\":{\"version\":2}}}}")]
+    public void Malformed_request_is_an_argument_error(string json) =>
+        Assert.Throws<ArgumentException>(() => RuntimeReplayService.ReadSkillRequest(JsonNode.Parse(json)!.AsObject()));
+
+    [Fact]
+    public void Ui_private_tactic_model_cannot_silently_be_saved_as_an_empty_draft() =>
+        Assert.Throws<System.Text.Json.JsonException>(() => Wire.Read<BurstTacticSettings>("{\"version\":2,\"allowlist\":{\"5004\":true},\"stage3Mode\":\"alternate\"}"));
+
+    [Fact]
+    public void Case_insensitive_binding_also_applies_to_capability_guards()
+    {
+        if (typeof(Nikke.Engine.Skills.SkillReplayConditions).GetProperty("DamageLog") is null)
+            Assert.Throws<InvalidOperationException>(() => RuntimeReplayService.ReadSkillRequest(JsonNode.Parse("{\"Conditions\":{\"DamageLog\":{}}}")!.AsObject()));
+        if (typeof(Nikke.Engine.Skills.TeamBurstOptions).GetProperty("Tactic") is null)
+            Assert.Throws<InvalidOperationException>(() => RuntimeReplayService.ReadSkillRequest(JsonNode.Parse("{\"Conditions\":{\"AutoBurst\":{\"Tactic\":{}}}}")!.AsObject()));
+    }
+
+    [Fact]
+    public void Restored_draft_reports_missing_stages_without_requiring_runtime_catalog() =>
+        Assert.Equal(new[] { "missing_stage_1", "missing_stage_2", "missing_stage_3" }, BurstTacticValidation.MissingStages(new()));
     [Fact]
     public void Missing_log_and_collected_zero_are_distinct_and_csv_retains_metadata()
     {

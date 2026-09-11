@@ -18,12 +18,34 @@ public sealed partial class RuntimeReplayService
         id => id, id => catalog["characters"]?[id]?["burstConnection"]?["step"]?.GetValue<int>() ?? 0);
     public static SkillReplayRequest ReadSkillRequest(JsonObject payload)
     {
+        static JsonNode? Field(JsonObject obj, string name)
+        {
+            var matches = obj.Where(p => string.Equals(p.Key, name, StringComparison.OrdinalIgnoreCase)).ToArray();
+            if (matches.Length > 1) throw new ArgumentException($"Ambiguous request field: {name}");
+            return matches.SingleOrDefault().Value;
+        }
+        static JsonObject? ObjectField(JsonObject obj, string name) => Field(obj, name) switch
+        {
+            null => null, JsonObject child => child,
+            _ => throw new ArgumentException($"{name} must be an object or null.")
+        };
+        var conditions = ObjectField(payload, "conditions") ?? throw new ArgumentException("Missing replay conditions.");
+        var damageLog = ObjectField(conditions, "damageLog");
+        var autoBurst = ObjectField(conditions, "autoBurst");
+        if (autoBurst is not null && Field(autoBurst, "tactics") is not null)
+            throw new ArgumentException("Use autoBurst.tactic schemaVersion 1; the UI tactics model is not an execution contract.");
+        var tactic = autoBurst is null ? null : ObjectField(autoBurst, "tactic");
         // Do not silently discard requests for features whose engine implementation is not integrated yet.
-        if (payload["conditions"]?["damageLog"] is not null && typeof(SkillReplayConditions).GetProperty("DamageLog") is null)
+        if (damageLog is not null && typeof(SkillReplayConditions).GetProperty("DamageLog") is null)
             throw new InvalidOperationException("Damage log engine implementation is not integrated.");
-        if (payload["conditions"]?["autoBurst"]?["tactic"] is not null && typeof(TeamBurstOptions).GetProperty("Tactic") is null)
+        if (tactic is not null && typeof(TeamBurstOptions).GetProperty("Tactic") is null)
             throw new InvalidOperationException("Burst tactic engine implementation is not integrated.");
-        return payload.Deserialize<SkillReplayRequest>(Wire.Json) ?? throw new ArgumentException("Missing skill replay request.");
+        try
+        {
+            if (tactic is not null) _ = tactic.Deserialize<BurstTacticSettings>(Wire.Json);
+            return payload.Deserialize<SkillReplayRequest>(Wire.Json) ?? throw new ArgumentException("Missing skill replay request.");
+        }
+        catch (JsonException ex) { throw new ArgumentException("Invalid replay JSON fields or values.", ex); }
     }
     private static readonly JsonSerializerOptions OfficialJson = new() { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
     private SkillGraph Graph() => new(catalog["functions"]!.AsObject().ToDictionary(p=>int.Parse(p.Key),p=>p.Value!.Deserialize<SkillFunction>(OfficialJson)!),

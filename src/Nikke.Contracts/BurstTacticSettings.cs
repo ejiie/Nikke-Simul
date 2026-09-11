@@ -1,6 +1,9 @@
+using System.Text.Json.Serialization;
+
 namespace Nikke.Contracts;
 
 // External JSON contract aligned with E1 d7ce350; distinct from engine-owned DTOs.
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record BurstTacticSettings
 {
     public int SchemaVersion { get; init; } = 1;

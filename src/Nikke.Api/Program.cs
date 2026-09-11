@@ -71,7 +71,7 @@ app.MapPost("/api/accounts/{id}/overrides", (string id, OverrideRequest request)
     }
     return store.ApplyOverride(id, request);
 });
-var calculationPath = Path.Combine(root, "data/local/calculation");
+var calculationPath = Path.Combine(dataRoot, "calculation");
 var calculations = new Lazy<CalculationService>(() => new CalculationService(calculationPath));
 var runtimeRoot = Path.Combine(dataRoot, "runtime");
 var runtimeReplay = new Lazy<RuntimeReplayService>(() => new(runtimeRoot, Path.Combine(dataRoot, "weapon-replays")));
@@ -111,7 +111,8 @@ app.MapGet("/api/accounts/{id}/burst-tactic", (string id) =>
     var current = store.Current(id)!;
     var slots = store.Formation(id).Slots;
     var stale = saved is not null && (saved.SnapshotId != current.Id || !saved.FormationSlots.SequenceEqual(slots));
-    return Results.Ok(new { saved, stale, executionStatus = saved?.Tactic is null ? "legacy" : stale ? "stale" : "requires_execution_validation" });
+    var issues = saved?.Tactic is null || stale ? Array.Empty<string>() : BurstTacticValidation.MissingStages(saved.Tactic).ToArray();
+    return Results.Ok(new { saved, stale, executionStatus = saved?.Tactic is null ? "legacy" : stale ? "stale" : issues.Length > 0 ? "draft_incomplete" : "requires_execution_validation", issues });
 });
 app.MapPut("/api/accounts/{id}/burst-tactic", (string id, SaveBurstTactic request) =>
 {

@@ -4,6 +4,10 @@ namespace Nikke.Data;
 
 public static class BurstTacticValidation
 {
+    public static IReadOnlyList<string> MissingStages(BurstTacticSettings tactic) =>
+        new[] { tactic.Stage1Priority, tactic.Stage2Priority, tactic.Stage3Priority }
+            .Select((ids, i) => (ids, step: i + 1)).Where(p => p.ids is null || p.ids.Length == 0)
+            .Select(p => $"missing_stage_{p.step}").ToArray();
     // Malformed candidates are never saved. Missing stages may be saved as a draft.
     public static IReadOnlyList<string> Validate(BurstTacticSettings? tactic, IReadOnlyDictionary<string, int> formationStages)
     {

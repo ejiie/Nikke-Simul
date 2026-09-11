@@ -21,7 +21,9 @@ parser.add_argument("--dotnet", required=True)
 args = parser.parse_args()
 root = Path(__file__).resolve().parents[2]
 checks = []
-with tempfile.TemporaryDirectory(prefix="nikke-b1-http-") as folder:
+run_root = root / "artifacts" / "b2" / ("http-" + uuid.uuid4().hex)
+run_root.mkdir(parents=True)
+with tempfile.TemporaryDirectory(prefix="store-", dir=run_root) as folder:
     data = Path(folder)
     (data / "game.json").write_text(json.dumps({"id": "synthetic-game", "source": "synthetic", "names": {}}))
     catalog = json.dumps({"schemaVersion": 1, "characters": {k: {"burstConnection": {"step": v}} for k, v in {"i": 1, "ii": 2, "5004": 3}.items()}}).encode()
@@ -94,6 +96,8 @@ with tempfile.TemporaryDirectory(prefix="nikke-b1-http-") as folder:
             for conditions in [{"damageLog": {}}, {"autoBurst": {"tactic": {}}}]:
                 assert request("runtime/skill-replays", {"conditions": conditions}, "POST")[0] == 409
             checks.append("unintegrated engine features rejected")
+            assert request("runtime/skill-replays", {"conditions": {"autoBurst": {"tactics": {"version": 2}}}}, "POST")[0] == 400
+            assert request("runtime/skill-replays", {"conditions": []}, "POST")[0] == 400
             with closing(sqlite3.connect(data / "accounts.db")) as db:
                 snapshot = {"id": "synthetic-snapshot", "accountId": "synthetic", "characters": [{"characterId": k} for k in ["i", "ii", "5004"]]}
                 db.execute("INSERT INTO snapshots VALUES(?,?,?,?)", (snapshot["id"], "synthetic", 1, json.dumps(snapshot)))
@@ -103,6 +107,13 @@ with tempfile.TemporaryDirectory(prefix="nikke-b1-http-") as folder:
             assert request("accounts/synthetic/formation", {"slots": slots}, "PUT")[0] == 200
             tactic = {"schemaVersion": 1, "allowedCharacterIds": ["i", "ii", "5004"], "stage1Priority": ["i"], "stage2Priority": ["ii"], "stage3Priority": ["5004"], "burst3Rotation": ["5004"]}
             payload = {"snapshotId": "synthetic-snapshot", "formationSlots": slots, "tactic": tactic}
+            draft = dict(payload, tactic={"schemaVersion": 1})
+            assert request("accounts/synthetic/burst-tactic", draft, "PUT")[0] == 200
+            restored_draft = json.loads(request("accounts/synthetic/burst-tactic")[1])
+            assert restored_draft["executionStatus"] == "draft_incomplete"
+            assert restored_draft["issues"] == ["missing_stage_1", "missing_stage_2", "missing_stage_3"]
+            assert request("accounts/synthetic/burst-tactic", dict(payload, tactic={"version": 2, "allowlist": {}}), "PUT")[0] == 400
+            checks.append("draft restoration and unmapped UI model rejection")
             status, body, _ = request("accounts/synthetic/burst-tactic", payload, "PUT")
             assert status == 200, body
             saved = json.loads(body)["saved"]
@@ -115,4 +126,6 @@ with tempfile.TemporaryDirectory(prefix="nikke-b1-http-") as folder:
         finally:
             process.terminate()
             process.wait(timeout=10)
-print(json.dumps({"kind": "synthetic_http_storage_not_engine_integration", "passed": checks}, indent=2))
+summary = {"kind": "synthetic_http_storage_not_engine_integration", "passed": checks}
+(run_root / "summary.json").write_text(json.dumps(summary, indent=2))
+print(json.dumps(dict(summary, evidence=str(run_root)), indent=2))
