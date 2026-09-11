@@ -241,6 +241,9 @@ async def run_verification():
 
             async def handle_damage_log(route):
                 req_url = route.request.url
+                if req_url.endswith('.csv'):
+                    await route.fulfill(body="recordType,frame,seconds,hitId,shotId,damage,cumulativeDamage,entryJson,metadataJson\r\n", headers={'Content-Type': 'text/csv'})
+                    return
                 char_id = '5004' if 'characterId=5004' in req_url or '5004' in req_url else '5044'
                 if char_id == '5004':
                     await route.fulfill(json={
@@ -268,7 +271,7 @@ async def run_verification():
             await page.route('**/api/accounts/*/formation', handle_formation)
             await page.route('**/api/accounts/*/burst-tactic', handle_burst_tactic)
             await page.route('**/api/snapshots/*/combat-powers', handle_combat_powers)
-            await page.route('**/api/runtime/skill-replays/*/damage-log*', handle_damage_log)
+            await page.route('**/api/runtime/skill-replays/*/damage-log**', handle_damage_log)
             await page.route('**/api/runtime/skill-replays', handle_skill_replays)
 
             # Navigate to editor

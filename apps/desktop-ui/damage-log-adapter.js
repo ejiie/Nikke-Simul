@@ -200,8 +200,30 @@ export function fromServerTacticDto(dto, membersWithMeta) {
   if (!dto) return createDefaultTactics(membersWithMeta);
 
   const allowlist = {};
-  for (const m of membersWithMeta) {
-    allowlist[m.id] = (dto.allowedCharacterIds || []).includes(m.id);
+  const allowedSet = new Set(dto.allowedCharacterIds || []);
+
+  if (Array.isArray(membersWithMeta) && membersWithMeta.length > 0) {
+    for (const m of membersWithMeta) {
+      allowlist[m.id] = allowedSet.has(m.id);
+    }
+  }
+
+  for (const id of allowedSet) {
+    if (allowlist[id] === undefined) {
+      allowlist[id] = true;
+    }
+  }
+
+  const allReferencedIds = new Set([
+    ...(dto.stage1Priority || []),
+    ...(dto.stage2Priority || []),
+    ...(dto.stage3Priority || []),
+    ...(dto.burst3Rotation || [])
+  ]);
+  for (const id of allReferencedIds) {
+    if (allowlist[id] === undefined) {
+      allowlist[id] = allowedSet.has(id);
+    }
   }
 
   const stage3Priority = dto.stage3Priority || [];

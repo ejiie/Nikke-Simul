@@ -36,7 +36,7 @@ const $ = id => document.getElementById(id);
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const num = v => v == null ? '—' : Number(v).toLocaleString('ko-KR');
 
-export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, status }) {
+export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, getToken, status }) {
   let activeReplay = null;
   let activeLogData = null;
   let logStatus = 'idle'; // 'idle' | 'collected' | 'uncollected' | 'no_damage'
@@ -418,17 +418,25 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, st
     const btnCloseAudit = $('btn-close-audit');
     if (btnCloseAudit) btnCloseAudit.onclick = () => { selectedHit = null; render(); };
 
-    // Export handlers with server endpoint attempt
+    // Export handlers with raw server endpoint response Blob download
     $('btn-export-json').onclick = async () => {
       if (!isMockMode && api && activeReplay?.id) {
         try {
-          const res = await api(`/runtime/skill-replays/${activeReplay.id}/damage-log/export.json?characterId=${selectedCharacterId}`);
-          if (res) {
-            downloadBlob(JSON.stringify(res, null, 2), `server-damage-log-${selectedCharacterId}-${Date.now()}.json`, 'application/json');
+          const token = (typeof getToken === 'function' ? getToken() : (api?.token || ''));
+          const headers = token ? { 'X-Nikke-Token': token } : {};
+          const res = await fetch(`/api/runtime/skill-replays/${activeReplay.id}/damage-log/export.json`, { headers });
+          if (res.ok) {
+            const blob = await res.blob();
+            downloadBlob(blob, `server-damage-log-${selectedCharacterId}-${Date.now()}.json`, 'application/json');
             status?.('서버 원본 JSON 로그를 내보냈습니다.');
             return;
           }
-        } catch {}
+          const errText = await res.text().catch(() => '');
+          throw new Error(`서버 로그 내보내기 실패 (${res.status}): ${errText}`);
+        } catch (err) {
+          status?.(err.message || 'JSON 내보내기 실패');
+          return;
+        }
       }
 
       const json = exportDamageLogToJson({
@@ -446,17 +454,21 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, st
       if (!isMockMode && api && activeReplay?.id) {
         try {
           // Direct download link from server if available
-          const token = api.token || '';
-          const res = await fetch(`/api/runtime/skill-replays/${activeReplay.id}/damage-log/export.csv?characterId=${selectedCharacterId}`, {
-            headers: token ? { 'X-Nikke-Token': token } : {}
-          });
+          const token = (typeof getToken === 'function' ? getToken() : (api?.token || ''));
+          const headers = token ? { 'X-Nikke-Token': token } : {};
+          const res = await fetch(`/api/runtime/skill-replays/${activeReplay.id}/damage-log/export.csv`, { headers });
           if (res.ok) {
-            const csvText = await res.text();
-            downloadBlob(csvText, `server-damage-log-${selectedCharacterId}-${Date.now()}.csv`, 'text/csv;charset=utf-8;');
+            const blob = await res.blob();
+            downloadBlob(blob, `server-damage-log-${selectedCharacterId}-${Date.now()}.csv`, 'text/csv;charset=utf-8;');
             status?.('서버 원본 CSV 로그를 내보냈습니다.');
             return;
           }
-        } catch {}
+          const errText = await res.text().catch(() => '');
+          throw new Error(`서버 로그 내보내기 실패 (${res.status}): ${errText}`);
+        } catch (err) {
+          status?.(err.message || 'CSV 내보내기 실패');
+          return;
+        }
       }
 
       const csv = exportDamageLogToCsv(activeLogData, {
@@ -472,7 +484,7 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, st
   }
 
   function downloadBlob(content, filename, type) {
-    const blob = new Blob([content], { type });
+    const blob = content instanceof Blob ? content : new Blob([content], { type });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -480,7 +492,7 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, st
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   function generateGraphSvg(data) {

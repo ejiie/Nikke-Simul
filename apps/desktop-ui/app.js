@@ -41,7 +41,7 @@ const getMembersWithMeta=()=>{
   });
 };
 const tacticsManager=createBurstTacticsManager({api,getSnapshot:()=>snapshot,getMembersWithMeta,getFormationSlots:()=>formation.slots(),status});
-const damageLogViewer=createDamageLogViewer({api,getSnapshot:()=>snapshot,getMembersWithMeta,status});
+const damageLogViewer=createDamageLogViewer({api,getSnapshot:()=>snapshot,getMembersWithMeta,getToken:()=>boot.token,status});
 connectRenderer({state,isSelecting:()=>selectedPage==='formation',isChosen:id=>formation.contains(id),selectCharacter:id=>formation.select(id),effectiveProfileValue:(field,id)=>({integerValue:build(id)?.[field==='limit_break'?'limitBreak':'core']}),
   configuredCharacterLevel:id=>build(id)?.level,openNikkeDetail});
 
@@ -52,6 +52,8 @@ async function api(path,method='GET',body){
   if(!response.ok)throw new Error(data.message??`요청 실패 (${response.status})`);
   return data;
 }
+Object.defineProperty(api,'token',{get:()=>boot.token,configurable:true});
+api.getToken=()=>boot.token;
 function status(message){$('status').textContent=message;}
 async function act(action){
   if(busy)return;busy=true;renderSync();
@@ -86,6 +88,7 @@ function includeSavedCharacters(){
 }
 async function refresh(force=false){
   if(refreshing)return;refreshing=true;
+  document.body.dataset.ready='false';
   try{
     boot=await api('/bootstrap');$('test-banner').hidden=!boot.testMode;const selected=connection();
     if(selected){connectionId=selected.id;localStorage.setItem('nikke-sync-connection',selected.id);}
@@ -99,12 +102,14 @@ async function refresh(force=false){
       if(accountChanged){detailSequence++;state.selectedNikkeUid=null;$('nikke-detail').hidden=true;$('nikke-browser').hidden=false;}
       state.currentProfile={values:(snapshot?.characters??[]).map(c=>({fieldCode:'character_level',subjectUid:c.characterId}))};
       includeSavedCharacters();renderNikkeCards();renderAccount();renderDiagnostics();
+      try{await formation.load();}catch(error){status(`편성을 불러오지 못했습니다. ${error.message}`);}
       formation.render();
       if(state.selectedNikkeUid&&!$('nikke-detail').hidden&&!detailDirty())await openNikkeDetail(state.selectedNikkeUid,false);
       try{await tacticsManager.syncFromServer();}catch(error){}
+      if(selectedPage==='raid'){tacticsManager.render('burst-tactics-container');}
+    }else{
+      try{await formation.load();}catch(error){status(`편성을 불러오지 못했습니다. ${error.message}`);}
     }
-    // A formation load failure must not prevent the account/catalogue from loading.
-    try{await formation.load();}catch(error){status(`편성을 불러오지 못했습니다. ${error.message}`);}
     renderAccounts();renderSync();
     const update=await api('/presentation/status');
     if(update.status!==imageStatus||update.revision!==imageRevision){
