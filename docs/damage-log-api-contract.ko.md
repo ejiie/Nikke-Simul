@@ -127,4 +127,6 @@ Director가 B2 + E1 `908047f`(후속 수정 포함)를 통합한 고정 commit�
 - `<python> tests/Nikke.Sync.Tests/check_damage_log_api.py --dotnet <dotnet>`: **7개 그룹 통과, 종료 코드 0**. 합성 DB/runtime/저장 로그를 사용한 실제 HTTP 검사이며 실제 엔진 로그 생성 검사는 아니다. 신규 초안 GET 복원, 사설 UI 모델·plural tactics·잘못된 conditions 거부 포함. 근거: `artifacts/b2/http-8c8b62faba02410a9019caf19004c816/summary.json`.
 - `git diff --check`: 통과. B2 검증 출력은 모두 Backend 실행별 경로이며 기존 B1 및 타 담당 artifacts를 덮어쓰지 않았다.
 
-변경 파일: `src/Nikke.Api/Program.cs`, `src/Nikke.Contracts/BurstTacticSettings.cs`, `src/Nikke.Data/{BurstTacticValidation,RuntimeReplayService.Skills}.cs`, `tests/Nikke.Sync.Tests/{DamageLogContractTests.cs,check_damage_log_api.py,check_damage_log_integration.py,test_damage_log_integration.py}`, 본 문서. Engine/Core/UI 및 기존 사용자 파일 수정 없음. 결과 커밋 ID는 후속 기록에 남긴다.
+변경 파일: `src/Nikke.Api/Program.cs`, `src/Nikke.Contracts/BurstTacticSettings.cs`, `src/Nikke.Data/{BurstTacticValidation,RuntimeReplayService.Skills}.cs`, `tests/Nikke.Sync.Tests/{DamageLogContractTests.cs,check_damage_log_api.py,check_damage_log_integration.py,test_damage_log_integration.py}`, 본 문서. Engine/Core/UI 및 기존 사용자 파일 수정 없음.
+
+B2 결과 커밋: `7823071` (`fix(backend): validate tactic mappings and prepare engine API verification`), 기준 `bf19679`. 이 후속 문서 커밋은 결과 ID 기록만 추가한다. 실제 엔진 HTTP 통합/실게임 검증은 위 사유로 미실행이며, 사용자 변경 `package-lock.json`은 커밋하지 않았다.
