@@ -66,6 +66,21 @@ async def browser_check(base, output):
             await page.goto(base + '/editor/')
             await page.wait_for_function("document.body.dataset.ready==='true'", timeout=60000)
             await page.locator('[data-tab="raid"]').click()
+            async with page.expect_response(lambda r: r.request.method == 'PUT' and r.url.endswith('/burst-tactic')) as pending_save:
+                await page.locator('#preset-alice-only').click()
+            assert (await pending_save.value).status == 200
+            async with page.expect_response(lambda r: r.request.method == 'PUT' and r.url.endswith('/burst-tactic')) as pending_save:
+                await page.locator('#tactic-fallback-policy').select_option('wait_preferred')
+            saved_response = await pending_save.value
+            assert saved_response.status == 200
+            saved_tactic = (await saved_response.json())['saved']['tactic']
+            assert saved_tactic['burst3Rotation'] == ['5004']
+            assert saved_tactic['unavailablePolicy'] == 'wait_preferred'
+            await page.reload()
+            await page.wait_for_function("document.body.dataset.ready==='true'", timeout=60000)
+            await page.locator('[data-tab="raid"]').click()
+            await page.wait_for_function("document.querySelector('#tactic-fallback-policy')?.value==='wait_preferred'")
+            assert not await page.locator('[data-tactic-allow="5044"]').is_checked()
             await page.locator('[name="level"]').fill('400')
             await page.locator('[name="crit"]').select_option('off')
             await page.locator('[name="seconds"]').fill('180')
@@ -78,17 +93,33 @@ async def browser_check(base, output):
             (output / 'ui-request.json').write_text(json.dumps(posts[-1]), encoding='utf-8')
             assert response.status == 200, f'UI replay HTTP {response.status}: {str(body)[:300]}'
             assert posts[-1]['conditions']['damageLog']['characterId'] == '5004', 'UI did not request Alice log'
+            assert posts[-1]['conditions']['autoBurst']['tactic'] == saved_tactic
             actual = body['result']['damageLog']
             assert actual['characterId'] == '5004' and actual['eventCount'] > 0 and not actual['truncated']
+            assert body['result']['teamBurst']['fullBursts']
+            assert all(b['caster'] == '5004' for b in body['result']['teamBurst']['fullBursts'])
             await page.wait_for_function("document.querySelector('#damage-log-container')?.textContent.includes('발사')", timeout=30000)
             text = await page.locator('#damage-log-container').inner_text()
             assert '아직 수집하지' not in text and '연동 대기' not in text, 'Actual log treated as uncollected'
+            assert await page.locator('.graph-hit-dot').count() == actual['eventCount']
+            await page.locator('[data-view-audit]').first.click()
+            for extension in ('json', 'csv'):
+                async with page.expect_download() as pending_download:
+                    await page.locator('#btn-export-' + extension).click()
+                download = await pending_download.value
+                target = output / ('ui-download.' + extension)
+                await download.save_as(target)
+                expected = await page.request.get(base + '/api/runtime/skill-replays/' + body['id'] + '/damage-log/export.' + extension)
+                assert expected.status == 200
+                assert target.read_bytes() == await expected.body(), f'{extension} export differs from server bytes'
             await page.screenshot(path=str(output / 'ui-result.png'), full_page=True)
             for width in [1500, 850, 500]:
                 await page.set_viewport_size({'width': width, 'height': 1000})
                 assert await page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1'), f'overflow {width}'
             assert not errors, errors
-            return {'status': 'passed', 'hits': actual['eventCount'], 'damage': actual['totalDamage'], 'pageErrors': errors}
+            return {'status': 'passed', 'hits': actual['eventCount'], 'damage': actual['totalDamage'],
+                    'serverSaveReloadExecution': True, 'aliceOnlyWaitPreferred': True,
+                    'jsonCsvExactDownloads': True, 'widths': [1500, 850, 500], 'pageErrors': errors}
         finally:
             await browser.close()
 

@@ -22,6 +22,7 @@
 | 격리 합성 HTTP/저장 회귀 | 7개 그룹 통과 | `artifacts/b2/http-4e1b5aef12484b3eacebcb1305e8b589/summary.json` |
 | 계정 복사본 실제 180초 API 통합 | 통과 | `artifacts/director/live-8e485ccfc75c492b98bb8e62d12a4262/summary.json`, `artifacts/b2/integration-bfe7311e79a24060abb9c7161f21e7ac/summary.json` |
 | 통계 도구 자체 테스트 | 18 통과 | 통합 후 Director에서 직접 실행 |
+| 기존 P00 계산 smoke fixture | 통과 | Nikke.Smoke, synthetic-overload-rounding: finalStat=103, timeCs=97 |
 | 검수 로그 도구 자체 테스트 | 5 통과 | 통합 후 Director에서 직접 실행 |
 | 실제 API 저장 로그의 독립 검산 | 두 도구 모두 종료 0 | `artifacts/s3/20260911T031950Z-bb4e5f1d7ad348c8aecc66f30ab93b80/analysis.json`, `artifacts/director/actual-log-audit/log-cb8a2ff842c84024a451ca655b767d73/summary.json` |
 | 수정 전 실제 UI→API | 실패 HTTP 400 | `artifacts/director/live-a3845ac2f29e49a997aee4a018a7ac57/{summary,ui-request,ui-response}.json` |
@@ -59,3 +60,7 @@ API 수용 항목: 저장 tactic 복원→실행, 원문 저장/GET/export.json 
 ## 남은 수용 조건
 
 U3 고정 커밋을 통합한 뒤 Q3의 모든 UI 경계 검사, 실제 브라우저의 전략 저장/복원/실행/로그 표시/다운로드/반응형을 재검증한다. 현재 실게임 실측 비교는 별도 미완료다. 이 문서의 초기 통합 결과만으로 전체 완료를 선언하지 않는다.
+
+Director 검증·지시 기록 커밋: `3c6462b`。그 이후 브라우저 검증 절차에 앨리스만 사용/wait_preferred 저장→새로고침→실행, 실제 시전자·SVG 로그 수 대조, JSON/CSV 다운로드 바이트 원문 대조를 추가했다. 확장된 브라우저 절차는 Python 구문 검사만 통과했으며 U3 수정본에서의 실행은 아직 미완료다. 위 HTTP 400 재현은 확장 전 절차의 실제 결과이고, 확장 절차 통과 증거로 쓰지 않는다.
+
+이 기록 시점의 U3는 기존 UI 작업공간에서 제품/fixture 테스트를 편집 중이며 확정 후속 커밋을 제출하지 않았다. 미커밋 UI 파일을 Director로 가져오지 않았다. 검수·통계의 새 세션은 각 결과 제출 후 보존했으며 새로운 작업이 없는 이전 차단 세션도 강제 종료하지 않았다.
