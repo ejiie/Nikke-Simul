@@ -181,6 +181,31 @@ class AnalysisTests(unittest.TestCase):
         self.assertEqual(report["lastCycle"]["damage"], 315)
         self.assertEqual(report["afterLastCycle"]["hits"], 1)
 
+    def assert_damage_frame_boundary(self, frame, valid):
+        result = fixture()
+        entry = result["damageLog"]["entries"][0]
+        entry.update(frame=frame, seconds=frame / 60)
+        original = copy.deepcopy(result)
+        report = analyze(result)
+        self.assertEqual(report["issues"], [] if valid else [{"code": "outside_duration"}])
+        # Validation must preserve even out-of-range input rows and damage.
+        self.assertEqual(report["hitCount"], 1)
+        self.assertEqual(report["totalDamage"], 315)
+        self.assertEqual(report["lastHitFrame"], frame)
+        self.assertEqual(result, original)
+
+    def test_damage_frame_zero_rejected(self):
+        self.assert_damage_frame_boundary(0, False)
+
+    def test_damage_frame_one_accepted(self):
+        self.assert_damage_frame_boundary(1, True)
+
+    def test_damage_frame_duration_accepted(self):
+        self.assert_damage_frame_boundary(10800, True)
+
+    def test_damage_frame_after_duration_rejected(self):
+        self.assert_damage_frame_boundary(10801, False)
+
     def test_corruption_is_detected(self):
         r = fixture()
         e = r["damageLog"]["entries"][0]
