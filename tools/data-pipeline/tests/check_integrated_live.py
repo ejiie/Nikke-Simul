@@ -77,18 +77,19 @@ async def browser_check(base, output):
             (output / 'ui-saved-tactic.json').write_text(json.dumps(saved_tactic, indent=2), encoding='utf-8')
             assert saved_tactic['burst3Rotation'] == ['5004']
             assert saved_tactic['unavailablePolicy'] == 'wait_preferred'
+            # Require restoration from the real server, not just the browser cache.
+            await page.evaluate("Object.keys(localStorage).filter(k => k.startsWith('nikke-burst-tactics-')).forEach(k => localStorage.removeItem(k))")
             await page.reload()
             await page.wait_for_function("document.body.dataset.ready==='true'", timeout=60000)
             await page.locator('[data-tab="raid"]').click()
-            await page.wait_for_function("document.querySelector('#tactic-fallback-policy')?.value==='wait_preferred'")
+            assert await page.locator('#tactic-fallback-policy').input_value() == 'wait_preferred', 'Tactic not restored at ready=true'
             restore_state = await page.evaluate("""() => ({
                 allow: [...document.querySelectorAll('[data-tactic-allow]')].map(e => ({id:e.dataset.tacticAllow, checked:e.checked})),
                 local: Object.fromEntries(Object.entries(localStorage).filter(([k]) => k.startsWith('nikke-burst-tactics-')))
             })""")
             (output / 'ui-restored-state.json').write_text(json.dumps(restore_state, indent=2), encoding='utf-8')
-            # ready=true can precede a late tactic refresh. Preserve that initial state
-            # above, then separately test whether the saved selection eventually settles.
-            await page.wait_for_function("document.querySelector('[data-tactic-allow=\"5044\"]')?.checked===false", timeout=10000)
+            expected_allow = {id: id in saved_tactic['allowedCharacterIds'] for id in IDS}
+            assert {item['id']: item['checked'] for item in restore_state['allow']} == expected_allow, 'Allowlist not restored at ready=true'
             assert not await page.locator('[data-tactic-allow="5044"]').is_checked(), 'Alice-only exclusion lost after reload'
             await page.locator('[name="level"]').fill('400')
             await page.locator('[name="crit"]').select_option('off')
@@ -131,8 +132,23 @@ async def browser_check(base, output):
                 assert await page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1'), f'overflow {width}'
             assert not errors, errors
             assert all(c['exactBytes'] for c in export_checks), f'Exports differ from server bytes: {export_checks}'
+            # Separate, explicitly synthetic fault test after all real-API checks.
+            # A server failure must be shown instead of exporting a local success.
+            unexpected_downloads = []
+            page.on('download', lambda download: unexpected_downloads.append(download.suggested_filename))
+            for extension in ('json', 'csv'):
+                fault_url = base + '/api/runtime/skill-replays/' + body['id'] + '/damage-log/export.' + extension
+                await page.route(fault_url, lambda route: route.fulfill(status=503, body='Director injected export fault'))
+                await page.locator('#btn-export-' + extension).click()
+                await page.wait_for_function("document.querySelector('#status')?.textContent.includes('503')")
+                assert not unexpected_downloads, 'Server failure disguised as successful local download'
+                await page.unroute(fault_url)
+                await page.evaluate("document.querySelector('#status').textContent=''")
+            assert not errors, errors
             return {'status': 'passed', 'hits': actual['eventCount'], 'damage': actual['totalDamage'],
                     'initialRestoreState': restore_state['allow'],
+                    'serverOnlyRestoreReady': True,
+                    'syntheticExport503NoFallback': True,
                     'serverSaveReloadExecution': True, 'aliceOnlyWaitPreferred': True,
                     'jsonCsvExactDownloads': True, 'widths': [1500, 850, 500], 'pageErrors': errors}
         except Exception:

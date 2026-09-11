@@ -2,9 +2,33 @@
 
 사용자 승인: 개발 결과 통합·실제 API/엔진/저장/UI 검증·검수와 통계 작업 전달 복구. 전체 통과와 각 단계 통과를 분리한다. 원본 계정/실행 중 서버/기존 artifacts를 수정하지 않고 Director의 새 출력 및 복사 DB만 사용했다. push/배포/YOLO 설정 변경 없음.
 
-## 최신 판정 — U3 통합 후 Director 독립 재검증
+## 최신 판정 — U3 후속 수정 99dfa2f 수용
 
-UI `fe968276846d12ed1ec4b3ae1de6032a1489023e`를 Director **`055ec125ec0e712b176e6096c940f8ec6ee34dc6`**에 충돌 없이 병합했다. 현재 **구현 통합 완료 / 전체 UI 수용 미완료**다. 아래 초기 통합 기록의 "U3 미제출"은 과거 상태이며 이 절이 최신 판정이다.
+UI `99dfa2fa08335b025e7ad17791070123b6a7bd52`를 Director **`a16cb9e14f186d2fece7c81551c29816e04104eb`**에 병합했다. 이전 재현에서 남은 **복원 준비 상태 및 JSON 원문 다운로드 두 문제는 해당 수용 경로에서 해결 확인**했다. UI의 이번 통합 수용은 통과이며, 실게임 정확도와 통계 검사기의 별도 경계 결함까지 완료했다는 뜻은 아니다.
+
+| 검사 | 결과 | 근거 |
+|---|---|---|
+| Q3 독립 UI 경계 검사 원본 재실행 | 25 통과 / 실패 0 | `artifacts/director/u3-followup-contract/ui-f9884020-a98a-4f7a-a93a-697d5f665067/summary.json` |
+| 실제 서버 전술 저장→캐시 제거→새로고침 | ready=true 시점부터 앨리스만 허용 및 wait_preferred 정확히 복원. 추가 정상화 대기 제거 | `artifacts/director/live-1ef80dd69d7a41669c609180d520ec85/ui-restored-state.json`, `summary.json` |
+| 실제 UI→API→엔진→저장→로그 표시 | HTTP 200, 요청 tactic과 저장 tactic 일치, 실제 III 시전자 전원 앨리스, SVG 타격 수 일치 | 같은 실행의 `ui-request.json`, `ui-response.json`, `ui-result.png` |
+| JSON 및 CSV 실제 다운로드 | 두 형식 모두 서버 응답과 바이트 일치 | 같은 실행의 `ui-export-checks.json`, `ui-download.*`, `server-export.*` |
+| 실제 브라우저 전체 절차 반복 | 두 번째 실행도 통과, 1500/850/500px 가로 넘침 없음, pageerror 0 | `artifacts/director/live-e8aee993adc94315be6686319fc3e97c/summary.json` |
+| 내보내기 오류 처리 | 실제 검사 완료 후 별도 합성 HTTP 503 주입: JSON/CSV 모두 오류 표시, 로컬 대체 다운로드 없음 | 같은 두 번째 summary의 `syntheticExport503NoFallback: true` |
+| 실제 UI 로그 Q3 구조·누적 검산 | complete 수용, 135발/135타격, 피해 153638004 | `artifacts/director/u3-followup-log/log-8ff0ba5e0b844db484172c3da5c496b3/summary.json` |
+
+검증 도구는 로컬 전술 캐시를 제거하여 서버 복원을 입증하고, 준비 완료 시점의 전체 allowlist를 저장 DTO와 즉시 대조하도록 강화했다. 실API 정상 경로와 503 오류 주입은 분리했다. U3 후속에서도 C# `src` 변경은 없으며 기존 C# 회귀 194개를 이번에 재실행했다고 주장하지 않는다. 두 브라우저 실행 모두 원본 계정 논리 해시가 전후 동일하고 자체 브라우저/API는 종료했다.
+
+### UI와 별도로 남은 통계 검사기 결함
+
+S3를 위 첫 실제 UI 저장 결과에 실행하면 종료 2, 유일한 issue는 `outside_duration`이다. 근거: `artifacts/s3/20260911T045358Z-30e6a72680e54fd38a6ad54b176ce0ea/analysis.json`. 135개 타격의 독립 계산·누적·총합에는 불일치가 없고, 마지막 타격이 정확히 **10800프레임(180초)**이다.
+
+확인한 코드 차이: `src/Nikke.Engine/Skills/SkillReplay.cs:615`는 `frame <= C.DurationFrames`로 종료 프레임을 포함한다. 반면 `tools/damage-calibration/analyze.py:214`는 `frame >= duration`을 거부한다. Q3 검사기는 같은 로그를 수용했다. 따라서 이 실패는 UI 회귀가 아니라 통계 검사기의 엔진 종료 경계 불일치다. 해당 결과를 재실행의 다른 난수 표본으로 덮지 않고 보존했다.
+
+다음 완료 조건: 통계 담당이 엔진 계약에 맞춰 하한/상한 검증을 정정하고 0·1·duration·duration+1 경계 회귀 및 위 실제 저장 결과 재검산을 통과시킬 것. UI/엔진 제품 코드를 이 검사 통과 목적으로 바꾸지 않는다. 게임 실측 발당 영점·차지 및 cycle 보정은 계속 별도 미완료다.
+
+## 이전 판정 — fe96827 통합 당시의 실패 이력
+
+UI `fe968276846d12ed1ec4b3ae1de6032a1489023e`를 Director **`055ec125ec0e712b176e6096c940f8ec6ee34dc6`**에 충돌 없이 병합했다. 당시 판정은 **구현 통합 완료 / 전체 UI 수용 미완료**였다. 아래는 99dfa2f 후속 수정 이전 기록이다.
 
 | 검사 | 직접 확인한 결과 | 근거 |
 |---|---|---|
