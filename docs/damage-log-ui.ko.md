@@ -9,7 +9,7 @@
 
 ## 1. 개요 및 U3 결함 수정 범위
 
-Director의 통합 점검 및 Q3 검수(`514daf4`)에서 확인된 실제 UI 계약 결함 19건을 전면 분석하여, `apps/desktop-ui` 전반의 어댑터 및 컴포넌트 로직을 실제 E1/B2/B1 계약에 완벽히 정렬했습니다.
+Director의 통합 점검 및 Q3 검수(`514daf4`), 그리고 실 브라우저 통합 검사(`live-bf97c1ce`, `live-c1ff4cf9`, `live-d6131ccb`)에서 확인된 계약 결함 및 실연동 잔여 이슈를 전면 분석하여, `apps/desktop-ui` 전반의 어댑터 및 컴포넌트 로직을 E1/B2/B1 계약에 완벽히 정렬했습니다.
 
 ### U3 주요 결함 수정 요약
 1. **실행 요청 `conditions.damageLog` 누락 및 legacy 혼용 해소**:
@@ -23,16 +23,21 @@ Director의 통합 점검 및 Q3 검수(`514daf4`)에서 확인된 실제 UI 계
    - `burst3Rotation`의 임의 부분집합 및 순환 순서를 DTO 왕복 시 100% 보존.
    - `firstBurst3CharacterId = null`인 경우 빈 값(기본값)으로 서버 및 UI 간 무결하게 왕복 보존.
    - 우선순위 고정 모드(`stage3Mode: priority_only`)에서 1순위와 다른 첫 시전자를 지정할 경우 조용히 대체하지 않고 `priority_only_mismatch` 검증 오류를 진단하고 DTO 변환 시 명시적 거부.
-4. **비동기 복원 경쟁 (Race Condition) 차단**:
-   - `burst-tactics.js`의 `syncFromServer`에 `activeSyncId`, 계정 ID 검증, 로컬 편집 스냅샷 대조를 도입하여 계정 전환 및 지연 응답 시 신규 사용자 설정/계정을 덮어쓰지 않도록 차단.
+4. **실API 비동기 복원 준비 경쟁(Race Condition) 및 allowlist 빈 편성 노출 방지**:
+   - 페이지 새로고침 시 `document.body.dataset.ready='true'`가 편성 로드(`formation.load`) 및 전술 동기화(`tacticsManager.syncFromServer`)보다 먼저 노출되어, 비행 중 빈 편성 스냅샷에서 `allowlist: {}`가 로컬 캐시에 저장되고 체크박스가 일시적으로 모두 `checked` 상태로 노출되던 비동기 경쟁 해소.
+   - `refresh()` 실행 시 즉시 `ready='false'` 설정 후 `formation.load()` 완료로 5인 편성 확정 -> `tacticsManager.syncFromServer()` 실행 -> `raid` 탭 렌더링 완료 후 최종 `ready='true'` 설정 보장.
+   - `burst-tactics.js`의 `syncFromServer`에 `members.length === 0` 가드를 추가하고, `fromServerTacticDto`에서 `allowedCharacterIds` 및 참조 ID 기반으로 빈 편성 상태에서도 허용/제외 상태가 유지되도록 보강.
+   - `loadLocalTactics`에서 `priority_only` 모드의 단일 버스트 III 회전 시 제외 대상이 `true`로 기본값 전이되지 않도록 방어.
 5. **실제 필드 및 계산 근거 명시 매핑**:
    - numeric `kind` (2=NormalHit, 3=DirectSkillHit, 4=AdditionalHit), `source`, `hitId`/nullable `shotId`, raw `chargeRatioRaw / 10000`, nullable `fullCharge`/`effectiveChargeFrames`/`actualChargeFrames`, `hit.crit`/`core`/`fullBurst`, `ownBurstEffectActive` 매핑.
    - 자체 버스트 활성 구간을 하드코딩 `startFrame + 600`으로 생성하지 않고 실제 `ownBurstEffectActive`가 활성화된 타격들로부터 정밀 구간 도출.
    - 직접 스킬만 있는 로그(`shotId: null`)에서 발사 수를 0으로 정확히 계산 (`uniqueShots` 식 개선).
    - "명중/발사 비율을 명중률로 표시하지 않는다(펠릿/추가타로 100% 초과 가능)" 원칙에 따라 `183회 발사 / 183회 명중` 형태로 표시.
-6. **서버 내보내기 원문 및 RFC 4180 구조 보존**:
-   - CSV: Backend `DamageLogExport.cs`와 동일한 9컬럼(`recordType,frame,seconds,hitId,shotId,damage,cumulativeDamage,entryJson,metadataJson`), CRLF(`\r\n`), 2행 metadata row, 3행+ hit rows 형식 준수.
-   - JSON: `DamageLogExport.Read` envelope 구조(`exportSchemaVersion: 1`, `collectionStatus`, `replay`) 보존.
+6. **서버 응답 원본 Blob 다운로드 보장 (JSON 및 CSV exact bytes)**:
+   - CSV 내보내기는 서버의 RFC 4180 원본 바이트 일치를 유지(Director `exactBytes: True` 통과).
+   - JSON 내보내기에서 기존 `api()` 파싱 후 `JSON.stringify(res, null, 2)` 클라이언트 측 재직렬화로 인해 서버 원본 바이트와 불일치하던 결함을 해소.
+   - 서버의 HTTP 응답 원본 `res.blob()`을 직접 `downloadBlob`으로 다운로드하여 서버 바이트 100% 보존.
+   - 서버 내보내기 실패 시 로컬 합성 성공으로 마스킹하지 않고 명시적 에러 상태 보고.
 
 ---
 
@@ -166,10 +171,13 @@ Playwright(Edge/Chromium) 헤드리스 브라우저 환경에서 확정 엔진 �
 
 ## 4. 결론 및 인계 사항
 
-1. **계약 결함 완전 해소**:
-   - `app.js`, `burst-tactics.js`, `damage-log-adapter.js`, `damage-log.js` 전반의 계약 불일치가 해결되었으며, Q3 독립 검수 25개 테스트와 Playwright E2E 테스트가 모두 통과했습니다.
+1. **실API 비동기 복원 경쟁 및 JSON 원문 바이트 일치 보완 완료**:
+   - `app.js`, `burst-tactics.js`, `damage-log-adapter.js`, `damage-log.js` 전반의 계약 정합성을 완료했습니다.
+   - Director 브라우저 실연동 검사에서 발견된 초기 빈 편성 스냅샷의 allowlist 노출 경쟁을 `refresh()` 단계별 게이팅(`formation.load` 선행 확정 및 ready 지연)으로 해소했습니다.
+   - CSV 원문 일치(`exactBytes: true`)에 이어 JSON 내보내기도 클라이언트 측 재직렬화를 제거하고 `res.blob()` 직접 다운로드로 전환하여 서버 원문 바이트 일치를 보장했습니다.
+   - Q3 독립 검수 25개 테스트 전원 통과 및 Playwright E2E 렌더링/무넘침/JS에러0 검증을 재확인했습니다.
 2. **타 작업공간 보존 준수**:
-   - `Backend`, `시뮬레이션-엔진-담당`, `Director`, `tests/q3` 등 타 영역 파일을 일체 수정하지 않고 UI 담당 범위 내에서만 작업을 완료했습니다.
+   - `Backend`, `시뮬레이션-엔진-담당`, `Director`, `tests/q3` 등 타 영역 파일을 일체 수정하지 않고 UI 담당 범위(`apps/desktop-ui`, `tools/data-pipeline/tests/check_damage_log_ui.py`, `docs/damage-log-ui.ko.md`) 내에서만 작업을 완료했습니다.
    - `package-lock.json`은 untracked 상태로 유지되었습니다.
-3. **Director 및 Q3 검수 담당 인계**:
-   - UI 브랜치 커밋을 기준으로 Director의 실연동 통합 검증 및 Q3 검수 담당의 최종 독립 검수 재실행이 가능합니다.
+3. **Director 재검수 인계**:
+   - UI 브랜치 커밋을 기준으로 Director(`64ad9a5` 최신 검사기)의 실연동 통합 검증 및 독립 검수 재실행이 가능하도록 인계합니다.

@@ -49,9 +49,16 @@ export function createBurstTacticsManager({ api, getSnapshot, getMembersWithMeta
       tactics = createDefaultTactics(members);
     } else {
       tactics = loaded;
+      if (!tactics.allowlist) tactics.allowlist = {};
       // Ensure all current formation members exist in allowlist
       for (const m of members) {
-        if (tactics.allowlist[m.id] === undefined) tactics.allowlist[m.id] = true;
+        if (tactics.allowlist[m.id] === undefined) {
+          if (m.burstStep === 3 && tactics.stage3Mode === 'priority_only' && tactics.burst3Rotation?.length === 1 && !tactics.burst3Rotation.includes(m.id)) {
+            tactics.allowlist[m.id] = false;
+          } else {
+            tactics.allowlist[m.id] = true;
+          }
+        }
       }
       for (const m of members) {
         const stageKey = `stage${m.burstStep}`;
@@ -66,9 +73,11 @@ export function createBurstTacticsManager({ api, getSnapshot, getMembersWithMeta
     const account = getSnapshot()?.accountId;
     if (!api || !account) return;
 
+    const members = getMembersWithMeta();
+    if (!members.length) return;
+
     const syncId = ++activeSyncId;
     const initialTacticJson = JSON.stringify(tactics);
-    const members = getMembersWithMeta();
     const result = await loadBurstTacticFromServer(api, account, members);
 
     // Guard against race conditions:
@@ -81,6 +90,7 @@ export function createBurstTacticsManager({ api, getSnapshot, getMembersWithMeta
 
     if (result.ok && result.tactics) {
       tactics = result.tactics;
+      lastAccount = account;
       isServerStale = result.stale;
       serverSyncStatus = result.stale ? 'stale' : (result.executionStatus === 'draft_incomplete' ? 'draft_incomplete' : 'saved');
       serverMessage = result.stale ? '편성이 변경되어 이전 저장 설정과 불일치합니다 (Stale).' : '서버에 저장된 설정을 불러왔습니다.';
