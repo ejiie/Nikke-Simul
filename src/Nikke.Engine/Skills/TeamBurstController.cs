@@ -3,6 +3,7 @@ namespace Nikke.Engine.Skills;
 
 public sealed record TeamBurstOptions
 {
+    public BurstTactic Tactic { get; init; }
     public string GaugeModel { get; init; } = "source_full_charge_v2";
     public bool StageTarget { get; init; } = true;
     // Explicit timing candidates inherited from the user's legacy T02 observations.
@@ -43,6 +44,7 @@ public sealed class TeamBurstController : ICombatEventSink, ISkillBattleDriver
     private string caster, waitingReason;
     private long? castTrace;
     private bool fullBurst;
+    private int rotationIndex;
 
     public TeamBurstController(IReadOnlyList<SkillReplayMember> members, SkillGraph graph,
         SkillReplayConditions conditions, IRandomSource random, ICombatEventSink observer = null)
@@ -71,6 +73,14 @@ public sealed class TeamBurstController : ICombatEventSink, ISkillBattleDriver
         }
         if (options.Burst3Rotation.Any(id => !byId.TryGetValue(id, out var m) || m.Skills.BurstConnection.Step != 3))
             throw new ArgumentException("버스트 III 순서는 편성된 III 니케로 지정하세요.");
+        if (options.Tactic is { } tactic)
+        {
+            if (options.Burst3Rotation.Count != 0 || options.UnavailablePolicy != "next_ready")
+                throw new ArgumentException("Do not mix legacy selection options and a versioned tactic.");
+            tactic.ValidateForExecution(members);
+            rotationIndex = tactic.FirstBurst3CharacterId is null ? 0
+                : tactic.Burst3Rotation.ToList().IndexOf(tactic.FirstBurst3CharacterId);
+        }
         Record("charging");
     }
     private void Record(string kind, string id = null, long? cause = null, long requested = 0,
@@ -144,15 +154,16 @@ public sealed class TeamBurstController : ICombatEventSink, ISkillBattleDriver
                 throw new InvalidOperationException("풀버스트 진입 상태가 일치하지 않습니다.");
         }
         if (phase != BattlePhase.CastSkills || step is < 1 or > 3 || frame < readyFrame) return;
-        var eligible = members.Where(m => m.Skills.BurstConnection.Step == step)
+        var eligible = options.Tactic?.Priority(step).ToList() ?? members.Where(m => m.Skills.BurstConnection.Step == step)
             .Select(m => m.Weapon.CharacterId).ToList();
         if (eligible.Count == 0) { Wait("missing_stage_" + step); return; }
-        if (step == 3 && options.Burst3Rotation.Count > 0)
+        var rotation = options.Tactic?.Burst3Rotation ?? options.Burst3Rotation;
+        if (step == 3 && rotation.Count > 0)
         {
-            string preferred = options.Burst3Rotation[windows.Count % options.Burst3Rotation.Count];
+            string preferred = rotation[(options.Tactic is null ? windows.Count : rotationIndex) % rotation.Count];
             eligible.Remove(preferred); eligible.Insert(0, preferred);
         }
-        string chosen = options.UnavailablePolicy == "wait_preferred"
+        string chosen = (options.Tactic?.UnavailablePolicy ?? options.UnavailablePolicy) == "wait_preferred"
             ? (battle.GetCooldown(eligible[0]).IsReady ? eligible[0] : null)
             : eligible.FirstOrDefault(id => battle.GetCooldown(id).IsReady);
         if (chosen is null) { Wait("cooldown_stage_" + step); return; }
@@ -161,6 +172,8 @@ public sealed class TeamBurstController : ICombatEventSink, ISkillBattleDriver
             throw new InvalidOperationException("버스트 준비 조회와 시전 상태가 일치하지 않습니다.");
         waitingReason = null; caster = chosen; castTrace = result.CastTraceId;
         Record("burst_cast", chosen, castTrace, ready: battle.GetCooldown(chosen).ReadyAtFrame);
+        if (step == 3 && options.Tactic is not null)
+            rotationIndex = (rotationIndex + 1) % rotation.Count;
         var profile = battle.GetBurstProfile(chosen);
         step = profile.NextStep;
         int applicationDelay = SkillUnits.ReadyFrame((long)profile.ApplyDelayCs * SkillUnits.TicksPerCs);

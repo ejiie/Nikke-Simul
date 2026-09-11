@@ -52,6 +52,8 @@ namespace Nikke.Engine.Skills
         public int CurrentAmmo { get; private set; }
         public int MaxAmmo => _maxAmmo;
         public int LastShotChargeRatioRaw { get; private set; }
+        public int LastShotEffectiveChargeFrames { get; private set; }
+        public int LastShotActualChargeFrames { get; private set; }
         public bool UnlimitedAmmo { get; private set; }
         private double? _overrideRate;
         private double _savedRate;
@@ -262,6 +264,8 @@ namespace Nikke.Engine.Skills
 
         private FiringFrameResult Fire(bool isFullCharge)
         {
+            LastShotEffectiveChargeFrames = _isCharge ? _fullChargeFrames : 0;
+            LastShotActualChargeFrames = _isCharge ? _chargeFrames : 0;
             LastShotChargeRatioRaw = _isCharge
                 ? Math.Clamp((int)Math.Round(10000d * _chargeFrames / _fullChargeFrames, MidpointRounding.AwayFromZero), 0, 10000) : 0;
             if (!UnlimitedAmmo) CurrentAmmo -= 1;

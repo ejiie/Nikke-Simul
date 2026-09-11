@@ -89,6 +89,8 @@ public static class SkillReplay
         // Reuse the weapon contract validation without executing a reference replay.
         WeaponReplay.Validate(members.Select(m => m.Weapon).ToArray(), c.Combat);
         var ids = members.Select(m => m.Weapon.CharacterId).ToHashSet();
+        if (c.DamageLog is { } log && (log.CharacterId is null || !ids.Contains(log.CharacterId)))
+            throw new ArgumentException("Damage log character must belong to the current formation.");
         bool FrameOk(int f) => f >= 1 && f <= c.Combat.DurationFrames;
         bool RatioOk(double r) => double.IsFinite(r) && r > 0 && r <= 1;
         if (c.Casts.Any(s => s is null || !FrameOk(s.Frame) || !ids.Contains(s.CharacterId) || s.Slot != "burst")
@@ -141,6 +143,8 @@ public static class SkillReplay
         public double Value;
         public string Basis;
         public long EventId;
+        public int AppliedAtFrame;
+        public long? BurstCastId;
     }
     private sealed record Listener(Actor Owner, SkillFunction Function, string Slot)
     {
@@ -160,6 +164,11 @@ public static class SkillReplay
         private readonly Dictionary<string, WeaponMode> modes = new();
         private readonly Dictionary<string, SharedShieldView> shields = new();
         private readonly List<SkillTrace> trace = [];
+        private readonly List<DamageLogEntry> damageLog = [];
+        private double loggedDamage;
+        private long? currentBurstCast;
+        private readonly Dictionary<long, long> burstOrigins = [];
+        private ShotEventData currentShotData;
         private long eventCount;
         private int frame, operations;
         private bool fullBurst;
@@ -270,6 +279,7 @@ public static class SkillReplay
             int? expires = null, HitContext hit = null)
         {
             long id = ++eventCount;
+            if (currentBurstCast is { } origin) burstOrigins[id] = origin;
             if (C.Trace && trace.Count < C.TraceLimit)
                 trace.Add(new(id, parent, frame, kind, source, target, effect, fid, sid, value, stacks, basis, expires, hit));
             return id;
@@ -412,6 +422,7 @@ public static class SkillReplay
             if (existing is null) effects.Add(e); else e.Stacks = Math.Min(f.FullCount, e.Stacks+1);
             e.Expires = f.DurationType == 3 ? null : frame + Math.Max(1,SkillUnits.Frames(f.DurationValue));
             e.Value=value; e.Basis=basis; e.Function=f;
+            e.AppliedAtFrame=frame; e.BurstCastId=currentBurstCast;
             e.NextTick = frame + 60;
             e.EventId=Log(existing is null ? "buff_on" : "buff_refresh",owner.Id,target?.Id ?? "boss",$"function:{f.Id}",parent,f.Id,
                 value:value,stacks:e.Stacks,basis:basis,expires:e.Expires);
@@ -511,7 +522,10 @@ public static class SkillReplay
             }
             // Original passive order is significant: descending stage markers prevent one cast advancing three tiers.
             Dispatch(30,owner,ev,sk.SkillId/100);
-            ExecuteSkill(owner,sk,ev,0);
+            var previousBurst = currentBurstCast;
+            currentBurstCast = slot == "burst" ? ev : null;
+            try { ExecuteSkill(owner,sk,ev,0); }
+            finally { currentBurstCast = previousBurst; }
             return new(BattleCommandStatus.Applied,ev,request);
         }
 
@@ -555,13 +569,33 @@ public static class SkillReplay
                 DamageTaken=a.Input.Weapon.Hit.DamageTaken+On(null,42).Sum(e=>e.Value*e.Stacks),
                 AttackDamage=a.Input.Weapon.Hit.AttackDamage+(input.InterruptionTarget ? On(a,96).Sum(e=>e.Value*e.Stacks) : 0)
             };
-            double damage=HitCalculator.Compare(h).Candidates.Single(p=>p.Policy==input.RoundingPolicy).Damage;
+            var calculation=HitCalculator.Compare(h).Candidates.Single(p=>p.Policy==input.RoundingPolicy);
+            double damage=calculation.Damage;
             a.Damage[effect]=a.Damage.GetValueOrDefault(effect)+damage;
             if (crit) a.Crits++;
             long ev=Log("damage",a.Id,"boss",effect,parent,value:damage,basis:h.AttackStatBasis,hit:h);
             if (normal) a.Hits++;
             modes.TryGetValue(a.Id,out var mode);
-            Publish(normal ? CombatEventKind.NormalHit : currentShot.HasValue ? CombatEventKind.AdditionalHit : CombatEventKind.DirectSkillHit,
+            var kind=normal ? CombatEventKind.NormalHit : currentShot.HasValue ? CombatEventKind.AdditionalHit : CombatEventKind.DirectSkillHit;
+            if (input.DamageLog?.CharacterId == a.Id)
+            {
+                loggedDamage += damage;
+                long? ownCast = effects.Where(e=>e.Source==a && e.BurstCastId.HasValue)
+                    .Select(e=>e.BurstCastId).LastOrDefault();
+                if (mode is not null && burstOrigins.TryGetValue(mode.EventId,out var modeCast)) ownCast=modeCast;
+                if (shields.TryGetValue(a.Id,out var shield) && burstOrigins.TryGetValue(shield.EventId,out var shieldCast)) ownCast=shieldCast;
+                bool charge=normal && a.Input.Weapon.Weapon.isChargeWeapon;
+                damageLog.Add(new(ev,parent,currentShot,currentPellet,frame,frame/60d,a.Id,"boss",effect,kind,
+                    normal ? mode?.SkillId : sid,fid,damage,loggedDamage,
+                    normal ? mode?.ShotId ?? a.Input.Skills.BurstConnection?.ShotId : null,
+                    charge ? a.Gun.LastShotChargeRatioRaw : null,charge ? charged : null,
+                    charge ? a.Gun.LastShotEffectiveChargeFrames : null,charge ? a.Gun.LastShotActualChargeFrames : null,
+                    currentShotData,ownCast.HasValue,ownCast,h,calculation,
+                    effects.Where(e=>e.Target==a || e.Target is null).Select(e=>new DamageBuffSnapshot(
+                        new(e.Source.Id,e.Target?.Id ?? "boss",e.Function.Id,e.Function.GroupId,e.Function.FunctionType,
+                            e.Value,e.Stacks,e.Expires,e.Basis),e.AppliedAtFrame,e.EventId,e.BurstCastId)).ToArray()));
+            }
+            Publish(kind,
                 ev,parent,a.Id,"boss",sid:normal ? mode?.SkillId : sid,fid:fid,
                 hit:new(currentShot,currentPellet,mode?.ShotId ?? a.Input.Skills.BurstConnection?.ShotId,
                     h.FullCharge,h.Crit,h.Core,h.FullBurst,damage) { ChargeRatioRaw = normal ? a.Gun.LastShotChargeRatioRaw : 0 });
@@ -632,6 +666,7 @@ public static class SkillReplay
                     currentShot=shotId; currentPellet=null;
                     var shotData=new ShotEventData(mode?.ShotId ?? a.Input.Skills.BurstConnection?.ShotId,before,
                         a.Gun.CurrentAmmo,a.Gun.UnlimitedAmmo,shot.IsFullCharge,pellets);
+                    currentShotData=shotData;
                     Publish(CombatEventKind.Shot,shotId,null,a.Id,"boss",sid:mode?.SkillId,shot:shotData);
                     if (!a.Gun.UnlimitedAmmo)
                     {
@@ -648,7 +683,7 @@ public static class SkillReplay
                         currentPellet=pellet;
                         Damage(a,coefficient,mode is null?"normal_attack":$"skill:{mode.SkillId}:weapon",shotId,true,shot.IsFullCharge);
                     }
-                    currentShot=null; currentPellet=null;
+                    currentShot=null; currentPellet=null; currentShotData=null;
                     RefreshConditions(shotId);
                 }
                 Phase(BattlePhase.AfterHits);
@@ -669,7 +704,8 @@ public static class SkillReplay
                  "Cover HP must be supplied for real cover targeting; absent cover inputs mean equal undamaged unit-size cover fixtures.",
                  "Lowest HP/cover target basis is an explicit comparison policy; verify the actual skill recipient before selecting a game rule.",
                  "Conditional cube/favorite effects are not connected. These runs are not validated raid recommendation samples."])
-            { Connection=new("p03.connection.1",true,false,connectionSequence,new Dictionary<CombatEventKind,long>(connectionCounts),
+            { DamageLog=input.DamageLog is null ? null : new(input.DamageLog.CharacterId,damageLog.Count,loggedDamage,damageLog.ToArray()),
+              Connection=new("p03.connection.1",true,false,connectionSequence,new Dictionary<CombatEventKind,long>(connectionCounts),
                 timeline.ToArray(),timelineCount>timeline.Count,FullBurst,
                 team.SelectMany(a=>a.Ready.Keys.Select(slot=>GetCooldown(a.Id,slot))).ToArray()) };
         }
