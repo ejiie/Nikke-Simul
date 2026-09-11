@@ -95,14 +95,40 @@ app.MapPost("/api/runtime/weapon-replays", (WeaponReplayRequest request) =>
     return runtimeReplay.Value.Run(store.Snapshot(request.SnapshotId) ?? throw new KeyNotFoundException(), request, calculations.Value);
 });
 app.MapGet("/api/runtime/weapon-replays/{id}", (string id) => runtimeReplay.Value.Read(id));
-app.MapPost("/api/runtime/skill-replays", (SkillReplayRequest request) =>
+app.MapPost("/api/runtime/skill-replays", (JsonObject payload) =>
 {
+    var request = RuntimeReplayService.ReadSkillRequest(payload);
     if (string.IsNullOrWhiteSpace(request.SnapshotId)) throw new ArgumentException("저장 스냅샷을 지정하세요.");
     if (!File.Exists(Path.Combine(runtimeRoot, "current.json")))
         throw new InvalidOperationException("P03 자료 준비가 필요합니다. npm run prepare:p03을 실행하세요.");
     return runtimeReplay.Value.RunSkills(store.Snapshot(request.SnapshotId) ?? throw new KeyNotFoundException(), request, calculations.Value);
 });
-app.MapGet("/api/runtime/skill-replays/{id}", (string id) => runtimeReplay.Value.ReadSkills(id));
+// Historical reads must not require today's runtime catalog or deserialize away unknown fields.
+var skillArchive = new SkillReplayArchive(Path.Combine(dataRoot, "skill-replays"));
+app.MapGet("/api/accounts/{id}/burst-tactic", (string id) =>
+{
+    var saved = store.BurstTactic(id);
+    var current = store.Current(id)!;
+    var slots = store.Formation(id).Slots;
+    var stale = saved is not null && (saved.SnapshotId != current.Id || !saved.FormationSlots.SequenceEqual(slots));
+    return Results.Ok(new { saved, stale, executionStatus = saved?.Tactic is null ? "legacy" : stale ? "stale" : "requires_execution_validation" });
+});
+app.MapPut("/api/accounts/{id}/burst-tactic", (string id, SaveBurstTactic request) =>
+{
+    var slots = store.Formation(id).Slots;
+    var issues = request.Tactic is null ? Array.Empty<string>() : BurstTacticValidation.Validate(request.Tactic,
+        runtimeReplay.Value.BurstStages(slots.OfType<string>())).ToArray();
+    return Results.Ok(new { saved = store.SaveBurstTactic(id, request), stale = false,
+        executionStatus = request.Tactic is null ? "legacy" : issues.Length > 0 ? "draft_incomplete" : "requires_execution_validation", issues });
+});
+app.MapGet("/api/runtime/skill-replays/{id}", (string id) => Results.Content(skillArchive.ReadJson(id), "application/json", System.Text.Encoding.UTF8));
+app.MapGet("/api/runtime/skill-replays/{id}/export.json", (string id) =>
+    Results.File(System.Text.Encoding.UTF8.GetBytes(skillArchive.ReadJson(id)), "application/json", $"skill-replay-{id}.json"));
+app.MapGet("/api/runtime/skill-replays/{id}/damage-log", (string id) => DamageLogExport.Read(skillArchive.ReadJson(id)));
+app.MapGet("/api/runtime/skill-replays/{id}/damage-log/export.json", (string id) =>
+    Results.File(System.Text.Encoding.UTF8.GetBytes(DamageLogExport.Read(skillArchive.ReadJson(id)).ToJsonString()), "application/json", $"damage-log-{id}.json"));
+app.MapGet("/api/runtime/skill-replays/{id}/damage-log/export.csv", (string id) =>
+    Results.File(System.Text.Encoding.UTF8.GetBytes(DamageLogExport.Csv(skillArchive.ReadJson(id))), "text/csv; charset=utf-8", $"damage-log-{id}.csv"));
 app.MapGet("/api/snapshots/{id}/combat-powers", (string id) =>
 {
     var snapshot = store.Snapshot(id) ?? throw new KeyNotFoundException();

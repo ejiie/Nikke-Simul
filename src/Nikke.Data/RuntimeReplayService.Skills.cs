@@ -14,6 +14,17 @@ public record SavedSkillReplay(string Id, string Kind, DateTimeOffset CreatedAt,
 
 public sealed partial class RuntimeReplayService
 {
+    public IReadOnlyDictionary<string, int> BurstStages(IEnumerable<string> characterIds) => characterIds.ToDictionary(
+        id => id, id => catalog["characters"]?[id]?["burstConnection"]?["step"]?.GetValue<int>() ?? 0);
+    public static SkillReplayRequest ReadSkillRequest(JsonObject payload)
+    {
+        // Do not silently discard requests for features whose engine implementation is not integrated yet.
+        if (payload["conditions"]?["damageLog"] is not null && typeof(SkillReplayConditions).GetProperty("DamageLog") is null)
+            throw new InvalidOperationException("Damage log engine implementation is not integrated.");
+        if (payload["conditions"]?["autoBurst"]?["tactic"] is not null && typeof(TeamBurstOptions).GetProperty("Tactic") is null)
+            throw new InvalidOperationException("Burst tactic engine implementation is not integrated.");
+        return payload.Deserialize<SkillReplayRequest>(Wire.Json) ?? throw new ArgumentException("Missing skill replay request.");
+    }
     private static readonly JsonSerializerOptions OfficialJson = new() { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
     private SkillGraph Graph() => new(catalog["functions"]!.AsObject().ToDictionary(p=>int.Parse(p.Key),p=>p.Value!.Deserialize<SkillFunction>(OfficialJson)!),
         catalog["characterSkills"]!.AsObject().ToDictionary(p=>int.Parse(p.Key),p=>p.Value!.Deserialize<SkillDefinition>(OfficialJson)!))
@@ -76,16 +87,13 @@ public sealed partial class RuntimeReplayService
         var saved=new SavedSkillReplay(Guid.NewGuid().ToString("N"),request.Conditions.AutoBurst is null ? "skill_reference_replay" : "team_burst_replay",DateTimeOffset.UtcNow,snapshot.Id,snapshot.GameSnapshotId,
             reports[0].CalculationDataId,runtimeId,reports[0].StatRulesVersion,Nikke.Core.Combat.HitCalculator.Version,
             reports.ToDictionary(r=>r.CharacterId,r=>r.AppliedLevel),members,result);
-        string folder=Path.Combine(Path.GetDirectoryName(replayRoot)!,"skill-replays"); Directory.CreateDirectory(folder);
-        string path=Path.Combine(folder,saved.Id+".json");
-        File.WriteAllText(path+".tmp",Wire.Serialize(saved)); File.Move(path+".tmp",path);
+        SkillArchive().Save(saved.Id, Wire.Serialize(saved));
         return saved;
     }
     public SavedSkillReplay ReadSkills(string id)
     {
         if (!Guid.TryParseExact(id,"N",out _)) throw new ArgumentException("스킬 검산 기록 ID를 확인하세요.");
-        string path=Path.Combine(Path.GetDirectoryName(replayRoot)!,"skill-replays",id+".json");
-        if (!File.Exists(path)) throw new KeyNotFoundException();
-        return Wire.Read<SavedSkillReplay>(File.ReadAllText(path));
+        return Wire.Read<SavedSkillReplay>(SkillArchive().ReadJson(id));
     }
+    private SkillReplayArchive SkillArchive() => new(Path.Combine(Path.GetDirectoryName(replayRoot)!, "skill-replays"));
 }

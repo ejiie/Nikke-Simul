@@ -4,7 +4,7 @@ using Nikke.Contracts;
 
 namespace Nikke.Storage;
 
-public sealed class SnapshotStore
+public sealed partial class SnapshotStore
 {
     private readonly string connectionString;
     private readonly object gate = new();
@@ -23,6 +23,7 @@ public sealed class SnapshotStore
             CREATE TABLE IF NOT EXISTS accounts(id TEXT PRIMARY KEY, current_id TEXT NOT NULL REFERENCES snapshots(id));
             CREATE TABLE IF NOT EXISTS game_snapshots(id TEXT PRIMARY KEY, payload TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS solo_formations(id TEXT PRIMARY KEY REFERENCES accounts(id), payload TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS solo_burst_tactics(id TEXT PRIMARY KEY REFERENCES accounts(id), payload TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS connection_notices(id TEXT PRIMARY KEY, payload TEXT NOT NULL);
             PRAGMA user_version=1;
             """);
