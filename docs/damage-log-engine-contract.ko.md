@@ -97,3 +97,69 @@ git diff --check
 - 로그는 현재 지원하는 실제 피해 경로 전체를 담으며 미지원 보스 파츠/관통 다중 대상/적 행동을 생성하지 않는다. 무제한 정상 로그는 trace보다 메모리·저장 크기가 크므로 B1/UI는 조회/내보내기에서 이를 고려해야 한다. 임의 행 제한이나 조용한 누락은 도입하지 않았다.
 
 E1의 엔진 구현·단위 검증은 완료했다. 제품 전체 통합 또는 실게임 검증 완료 보고는 아니다.
+
+## E2 계약 대조 및 재현 예제 — 2026-09-11
+
+시작 HEAD는 `908047f`, 미커밋 상태는 기존 untracked `package-lock.json`뿐이었다. 후속 지시서를 UTF-8로 끝까지 읽었다. 다른 브랜치를 병합하거나 다른 담당 미커밋 파일을 사용하지 않고 `git show bf19679:<path>`로 B1 계약 및 확정 코드를 대조했다. 이 단계에는 엔진 제품 코드 결함이 확인되지 않아 제품 코드를 변경하지 않았다.
+
+| 대조 지점 | 확인 결과와 소유 경계 |
+|---|---|
+| `RuntimeReplayService.ReadSkillRequest` | `conditions.damageLog`/`conditions.autoBurst.tactic` 존재를 확인한 후 `Wire.Json`으로 `SkillReplayConditions`에 직접 역직렬화한다. E1 public 속성명과 일치한다. 이 코드 자체의 통합 실행은 미실행이다. |
+| `Wire.Json` (`Models.cs`) | `JsonSerializerDefaults.Web`, 문자열 enum converter 없음. 엔진 예제도 동일 설정을 사용한다. `entries[].kind`는 숫자 enum이며 문자열 이름으로 가정하면 안 된다. |
+| `BurstTacticSettings` → `BurstTactic` | schemaVersion, 허용 목록, 단계별 순위, III 순환, nullable 첫 시전자, unavailablePolicy의 camelCase 이름/기본값/의미가 일치한다. 저장 DTO를 자동 주입하는 경로는 없으며 호출자가 복원한 tactic을 실행 요청에 명시해야 한다. |
+| `BurstTacticValidation` | B1은 단계가 빈 정확한 후보 목록을 초안으로 저장할 수 있고 E1은 실행 때 거부한다. 의도된 저장/실행 경계이며 엔진을 초안 수용으로 완화하지 않는다. |
+| `RunSkills` / `SkillReplayArchive` | 실제 Run 반환값을 한번 직렬화하고 원문 보존한다. SavedSkillReplay의 계정/게임/계산/runtime 식별자, 입력 멤버, result.Conditions 및 규칙 필드를 사용한다. E2 예제는 이 저장 계층을 실행하지 않는다. |
+| `DamageLogExport` | result.damageLog의 null/누락, complete/0행, schemaVersion=1, frame/seconds/hitId/shotId/누적값과 엔진 DTO가 일치한다. entryJson이 Hit/Calculation/Buffs와 nullable 필드를 보존하는 구조다. 실제 CSV/API 통과 주장은 하지 않는다. |
+
+B2 확인/수정 요청(엔진 소유 범위 밖):
+
+1. `bf19679:src/Nikke.Api/Program.cs`의 PUT tactic은 `draft_incomplete`와 issues를 반환하지만 GET은 stale이 아닌 모든 non-null tactic에 `requires_execution_validation`을 반환하고 issues도 주지 않는다. 따라서 불완전 초안을 저장하고 다시 조회할 때 상태가 달라진다. B2/U2는 조회 후에도 초안과 실행 가능한 후보 구성을 구분할 방법을 연결해야 한다. 코드 읽기로 확인한 사항이며 HTTP 재현은 통합본 의존이다.
+2. `bf19679:tests/Nikke.Sync.Tests/check_damage_log_api.py`는 `conditions.damageLog={}` 및 빈 tactic 요청에 무조건 409(기능 미통합)를 기대한다. 엔진 통합 후에는 기능 부재 기대값을 그대로 사용할 수 없다. snapshotId 없는 이 요청은 다음 검증에서 400이 되어야 하며, 별도로 정상 snapshot/runtime 입력의 실제 실행을 검사해야 한다. B2가 통합용 검사로 교체/분리해야 한다.
+
+### 재현 가능한 엔진 자료
+
+추가 파일은 `tests/Nikke.Core.Tests/EngineIntegrationExampleTests.cs`다. 합성 무기/스킬/스탯/편성 및 JSON 조건을 코드에 명시하고 `SkillReplay.Run`을 실제로 실행한다. 테스트 전용 난수열 `(++calls % 13)/13d`를 주입하며 production RNG/실행 옵션을 변경하지 않는다. 개인정보나 계정 스냅샷은 읽지 않는다.
+
+- 조건: 10800프레임, 공격력 원값 100, 적 방어력 10, legacy_term_floor, 크리 표본, 코어 ON, 앨리스형 수동 풀차지, 기본 차지 60프레임/탄창 6, 버스트 공증 50% 및 차속 50% 합성 효과, trace OFF/한도 1.
+- 편성: fixture-i / fixture-ii / 5004 / fixture-iii / fixture-excluded. 마지막 후보는 사격/게이지에만 참여한다. 허용 목록은 앞 네 명, III 순환은 5004/fixture-iii, 첫 III는 5004, next_ready. 기본 세 전이 지연과 source_full_charge_v2를 사용한다.
+- 결과: 로그 183행, 해당 니케 총피해/행 합계 172399, 마지막 명중 10776프레임, 풀버스트 9회, RNG 소비 8186회. 앨리스형 충전 대상 명중은 모두 196000이다. 이는 **합성 입력으로 실제 엔진이 생성한 결과**이며 실제 게임 관측/계정 기반 실행이 아니다.
+- `input.json`: 엔진 public 멤버·SkillGraph·Conditions 전체. `result.json`: 실제 SkillReplayResult 전체. `manifest.json`: 합성 표기, 기준 커밋, 규칙, 조건/결과 요약, 난수열. 이 파일들은 외부 SavedSkillReplay나 HTTP 요청으로 위장하지 않는다. B1의 계정·runtime 스냅샷 ID를 임의로 만들어 넣지 않았다.
+- JSON 입력 복원 후 재실행 결과 전체 직렬화 문자열과 RNG 소비가 동일하고, 결과 자체의 JSON 왕복도 일치한다. 로그 ON/OFF 피해·사격·잔탄·버스트 타임라인·RNG 불변, 자체 버스트/팀 풀버스트 분리, numeric enum/nullable 필드, 과거 로그 누락과 실제 수집 0행의 구별을 함께 검증한다.
+
+재실행 명령(자신의 작업공간에서 실행, 매번 새 UUID 폴더 생성):
+
+```powershell
+$env:DOTNET_CLI_HOME = Join-Path $PWD '.tools/dotnet-home'
+$env:NUGET_PACKAGES = Join-Path $PWD '.tools/nuget-packages'
+$env:DOTNET_CLI_TELEMETRY_OPTOUT = '1'
+$taskE2Run = Join-Path $PWD ('artifacts/e2/' + [Guid]::NewGuid().ToString('N'))
+$env:NIKKE_E2_EXAMPLE_ROOT = $taskE2Run
+& 'C:/Users/user/Documents/GitHub/Nikke-Simul/.tools/dotnet/dotnet.exe' test tests/Nikke.Core.Tests/Nikke.Core.Tests.csproj -c Release --no-restore --logger 'trx;LogFileName=engine.trx' --results-directory $taskE2Run
+```
+
+예제만 다시 생성하려면 같은 명령에 `--filter FullyQualifiedName~EngineIntegrationExampleTests`를 붙인다. 이 필터 실행을 전체 회귀 통과로 보고하면 안 된다. 출력 환경변수를 지정하지 않아도 검증은 실행하고 파일 출력만 생략한다. 기존 artifacts는 덮어쓰지 않는다.
+
+통합 후 절차와 미실행 범위:
+
+1. Director가 E1/E2와 B1/B2/U2를 포함하는 고정 통합 커밋을 제공한 뒤 위 엔진 회귀를 재실행한다.
+2. B2가 자신의 격리 API 검증에서 완전한 테스트 계정/계산/runtime 입력을 준비하고, 복원한 tactic과 conditions.damageLog를 POST `/api/runtime/skill-replays`에 명시한다. E2의 native input.json은 계정 API payload가 아니므로 그대로 POST하지 않는다.
+3. 실제 POST 반환의 result.damageLog를 저장 원문/GET/export.json/CSV entryJson과 대조한다. 계정/계산/runtime 식별자 및 누적/행 순서/null/완전성을 확인하고, 이전 결과를 재계산으로 대체하지 않는다. 미수집/0행과 초안·stale·잘못된 후보도 별도로 확인한다.
+4. U2는 서버 tactic 저장 → 새로고침/조회 → 실행 → 실제 시전자/로그 흐름을 브라우저에서 확인한다. E2의 합성 ID를 실제 보유 ID라고 가정하지 않는다.
+
+현재 실제 통합 커밋이 없으므로 B1 요청 adapter 실행, 계정 기반 180초 API 실행, 저장/조회/CSV, UI 브라우저 흐름은 **미실행**이다. 새 실게임 피해·차지/재장전·버스트 관측 비교도 미실행이다. 무한 대기하지 않고 이 엔진 예제 및 독립 검증을 먼저 제공한다.
+
+### E2 실제 실행 결과
+
+위 전체 테스트 명령으로 **113개 통과, 실패 0, skip 0**을 새로 확인했다(기존 111 + 신규 JSON/실행 예제 2). 최종 Release 빌드 출력에는 경고/오류가 없고 테스트 실행기 보고 기간은 15초다. 첫 실행도 113개 통과했으나 xUnit2013 스타일 경고가 있어 Assert.Empty로 수정한 뒤 새 출력 경로로 재실행했다. 테스트 실패는 없었다. `git diff --check`도 통과했다.
+
+이 재실행에는 발당 피해/버프 만료 → 차지·발사·재장전 → 제외/우선순위/III 순환·첫 시전자·대기·대체·만료 → 180초/trace/RNG → 기존 196000 충전과 세 전이 delay/max/종료 후 재충전 검사가 포함된다. 이전 E1의 테스트 수를 새 실행 결과 대신 인용한 것이 아니다.
+
+증거 루트: `artifacts/e2/79301e0197c84a8195b553adad062de9/`.
+
+- `engine.trx`: SHA-256 `fa47c9205a6f7158bfe9ebd1bbfd917c0a19f39bae668147cdcbc654b60338d6`.
+- 하위 예제 폴더: `engine-example-c7c29fe7eb3a4fcfa3c218c7d02d36c9/`.
+- `input.json`: SHA-256 `e14a48955bdbc42f15b6e361ef2ab54a5dc66b5c3df46484346b5a3d2cf40f9b`.
+- `result.json`: SHA-256 `461f3e0e9a2038c3891753eb34635f7ed48c5c3dd661287928a305889f8e7114`.
+- `manifest.json`: SHA-256 `dce19030539f74bf0f80b275d5c82befc9956567b7ec87737dca87fe83baf184`.
+
+자료는 ignored artifacts이며 위 테스트 소스로 재생성할 수 있다. 첫 실행 증거 `artifacts/e2/d0261412ed604666b3310794bbead3ae/`와 과거 E1/P04 artifacts도 보존했다. 변경 파일은 신규 엔진 테스트와 이 담당 문서 두 개뿐이다. 기존 package-lock.json은 미추적 상태 그대로 남아 있다.
