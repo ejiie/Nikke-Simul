@@ -306,8 +306,8 @@ async def run_verification():
             await page.locator('[data-tab="raid"]').click()
             await page.wait_for_timeout(300)
             assert await page.locator('[data-tactic-allow="5004"]').is_checked()
-            assert await page.locator('#tactic-first-caster').input_value() == '5004'
-            assert await page.locator('#tactic-stage3-mode').input_value() == 'alternate'
+            assert await page.locator('#tactic-first-caster, #tactic-stage3-mode, #tactic-fallback-policy').count() == 0
+            assert '첫 시전자' in await page.locator('.tactic-nikke-row').filter(has=page.locator('[data-tactic-allow="5004"]')).inner_text()
 
             # 5. Run Damage Simulation with Tactic & damageLog Request Attached
             await page.locator('#run-replay').click()

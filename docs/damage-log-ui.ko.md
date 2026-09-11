@@ -1,5 +1,27 @@
 # 앨리스 발당 피해 로그 및 버스트 전술 설정 UI 연동·결함 수정 보고서 (U3)
 
+## 현재 UI: 버스트 설정 단순화 (2026-09-11, Director 후속 변경)
+
+사용자 지정 스크린샷의 단계별 카드만 설정으로 남긴다. 참여 체크, 위/아래 순서 변경, 첫 시전자 표시, 빠른 설정 3개와 서버 저장을 유지한다. 별도 III 순환 모드·첫 시전자 선택·쿨다운 대기 정책, 중복 빠른 우선순위, 버스트 사용 안 함/1회 실행/시작 시점 입력은 제거했다. 사격 조작·차지 방식 및 실제 피해/버스트 기록은 유지한다.
+
+- I/II는 체크된 후보의 표시 우선순위를 사용한다. III는 체크된 후보를 표시 순서대로 순환하고 그중 첫 번째를 첫 시전자로 지정한다. 준비되지 않으면 다음 사용 가능한 허용 니케를 선택한다(`next_ready`).
+- 화면 로드·서버 복원·저장 시 `normalizeVisibleBurstTactics`가 위 규칙으로 UI 모델을 정규화한다. 과거의 숨은 순환 부분집합·별도 첫 시전자·`wait_preferred`는 현재 편집 화면의 실행 설정으로 유지하지 않는다. 복원만으로 서버에 PUT하지는 않으며, 이후 사용자가 변경/저장할 때 단순화된 설정을 저장한다.
+- 모든 III 후보를 해제하면 첫 시전자는 없고 불완전 설정 진단을 표시한다. 제외 니케를 몰래 발동시키지 않는다.
+- 실행은 `conditions.autoBurst = { tactic }`, `casts = []`, `fullBurstWindows = []`로 통일한다. 엔진/API의 기존 지정 시전·일반 DTO 기능은 삭제하지 않았다.
+- 회차 홀짝만으로 성공/대체 여부를 추정하던 결과 판정을 제거하고 실제 버스트 시전자·시각을 기록으로 표시한다.
+
+근거: `apps/desktop-ui/app.js`, `apps/desktop-ui/burst-tactics.js`. 아래 U3 보고서는 **변경 이전의 수용 이력**이며, DTO 원형 보존 설명은 범용 `damage-log-adapter.js`의 계약에 해당한다. 현재 편집 화면의 조작·정규화 규칙은 이 절을 우선한다.
+
+검증: `tests/q3/check_ui_contract.mjs`의 26개 검사 통과(숨은 기존 옵션 정규화, 제외/순서/빈 III, 늦은 서버 응답 방어 포함). 증거: `artifacts/director/compact-burst/ui-0fc5bff4-4e49-40fd-ba32-22d1286acba3/summary.json`.
+
+`check_integrated_live.py`의 실제 API/Edge 검증도 통과했다. 편성 순서 프리셋에서 누아르 첫 시전자, 앨리스만 사용 후 누아르 재허용·순서 이동·제외, 제거한 입력 부재, 서버 저장→브라우저 캐시 삭제→복원→180초 실행, III 앨리스 단독 발동, JSON/CSV 원문 다운로드, 1500/850/500px 무넘침, JS 오류 0을 확인했다. 합성 503 주입 시 거짓 성공 다운로드가 없는 것도 별도 확인했다. 증거: `artifacts/director/live-a751d113203748f5886aa7fabaf88679/summary.json` 및 `ui-before.png`, `ui-request.json`, `ui-response.json`. 이 실행은 기준 HEAD `77b3cce` 위의 이번 미커밋 UI 변경을 검증한 것이며, 보고서의 commit 필드만으로 미커밋 변경을 식별할 수는 없다.
+
+검사는 비사용 중인 격리 복사본 `artifacts/b2/integration-bfe7311e79a24060abb9c7161f21e7ac/data`에서 수행했다. 원본 계정 4개 테이블 논리 해시는 실행 전후 같고, 사용자 사용 중인 5181 서버의 계정 복사본은 건드리지 않았다. 실행 파일 재배포나 실게임 정확도 검증은 이번 변경에 포함하지 않는다.
+
+기존 `check_damage_log_ui.py`의 합성 HTTP/실제 엔진 fixture 브라우저 회귀도 통과했다(`artifacts/ui/verification/summary.json`, 앨리스 183타격, JS 예외 0). 격리 환경에는 일부 초상화/장식 이미지가 없어 404와 대체 이미지가 나타났으므로 이미지 완전성 검증을 뜻하지 않는다. 현재 5181 서버에서 변경된 JS를 제공하는 것까지 HTTP 200으로 확인했다.
+
+---
+
 2026-09-11. UI 담당(U3) 통합 결함 수정 및 실 fixture 검증 완료 보고서.
 소유: `apps/desktop-ui`, UI 전용 테스트(`tools/data-pipeline/tests/check_damage_log_ui.py`), 본 문서 `docs/damage-log-ui.ko.md`.
 통합 기준 커밋: `a0738accb16500e52621811fac0dac7259cb7f76` (엔진 `3b92101`, Backend `b63ad12`, UI `3f9b717` 포함).

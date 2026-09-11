@@ -5,8 +5,8 @@
  * - Burst allowlist (used Nikkes) vs excluded Nikkes
  * - Clear distinction between "Alice First (우선)" and "Alice Only (전용)"
  * - Per-stage candidate priority order (I, II, III)
- * - Stage III rotation policy (Alternate vs Priority-only) and First Caster
- * - Fallback policy (wait_preferred vs next_ready)
+ * - Stage III rotation and first caster derived from checked priority order
+ * - Fixed next_ready fallback; no hidden strategy controls
  * - Server API integration (PUT /api/accounts/{id}/burst-tactic & GET) with local cache fallback
  * - Cross-comparison of actual burst timeline vs user tactic settings
  */
@@ -22,6 +22,17 @@ import {
 
 const $ = id => document.getElementById(id);
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+// The compact UI has one source of truth: checked members in displayed order.
+// Keep the general API adapter backward-compatible; normalize only this editor.
+export function normalizeVisibleBurstTactics(tactics, members) {
+  const allowedStage3 = new Set(members.filter(m => m.burstStep === 3 && tactics.allowlist[m.id] !== false).map(m => m.id));
+  tactics.stage3Mode = 'alternate';
+  tactics.burst3Rotation = (tactics.priority.stage3 ?? []).filter(id => allowedStage3.has(id));
+  tactics.firstCaster = tactics.burst3Rotation[0] ?? null;
+  tactics.fallbackPolicy = 'next_ready';
+  return tactics;
+}
 
 export function createBurstTacticsManager({ api, getSnapshot, getMembersWithMeta, getFormationSlots, onTacticsChanged, status }) {
   let tactics = null;
@@ -67,6 +78,7 @@ export function createBurstTacticsManager({ api, getSnapshot, getMembersWithMeta
         }
       }
     }
+    normalizeVisibleBurstTactics(tactics, members);
   }
 
   async function syncFromServer() {
@@ -89,7 +101,7 @@ export function createBurstTacticsManager({ api, getSnapshot, getMembersWithMeta
     if (JSON.stringify(tactics) !== initialTacticJson) return;
 
     if (result.ok && result.tactics) {
-      tactics = result.tactics;
+      tactics = normalizeVisibleBurstTactics(result.tactics, members);
       lastAccount = account;
       isServerStale = result.stale;
       serverSyncStatus = result.stale ? 'stale' : (result.executionStatus === 'draft_incomplete' ? 'draft_incomplete' : 'saved');
@@ -132,6 +144,8 @@ export function createBurstTacticsManager({ api, getSnapshot, getMembersWithMeta
     const snapshotId = getSnapshot()?.id ?? 'snap-local';
     const slots = getFormationSlots ? getFormationSlots() : getMembersWithMeta().map(m => m.id);
     const members = getMembersWithMeta();
+
+    normalizeVisibleBurstTactics(tactics, members);
 
     // 1. Immediate local storage persistence
     try {
@@ -316,20 +330,12 @@ export function createBurstTacticsManager({ api, getSnapshot, getMembersWithMeta
       `;
     }).join('');
 
-    const stage3Members = members.filter(m => m.burstStep === 3 && tactics.allowlist[m.id] !== false);
-    const firstCasterOptions = [
-      `<option value="" ${!tactics.firstCaster ? 'selected' : ''}>순환 첫 번째 니케 (기본값 / null)</option>`,
-      ...stage3Members.map(m => `
-        <option value="${m.id}" ${tactics.firstCaster === m.id ? 'selected' : ''}>${esc(m.displayName)} (버스트 III)</option>
-      `)
-    ].join('');
-
     container.innerHTML = `
       <div class="tactic-manager-shell">
         <div class="tactic-header-bar">
           <div>
             <h4>버스트 사용 니케 및 순서 설정</h4>
-            <p class="microcopy">각 단계별 발동 허용 니케(Allowlist)와 우선순위, 순환 방식을 설정합니다.</p>
+            <p class="microcopy">체크한 니케만 버스트를 사용합니다. III단계는 위에서부터 순환하며, 준비되지 않으면 다음 사용 가능한 니케가 발동합니다.</p>
           </div>
           <div class="tactic-presets">
             <span class="preset-label">빠른 설정:</span>
@@ -352,28 +358,6 @@ export function createBurstTacticsManager({ api, getSnapshot, getMembersWithMeta
           ${stagesHtml}
         </div>
 
-        <div class="tactic-options-grid">
-          <label>
-            <span>버스트 III 순환 정책</span>
-            <select id="tactic-stage3-mode">
-              <option value="alternate" ${tactics.stage3Mode === 'alternate' ? 'selected' : ''}>교대 순환 (1순위 ↔ 2순위 교대)</option>
-              <option value="priority_only" ${tactics.stage3Mode === 'priority_only' ? 'selected' : ''}>우선순위 고정 (항상 최우선 니케 우선)</option>
-            </select>
-          </label>
-          <label>
-            <span>버스트 III 첫 시전자</span>
-            <select id="tactic-first-caster">
-              ${firstCasterOptions || '<option value="">허용된 니케 없음</option>'}
-            </select>
-          </label>
-          <label>
-            <span>우선 니케 미준비(쿨다운) 시</span>
-            <select id="tactic-fallback-policy">
-              <option value="next_ready" ${tactics.fallbackPolicy === 'next_ready' ? 'selected' : ''}>사용 가능한 다음 니케 발동 (제외 니케는 미발동)</option>
-              <option value="wait_preferred" ${tactics.fallbackPolicy === 'wait_preferred' ? 'selected' : ''}>우선 니케 쿨다운 대기 (지연 감수)</option>
-            </select>
-          </label>
-        </div>
       </div>
     `;
 
@@ -390,15 +374,6 @@ export function createBurstTacticsManager({ api, getSnapshot, getMembersWithMeta
         movePriority(stage, id, dir);
       };
     });
-
-    const modeSel = $('tactic-stage3-mode');
-    if (modeSel) modeSel.onchange = e => { tactics.stage3Mode = e.target.value; saveTactics(); };
-
-    const firstSel = $('tactic-first-caster');
-    if (firstSel) firstSel.onchange = e => { tactics.firstCaster = e.target.value || null; saveTactics(); };
-
-    const fallbackSel = $('tactic-fallback-policy');
-    if (fallbackSel) fallbackSel.onchange = e => { tactics.fallbackPolicy = e.target.value; saveTactics(); };
 
     const btnAliceOnly = $('preset-alice-only');
     if (btnAliceOnly) btnAliceOnly.onclick = () => applyPreset('alice_only');
@@ -442,33 +417,21 @@ export function createBurstTacticsManager({ api, getSnapshot, getMembersWithMeta
     }
 
     const nameMap = new Map(membersWithMeta.map(m => [m.id, m.displayName]));
-    const stage3Priority = tactics?.priority?.stage3 ?? [];
-
     const rows = fullBursts.map((fb, idx) => {
       const casterName = nameMap.get(fb.caster) ?? fb.caster;
-      const rank = stage3Priority.indexOf(fb.caster);
-      const isExpected = (tactics.stage3Mode === 'alternate')
-        ? (idx % 2 === 0 ? fb.caster === tactics.firstCaster : fb.caster !== tactics.firstCaster)
-        : (rank === 0);
-
-      const statusBadge = isExpected
-        ? '<span class="status-pill neutral">설정 일치</span>'
-        : '<span class="status-pill warning">대체/대기 발생</span>';
-
       return `
         <tr>
           <td>${fb.cycle || idx + 1}회차</td>
           <td><strong>${esc(casterName)}</strong></td>
           <td>${fb.startFrame ? (fb.startFrame / 60).toFixed(1) + '초' : '—'}</td>
           <td>${fb.endFrame ? (fb.endFrame / 60).toFixed(1) + '초' : '—'}</td>
-          <td>${statusBadge}</td>
         </tr>
       `;
     }).join('');
 
     targetElement.innerHTML = `
       <div class="tactic-comparison-box surface">
-        <h4>실제 버스트 발동 vs 설정 대조</h4>
+        <h4>실제 버스트 발동 기록</h4>
         <div class="table-scroll">
           <table>
             <thead>
@@ -477,7 +440,6 @@ export function createBurstTacticsManager({ api, getSnapshot, getMembersWithMeta
                 <th>발동 니케 (버스트 III)</th>
                 <th>풀버스트 시작</th>
                 <th>풀버스트 종료</th>
-                <th>설정 대조 판정</th>
               </tr>
             </thead>
             <tbody>

@@ -145,7 +145,26 @@ await check('direct_skill_only_UI_shot_count_is_zero', () => {
   const count = vm.runInNewContext(expression, { hits:[{ shotId:null }, { shotId:null }] });
   assert.equal(count, 0, 'direct skill hits were counted as fired shots');
 });
-const { createBurstTacticsManager } = await import(pathToFileURL(path.join(root, 'apps/desktop-ui/burst-tactics.js')));
+const { createBurstTacticsManager, normalizeVisibleBurstTactics } = await import(pathToFileURL(path.join(root, 'apps/desktop-ui/burst-tactics.js')));
+await check('compact_tactics_ignore_hidden_legacy_choices', () => {
+  const ui = adapter.fromServerTacticDto({ ...base, burst3Rotation:['5009'], firstBurst3CharacterId:'5009', unavailablePolicy:'wait_preferred' }, members);
+  normalizeVisibleBurstTactics(ui, members);
+  assert.deepEqual(adapter.toServerTacticDto(ui, members), base);
+  ui.allowlist['5004'] = false;
+  normalizeVisibleBurstTactics(ui, members);
+  assert.deepEqual(ui.burst3Rotation, ['5044', '5009']);
+  assert.equal(ui.firstCaster, '5044');
+  ui.priority.stage3 = ['5009', '5004', '5044'];
+  normalizeVisibleBurstTactics(ui, members);
+  assert.deepEqual(ui.burst3Rotation, ['5009', '5044']);
+  assert.equal(ui.firstCaster, '5009');
+  ui.allowlist['5044'] = false;
+  ui.allowlist['5009'] = false;
+  normalizeVisibleBurstTactics(ui, members);
+  assert.deepEqual(ui.burst3Rotation, []);
+  assert.equal(ui.firstCaster, null);
+  assert.equal(adapter.auditBurstTactics(members, ui).valid, false);
+});
 for (const scenario of ['account_switch', 'local_edit']) await check(`late_server_restore_preserves_${scenario}`, async () => {
   const priorDocument = globalThis.document, priorStorage = globalThis.localStorage;
   const cache = new Map();
@@ -164,10 +183,11 @@ for (const scenario of ['account_switch', 'local_edit']) await check(`late_serve
     if (scenario === 'account_switch') {
       snapshot = { id:'snapshot-b', accountId:'account-b' };
       manager.loadTactics();
-      pending.shift()({ saved:{tactic:{...base, firstBurst3CharacterId:'5044'}}, stale:false });
+      pending.shift()({ saved:{tactic:{...base, stage3Priority:['5044','5004','5009'], burst3Rotation:['5044','5004','5009'], firstBurst3CharacterId:'5044'}}, stale:false });
       await new Promise(resolve=>setImmediate(resolve));
     } else {
-      manager.getTactics().firstCaster = '5044';
+      manager.getTactics().priority.stage3 = ['5044','5004','5009'];
+      normalizeVisibleBurstTactics(manager.getTactics(), members);
     }
     assert.equal(manager.getTactics().firstCaster, '5044', 'race precondition');
     resolveOld({ saved:{tactic:base}, stale:false }); await late;

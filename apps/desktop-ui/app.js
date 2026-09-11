@@ -200,37 +200,16 @@ function renderDiagnostics(){
   $('advanced-content').innerHTML=`<div class="section-heading"><div><h2>고급 진단</h2><p>누락된 스펙과 저장 출처를 확인합니다.</p></div></div><article class="surface"><h3>수집 확인</h3>${issues.length?`<ul>${issues.map(i=>`<li>${esc(i.path)} · ${esc(i.message)}</li>`).join('')}</ul>`:'<p>검토할 항목이 없습니다.</p>'}</article><article class="surface"><h3>최근 변경</h3><ul>${(snapshot?.changes??[]).slice(0,30).map(v=>`<li>${esc(v)}</li>`).join('')}</ul></article><article class="surface"><h3>화면·이미지 출처</h3><p>화면: Nikke-Local-Lab · 이미지: 블라블라 및 사용자 제공 ZIP</p><p>캐릭터 ${state.presentation.characters.length}명 · ZIP 연결 ${state.presentation.importedPortraits??0}명 · 미수집 ${state.presentation.unresolved?.length??0}개</p></article>`;
 }
 function renderRaid(){
-  $('raid-content').innerHTML=`<div class="section-heading"><div><p class="eyebrow">SOLO RAID CHALLENGE</p><h2>솔로 레이드 검산</h2><p>평타·스킬 효과를 조건별로 검산합니다. 현재 검산 지원: 리타·블랑·누아르·앨리스·모더니아. 팀 게이지 충전부터 풀버스트 종료 후 재충전까지 자동으로 실행합니다. 게이지·타이밍은 실측 검증 전입니다.</p></div></div><form id="replay-form"><article class="surface"><h3>편성</h3><div id="raid-team" class="formation-slots" aria-label="저장된 편성"></div></article><article class="surface" id="burst-tactics-section"><div id="burst-tactics-container"></div></article><article class="surface"><h3>전투 조건</h3><div class="form-grid"><label>시간 (초)<input name="seconds" type="number" value="180" min="1" max="180" required></label><label>적 방어력<select name="defense"><option value="30925">30,925 · 누적 20억 전</option><option value="31784">31,784 · 누적 20억 후</option></select></label><label>크리티컬<select name="crit"><option value="off">끔</option><option value="sample">확률 적용</option><option value="on">항상 크리</option></select></label><label>정수화<select name="rounding"><option value="legacy_term_floor">C# 항별 내림</option><option value="final_round_even">최종 반올림</option><option value="nested_floor">항별 + 단계별 내림</option></select></label><label>샷건 계수<select name="pellet"><option value="per_trigger">발사 1회</option><option value="per_pellet">펠릿마다</option></select></label><label>검산 레벨 (선택)<input name="level" type="number" min="1" max="10000" placeholder="계정 레벨"></label></div><div class="action-row">${[['core','코어 명중'],['distance','적정 거리'],['element','우월 코드']].map(([v,l])=>`<label><input name="${v}" type="checkbox">${l}</label>`).join('')}</div><p class="microcopy">엔진 한도: 최대 180초. 방어력은 이번 검산 전체에 고정됩니다. 누적 대미지에 따른 자동 전환은 아직 적용하지 않습니다.</p></article><article class="surface"><h3>버스트 실행 모드</h3><div class="form-grid"><label>버스트 모드<select name="burst"><option value="auto">자동 사이클</option><option value="none">사용 안 함</option><option value="5004">리타 → 블랑 → 앨리스 (1회)</option><option value="5044">리타 → 블랑 → 모더니아 (1회)</option></select></label><label data-prescribed-burst>시작 시점 (초)<input name="burstAt" type="number" min="0.1" step="0.1" value="10"></label></div><p class="microcopy">자동 사이클은 위의 버스트 전술 설정(허용 니케, 우선순위, 순환)을 사용합니다. 1회 검산을 선택하면 지정 시점을 사용합니다.</p></article><article class="surface" id="automatic-burst-options"><div class="form-grid"><label>버스트 III 빠른 우선순위<select name="burstRotation"><option value="">전술 설정 따름</option><option value="5004,5044">앨리스 → 모더니아 반복</option><option value="5044,5004">모더니아 → 앨리스 반복</option><option value="5004">앨리스 우선</option><option value="5044">모더니아 우선</option><option value="5009">누아르 우선</option></select></label><label>우선 니케가 쿨다운 중이면<select name="burstUnavailable"><option value="next_ready">사용 가능한 다음 니케</option><option value="wait_preferred">우선 니케 대기</option></select></label><label>직접 조작<select name="manualCharacter"><option value="">모두 자동</option><option value="5011">리타</option><option value="5008">블랑</option><option value="5009">누아르</option><option value="5004">앨리스</option><option value="5044">모더니아</option></select></label><label>차지 방식<select name="manualStyle"><option value="full_charge">풀차지</option><option value="tap">톡톡이</option></select></label></div></article><div class="account-save-bar surface"><div><strong>검산 후 자동 저장</strong><span>편성·실제 스킬 레벨·조건·구성원별 효과 대미지를 보존합니다.</span></div><button id="run-replay" class="primary" type="submit">대미지 검산</button></div></form><div id="replay-result" aria-live="polite"></div>`;
+  $('raid-content').innerHTML=`<div class="section-heading"><div><p class="eyebrow">SOLO RAID CHALLENGE</p><h2>솔로 레이드 검산</h2><p>평타·스킬 효과를 조건별로 검산합니다. 현재 검산 지원: 리타·블랑·누아르·앨리스·모더니아. 팀 게이지 충전부터 풀버스트 종료 후 재충전까지 자동으로 실행합니다. 게이지·타이밍은 실측 검증 전입니다.</p></div></div><form id="replay-form"><article class="surface"><h3>편성</h3><div id="raid-team" class="formation-slots" aria-label="저장된 편성"></div></article><article class="surface" id="burst-tactics-section"><div id="burst-tactics-container"></div></article><article class="surface"><h3>전투 조건</h3><div class="form-grid"><label>시간 (초)<input name="seconds" type="number" value="180" min="1" max="180" required></label><label>적 방어력<select name="defense"><option value="30925">30,925 · 누적 20억 전</option><option value="31784">31,784 · 누적 20억 후</option></select></label><label>크리티컬<select name="crit"><option value="off">끔</option><option value="sample">확률 적용</option><option value="on">항상 크리</option></select></label><label>정수화<select name="rounding"><option value="legacy_term_floor">C# 항별 내림</option><option value="final_round_even">최종 반올림</option><option value="nested_floor">항별 + 단계별 내림</option></select></label><label>샷건 계수<select name="pellet"><option value="per_trigger">발사 1회</option><option value="per_pellet">펠릿마다</option></select></label><label>검산 레벨 (선택)<input name="level" type="number" min="1" max="10000" placeholder="계정 레벨"></label></div><div class="action-row">${[['core','코어 명중'],['distance','적정 거리'],['element','우월 코드']].map(([v,l])=>`<label><input name="${v}" type="checkbox">${l}</label>`).join('')}</div><p class="microcopy">엔진 한도: 최대 180초. 방어력은 이번 검산 전체에 고정됩니다. 누적 대미지에 따른 자동 전환은 아직 적용하지 않습니다.</p></article><article class="surface"><h3>사격 조작</h3><div class="form-grid"><label>직접 조작<select name="manualCharacter"><option value="">모두 자동</option><option value="5011">리타</option><option value="5008">블랑</option><option value="5009">누아르</option><option value="5004">앨리스</option><option value="5044">모더니아</option></select></label><label>차지 방식<select name="manualStyle"><option value="full_charge">풀차지</option><option value="tap">톡톡이</option></select></label></div></article><div class="account-save-bar surface"><div><strong>검산 후 자동 저장</strong><span>편성·실제 스킬 레벨·조건·구성원별 효과 대미지를 보존합니다.</span></div><button id="run-replay" class="primary" type="submit">대미지 검산</button></div></form><div id="replay-result" aria-live="polite"></div>`;
   formation.render();
-  const modeControl=$('replay-form').elements.burst;
-  modeControl.onchange=()=>{
-    $('automatic-burst-options').hidden=modeControl.value!=='auto';
-    $('burst-tactics-section').hidden=modeControl.value!=='auto';
-    document.querySelector('[data-prescribed-burst]').hidden=['auto','none'].includes(modeControl.value);
-  };
-  modeControl.onchange();
   $('replay-form').onsubmit=async e=>{
     e.preventDefault();if(!snapshot){status('계정을 먼저 연결하세요.');return;}
-    const form=new FormData(e.currentTarget),members=formation.members(),b3=form.get('burst');
+    const form=new FormData(e.currentTarget),members=formation.members();
     if(!members.length){status('니케를 선택하고 편성을 저장하세요.');return;}
     const currentTactics=tacticsManager.getTactics();
-    const seconds=Math.min(180,Math.max(1,Number(form.get('seconds')))),frame=Math.round(Number(form.get('burstAt'))*60);
-    if(!['none','auto'].includes(b3)&&!['5011','5008',b3].every(id=>members.includes(id))){status('버스트 순서에 포함된 니케를 모두 편성하세요.');return;}
-    const windows=['none','auto'].includes(b3)?[]:[{startFrame:frame+2,endFrame:Math.min(seconds*60,frame+2+(b3==='5044'?900:600))}];
-    if(windows.some(w=>w.startFrame>=w.endFrame)){status('버스트 시점은 전투 종료보다 앞서야 합니다.');return;}
+    const seconds=Math.min(180,Math.max(1,Number(form.get('seconds'))));
     const serverTactic = toServerTacticDto(currentTactics, getMembersWithMeta());
-    let autoBurstPayload = null;
-    if (b3 === 'auto') {
-      if (serverTactic) {
-        // Tactic mode: legacy burst3Rotation must be empty, unavailablePolicy next_ready (no mix rejection)
-        autoBurstPayload = { tactic: serverTactic, burst3Rotation: [], unavailablePolicy: 'next_ready' };
-      } else {
-        const formRotation = form.get('burstRotation');
-        const burst3Rotation = formRotation ? String(formRotation).split(',').filter(Boolean) : [];
-        const unavailablePolicy = form.get('burstUnavailable') || 'next_ready';
-        autoBurstPayload = { burst3Rotation, unavailablePolicy };
-      }
-    }
+    const autoBurstPayload = { tactic: serverTactic };
     const targetDamageLogCharId = (typeof damageLogViewer !== 'undefined' && damageLogViewer?.getSelectedCharacterId?.()) || '5004';
     const request = {
       snapshotId: snapshot.id,
@@ -240,10 +219,10 @@ function renderRaid(){
         damageLog: { characterId: targetDamageLogCharId },
         autoBurst: autoBurstPayload,
         roundingPolicy: form.get('rounding'),
-        casts: ['none', 'auto'].includes(b3) ? [] : ['5011', '5008', b3].map((id, i) => ({ frame: frame + i, characterId: id, slot: 'burst' })),
+        casts: [],
         combat: {
-          manualCharacterId: b3 === 'auto' ? form.get('manualCharacter') : '',
-          manualStyle: b3 === 'auto' ? form.get('manualStyle') : 'full_charge',
+          manualCharacterId: form.get('manualCharacter'),
+          manualStyle: form.get('manualStyle'),
           durationFrames: seconds * 60,
           enemyDefense: Number(form.get('defense')),
           critMode: form.get('crit'),
@@ -251,7 +230,7 @@ function renderRaid(){
           properDistance: form.has('distance'),
           elementAdvantage: form.has('element'),
           pelletCoefficientPolicy: form.get('pellet'),
-          fullBurstWindows: windows,
+          fullBurstWindows: [],
           trace: false,
           targetLabel: 'solo_raid_challenge'
         }

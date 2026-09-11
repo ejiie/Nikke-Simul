@@ -66,23 +66,44 @@ async def browser_check(base, output):
             await page.goto(base + '/editor/')
             await page.wait_for_function("document.body.dataset.ready==='true'", timeout=60000)
             await page.locator('[data-tab="raid"]').click()
+            async def save_action(action):
+                async with page.expect_response(lambda r: r.request.method == 'PUT' and r.url.endswith('/burst-tactic')) as pending:
+                    await action()
+                response = await pending.value
+                assert response.status == 200
+                await page.wait_for_function("!document.querySelector('#burst-tactics-container').textContent.includes('서버 저장 중')")
+                return (await response.json())['saved']['tactic']
+
+            formation_tactic = await save_action(lambda: page.locator('#preset-formation').click())
+            assert formation_tactic['burst3Rotation'] == ['5009', '5004', '5044']
+            assert formation_tactic['firstBurst3CharacterId'] == '5009'
+            await save_action(lambda: page.locator('#preset-alice-only').click())
+            expanded = await save_action(lambda: page.locator('[data-tactic-allow="5009"]').check())
+            assert expanded['burst3Rotation'] == ['5004', '5009']
+            reordered = await save_action(lambda: page.locator('[data-move-id="5009"][data-move-dir="-1"]').click())
+            assert reordered['burst3Rotation'] == ['5009', '5004']
+            assert reordered['firstBurst3CharacterId'] == '5009'
+            disabled = await save_action(lambda: page.locator('[data-tactic-allow="5009"]').uncheck())
+            assert disabled['burst3Rotation'] == ['5004']
+            assert disabled['firstBurst3CharacterId'] == '5004'
+            assert '첫 시전자' not in await page.locator('.tactic-nikke-row').filter(has=page.locator('[data-tactic-allow="5009"]')).inner_text()
             async with page.expect_response(lambda r: r.request.method == 'PUT' and r.url.endswith('/burst-tactic')) as pending_save:
                 await page.locator('#preset-alice-only').click()
-            assert (await pending_save.value).status == 200
-            async with page.expect_response(lambda r: r.request.method == 'PUT' and r.url.endswith('/burst-tactic')) as pending_save:
-                await page.locator('#tactic-fallback-policy').select_option('wait_preferred')
             saved_response = await pending_save.value
             assert saved_response.status == 200
             saved_tactic = (await saved_response.json())['saved']['tactic']
             (output / 'ui-saved-tactic.json').write_text(json.dumps(saved_tactic, indent=2), encoding='utf-8')
             assert saved_tactic['burst3Rotation'] == ['5004']
-            assert saved_tactic['unavailablePolicy'] == 'wait_preferred'
+            assert saved_tactic['unavailablePolicy'] == 'next_ready'
             # Require restoration from the real server, not just the browser cache.
             await page.evaluate("Object.keys(localStorage).filter(k => k.startsWith('nikke-burst-tactics-')).forEach(k => localStorage.removeItem(k))")
             await page.reload()
             await page.wait_for_function("document.body.dataset.ready==='true'", timeout=60000)
             await page.locator('[data-tab="raid"]').click()
-            assert await page.locator('#tactic-fallback-policy').input_value() == 'wait_preferred', 'Tactic not restored at ready=true'
+            removed = '#tactic-fallback-policy, #tactic-first-caster, #tactic-stage3-mode, [name="burst"], [name="burstAt"], [name="burstRotation"], [name="burstUnavailable"]'
+            assert await page.locator(removed).count() == 0
+            assert '첫 시전자' in await page.locator('.tactic-nikke-row').filter(has=page.locator('[data-tactic-allow="5004"]')).inner_text()
+            assert await page.locator('[name="manualCharacter"], [name="manualStyle"]').count() == 2
             restore_state = await page.evaluate("""() => ({
                 allow: [...document.querySelectorAll('[data-tactic-allow]')].map(e => ({id:e.dataset.tacticAllow, checked:e.checked})),
                 local: Object.fromEntries(Object.entries(localStorage).filter(([k]) => k.startsWith('nikke-burst-tactics-')))
@@ -149,7 +170,8 @@ async def browser_check(base, output):
                     'initialRestoreState': restore_state['allow'],
                     'serverOnlyRestoreReady': True,
                     'syntheticExport503NoFallback': True,
-                    'serverSaveReloadExecution': True, 'aliceOnlyWaitPreferred': True,
+                    'serverSaveReloadExecution': True, 'aliceOnlyNextReady': True,
+                    'compactControlsAndOrder': True,
                     'jsonCsvExactDownloads': True, 'widths': [1500, 850, 500], 'pageErrors': errors}
         except Exception:
             await page.screenshot(path=str(output / 'ui-failure.png'), full_page=True)
