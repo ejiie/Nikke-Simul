@@ -90,6 +90,7 @@ export function createFormation({ api, getSnapshot, getItem, getBuild, status, s
     render,
     contains: id => draft.includes(id),
     members: () => saved.filter(Boolean),
+    slots: () => [...saved],
     select(id) {
       if (!loaded || saving) return;
       if (!getBuild(id)) { status('보유한 니케만 편성할 수 있습니다.'); return; }
