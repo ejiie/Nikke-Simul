@@ -19,7 +19,7 @@ internal static class Program
     }
 }
 
-internal sealed record DesktopSettings(string ProjectRoot, string Python, int Port = 5180);
+internal sealed record DesktopSettings(string ProjectRoot, string Python, int Port = 5180, string? DataRoot = null);
 
 internal sealed class MainForm : Form
 {
@@ -72,6 +72,11 @@ internal sealed class MainForm : Form
                 start.Environment["NIKKE_PROJECT_ROOT"]=settings.ProjectRoot;
                 start.Environment["NIKKE_PYTHON"]=settings.Python;
                 start.Environment["NIKKE_PORT"]=settings.Port.ToString();
+                if (!string.IsNullOrWhiteSpace(settings.DataRoot))
+                {
+                    start.Environment["NIKKE_DATA_ROOT"]=Path.GetFullPath(settings.DataRoot);
+                    start.Environment["NIKKE_GAME_CATALOG"]=Path.Combine(Path.GetFullPath(settings.DataRoot),"game-catalog.json");
+                }
                 backend=Process.Start(start) ?? throw new InvalidOperationException("백엔드를 시작하지 못했습니다.");
                 // Drain pipes without logging account/token data.
                 backend.OutputDataReceived += (_,_)=>{}; backend.ErrorDataReceived += (_,_)=>{};

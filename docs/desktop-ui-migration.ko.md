@@ -1,5 +1,7 @@
 # Windows 실행 파일 UI 이식 — 2026-09-09
 
+2026-09-12 후속 실행본은 [최신 빌드·실행 검증](desktop-release-2026-09-12.ko.md)을 따른다. 아래 1회 버스트 UI와 검증 수치는 최초 이식 당시 기록이며, 현재 UI는 자동 사이클·간소화 버스트 설정·피해 로그를 사용한다. `desktop.settings.json`의 선택 필드 `dataRoot`로 준비된 기존 데이터 경로를 지정할 수 있다. 생략하면 종전처럼 프로젝트의 `data/local`을 사용한다.
+
 사용자 지정 `ejiie/Nikke-Local-Lab`의 관리 UI를 이식했다. 계산 엔진은 이 프로젝트의 P01~P03 구현을 사용한다. 원본 화면은 HTML/CSS/JS이며 원본 실행 파일도 WinForms/WebView2 창으로 이를 표시한다. 같은 기술로 Windows `.exe`를 만들고 창에서 로컬 C# API를 자동 기동한다.
 
 ## 가져온 기능과 출처

@@ -6,6 +6,8 @@ Solo Raid의 대미지 시뮬레이션, 비중복 5덱 선정, 장비별 육성 
 
 **Windows 실행 파일 UI:** Nikke-Local-Lab의 화면·카드·상세 탭과 WinForms/WebView2 창을 이식했습니다. [이식 범위·이미지 출처·실행 방법](docs/desktop-ui-migration.ko.md).
 
+**2026-09-12 Director 실행본:** 간소화 버스트 설정과 피해 설명 수정이 반영된 실행 파일은 현재 작업공간의 `artifacts/desktop/win-x64/Nikke Simul.exe`입니다. 기존 본 계정 데이터 경로를 실행 설정으로 연결하며, 이전 실행 파일과 5181 검산용 데이터는 덮어쓰지 않았습니다. [빌드·실행 검증 및 사용 안내](docs/desktop-release-2026-09-12.ko.md).
+
 **스펙 편집:** 상세 화면에서 장비·OL·스킬·성장·소장품·큐브를 변경하고 Save로 저장합니다. 공식 장비 이미지와 Local Lab 선택 UI를 사용하며, 별 3개와 코어 배지를 붙여 ±로 조정합니다. [편집·저장 범위와 출처](docs/desktop-spec-editor.ko.md).
 
 **현재 전투 구현:** 리타·블랑·누아르·앨리스·모더니아의 스킬 효과와 팀 게이지 기반 자동 버스트 사이클을 실행합니다. UI는 참여 체크·단계별 순서·빠른 설정으로 단순화했으며, III는 체크된 순서대로 순환합니다. 기존 지정 시전/풀버스트 모드는 엔진/API에 비교용으로 유지하지만 UI에서는 제거했습니다. [버스트 UI 현재 규칙](docs/damage-log-ui.ko.md) · [P04 규칙·미검증 범위](docs/p04-team-burst.ko.md) · [P03 스킬 구현 범위](docs/p03-skill-runtime.ko.md) · [틱 대미지 측정 조건](docs/p03-measurement-guide.ko.md). 보스 기믹과 실게임 정확도는 별도 미완료 항목입니다.
