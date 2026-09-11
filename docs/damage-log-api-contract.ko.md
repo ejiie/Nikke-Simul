@@ -59,4 +59,4 @@ SDK: 기존 로컬 .NET 10.0.400 사용. 쓰기 출력은 Backend의 bin/obj/.to
 - 저장/API 테스트: `StorageTests.cs`, `SkillReplayArchiveTests.cs`, `DamageLogContractTests.cs`, `check_damage_log_api.py`
 - 본 문서. Engine/Core/UI 및 공용 프로젝트 파일·README·기존 종합 문서 수정 없음.
 
-결과 커밋 ID는 커밋 생성 후 아래 후속 기록에 남긴다.
+구현·검증 결과 커밋: `0d49352` (`feat(backend): preserve replay logs and store versioned burst tactics`). 이 후속 문서 변경은 결과 ID만 기록하며 코드 변경이나 추가 통과 주장이 없다. Director는 B1 결과와 E1 커밋을 통합한 뒤 위 미완료 실행 검증을 수행해야 한다.
