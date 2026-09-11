@@ -2,6 +2,32 @@
 
 사용자 승인: 개발 결과 통합·실제 API/엔진/저장/UI 검증·검수와 통계 작업 전달 복구. 전체 통과와 각 단계 통과를 분리한다. 원본 계정/실행 중 서버/기존 artifacts를 수정하지 않고 Director의 새 출력 및 복사 DB만 사용했다. push/배포/YOLO 설정 변경 없음.
 
+## 최신 판정 — U3 통합 후 Director 독립 재검증
+
+UI `fe968276846d12ed1ec4b3ae1de6032a1489023e`를 Director **`055ec125ec0e712b176e6096c940f8ec6ee34dc6`**에 충돌 없이 병합했다. 현재 **구현 통합 완료 / 전체 UI 수용 미완료**다. 아래 초기 통합 기록의 "U3 미제출"은 과거 상태이며 이 절이 최신 판정이다.
+
+| 검사 | 직접 확인한 결과 | 근거 |
+|---|---|---|
+| 수정 없는 원본 Q3 UI 경계 검사 | 25 통과 / 0 실패 | `artifacts/director/u3-contract/ui-687c5e6a-ab99-4878-95b8-d589d8962e97/summary.json` |
+| 전술 PUT 및 새로고침 직후 | 서버 저장 DTO는 정상이나 ready=true 후 일시적으로 제외 니케 체크가 켜짐. 이후 정상 복원됨 | `artifacts/director/live-c1ff4cf993c245289ae2ef454e4f5a4b/ui-saved-tactic.json`, `ui-restored-state.json`, `ui-failure.png` |
+| 복원 완료 후 실제 UI→API 실행 | HTTP 200, 저장 DTO 그대로 실행, 앨리스 로그 요청·SVG 타격 수 일치, III 시전자 전원 앨리스 | `artifacts/director/live-f950c5bd4ccf46098e0ca885c3089968/ui-request.json`, `ui-response.json` |
+| 해당 실제 UI 실행 로그의 독립 S3 검산 | 종료 0, issues 빈 배열, 134발/134타격, 피해 152283466, 관측값 미제공 | `artifacts/s3/20260911T043513Z-aa1b74fcfc0e4d8c8e2983b2efd10357/analysis.json` |
+| 실제 JSON/CSV 다운로드 원문 바이트 비교 | **JSON 실패 / CSV 통과** | `artifacts/director/live-d6131ccb376f4f7181ca169b966910fb/ui-export-checks.json`, `ui-download.*`, `server-export.*` |
+| 실 API 연결 화면·상세 열기·반응형 | 그래프 타격 수 대조, 상세 열기, 1500/850/500px 가로 넘침 없음, pageerror 없음까지 진행 후 JSON 비교 실패로 종료 | 같은 실행의 `ui-result.png`, `ui-page-errors.json`, `summary.json` |
+
+검증 조건은 앞선 API의 앨리스/모더니아 교대·코어 ON 조건과 다르다. 이번 UI는 앨리스만 사용/wait_preferred, 레벨 400, 180초, 크리 OFF, 나머지는 UI 기본값이다. 피해나 발수를 앞선 179타격 실행과 직접 비교해 회귀라고 판단하지 않는다. 이번 U3는 `src` 변경이 없으므로 C# 194개 통과는 아래 이전 실행 근거를 유지하며 이번에 재실행했다고 주장하지 않는다.
+
+확인한 결함과 남은 조건:
+
+1. **복원 준비 상태**: 저장 DTO의 allowedCharacterIds는 `5011,5008,5004`인데 새로고침 직후 캐시 allowlist가 `{}`이며 모든 체크가 켜지는 상태를 수집했다. 실패 화면 촬영 시에는 정상으로 복원되어 영구 저장 손실은 아니다. 빈 편성으로 복원한 값이 준비 완료 상태에 노출되는 비동기 경쟁이 의심된다. 원인 확정·수정 및 빠른 실행/편성 전환 회귀가 필요하다. 검사기는 초기 상태를 삭제하지 않고 별도 보존하며, 최종 복원이 완료되는지도 추가 대기 조건으로 구분한다.
+2. **JSON 원문 다운로드**: `apps/desktop-ui/damage-log.js`는 서버 JSON을 파싱한 후 다시 직렬화한다. 실제 다운로드 바이트가 서버 export.json과 다른 것을 재현했다. JSON 의미/숫자 손실까지 확인한 것은 아니며, 원본 Blob 다운로드와 서버 실패 표시를 검증해야 한다. CSV 원문 비교는 실제로 통과했으므로 CSV 결함 확정으로 확대하지 않는다.
+3. `docs/damage-log-ui.ko.md`의 "계약 결함 완전 해소"는 UI 담당의 fixture/경계 검사 범위 보고다. 위 실제 복원 경쟁 및 JSON 원문 수용 실패 때문에 전체 실연동 완료 주장으로 사용할 수 없다. UI fixture 검사는 mock HTTP를 사용하며 실제 API 검사는 Director가 별도 수행했다.
+4. 게임 실측 발당 대미지 영점과 차지/사이클 정확도 검증은 여전히 미완료다. 독립 계산 검산 통과는 게임 관측과의 일치를 뜻하지 않는다.
+
+기존 UI 담당에게 잔여 U3 수정 지시를 보냈다: 요청 `db77ddd3-d9dd-4bf3-af05-6acac5684ccb`, 추가 근거 `139a8196-2c10-4425-9f5f-661a195a93d1`. Orca input_accepted 및 후속 실제 파일 읽기/조사와 추가 프롬프트 수신을 확인했다. 후속 커밋은 이 기록 시점에 아직 통합하지 않았다. 추가 업무를 엔진/Backend/통계에 중복 배정하지 않았다.
+
+검증 산출물은 모두 Director artifacts 안에 격리했다. 위 브라우저 실행의 원본 계정 논리 해시는 전후 동일하며 자체 API 프로세스와 브라우저는 종료했다. 기존 미추적 `package-lock.json`은 수정·추가·커밋하지 않았다.
+
 ## 통합 및 전달
 
 - 제품 기준 `a0738accb16500e52621811fac0dac7259cb7f76`: 엔진 `3b92101`, Backend `b63ad12`, UI `3f9b717`을 Director 브랜치에 충돌 없이 통합했다.
@@ -57,7 +83,7 @@ API 수용 항목: 저장 tactic 복원→실행, 원문 저장/GET/export.json 
 
 첫 명령은 HEAD 고정·제품 diff 없음 검사 후 API를 재빌드한다. source-data는 쓰지 않는다. browser-data는 Director artifacts 내부만 허용하며 소스 계정 DB를 직접 받지 않는다. 전체 실행에서 API 단계가 통과해도 브라우저 미실행이면 전체 UI 수용을 뜻하지 않는다.
 
-## 남은 수용 조건
+## 초기 통합 시점의 남은 수용 조건 (U3 제출 전 이력)
 
 U3 고정 커밋을 통합한 뒤 Q3의 모든 UI 경계 검사, 실제 브라우저의 전략 저장/복원/실행/로그 표시/다운로드/반응형을 재검증한다. 현재 실게임 실측 비교는 별도 미완료다. 이 문서의 초기 통합 결과만으로 전체 완료를 선언하지 않는다.
 

@@ -74,13 +74,22 @@ async def browser_check(base, output):
             saved_response = await pending_save.value
             assert saved_response.status == 200
             saved_tactic = (await saved_response.json())['saved']['tactic']
+            (output / 'ui-saved-tactic.json').write_text(json.dumps(saved_tactic, indent=2), encoding='utf-8')
             assert saved_tactic['burst3Rotation'] == ['5004']
             assert saved_tactic['unavailablePolicy'] == 'wait_preferred'
             await page.reload()
             await page.wait_for_function("document.body.dataset.ready==='true'", timeout=60000)
             await page.locator('[data-tab="raid"]').click()
             await page.wait_for_function("document.querySelector('#tactic-fallback-policy')?.value==='wait_preferred'")
-            assert not await page.locator('[data-tactic-allow="5044"]').is_checked()
+            restore_state = await page.evaluate("""() => ({
+                allow: [...document.querySelectorAll('[data-tactic-allow]')].map(e => ({id:e.dataset.tacticAllow, checked:e.checked})),
+                local: Object.fromEntries(Object.entries(localStorage).filter(([k]) => k.startsWith('nikke-burst-tactics-')))
+            })""")
+            (output / 'ui-restored-state.json').write_text(json.dumps(restore_state, indent=2), encoding='utf-8')
+            # ready=true can precede a late tactic refresh. Preserve that initial state
+            # above, then separately test whether the saved selection eventually settles.
+            await page.wait_for_function("document.querySelector('[data-tactic-allow=\"5044\"]')?.checked===false", timeout=10000)
+            assert not await page.locator('[data-tactic-allow="5044"]').is_checked(), 'Alice-only exclusion lost after reload'
             await page.locator('[name="level"]').fill('400')
             await page.locator('[name="crit"]').select_option('off')
             await page.locator('[name="seconds"]').fill('180')
@@ -103,6 +112,7 @@ async def browser_check(base, output):
             assert '아직 수집하지' not in text and '연동 대기' not in text, 'Actual log treated as uncollected'
             assert await page.locator('.graph-hit-dot').count() == actual['eventCount']
             await page.locator('[data-view-audit]').first.click()
+            export_checks = []
             for extension in ('json', 'csv'):
                 async with page.expect_download() as pending_download:
                     await page.locator('#btn-export-' + extension).click()
@@ -111,15 +121,24 @@ async def browser_check(base, output):
                 await download.save_as(target)
                 expected = await page.request.get(base + '/api/runtime/skill-replays/' + body['id'] + '/damage-log/export.' + extension)
                 assert expected.status == 200
-                assert target.read_bytes() == await expected.body(), f'{extension} export differs from server bytes'
+                expected_bytes = await expected.body()
+                (output / ('server-export.' + extension)).write_bytes(expected_bytes)
+                export_checks.append({'format': extension, 'exactBytes': target.read_bytes() == expected_bytes})
+            (output / 'ui-export-checks.json').write_text(json.dumps(export_checks, indent=2), encoding='utf-8')
             await page.screenshot(path=str(output / 'ui-result.png'), full_page=True)
             for width in [1500, 850, 500]:
                 await page.set_viewport_size({'width': width, 'height': 1000})
                 assert await page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1'), f'overflow {width}'
             assert not errors, errors
+            assert all(c['exactBytes'] for c in export_checks), f'Exports differ from server bytes: {export_checks}'
             return {'status': 'passed', 'hits': actual['eventCount'], 'damage': actual['totalDamage'],
+                    'initialRestoreState': restore_state['allow'],
                     'serverSaveReloadExecution': True, 'aliceOnlyWaitPreferred': True,
                     'jsonCsvExactDownloads': True, 'widths': [1500, 850, 500], 'pageErrors': errors}
+        except Exception:
+            await page.screenshot(path=str(output / 'ui-failure.png'), full_page=True)
+            (output / 'ui-page-errors.json').write_text(json.dumps(errors), encoding='utf-8')
+            raise
         finally:
             await browser.close()
 
