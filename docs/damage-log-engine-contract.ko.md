@@ -163,3 +163,5 @@ $env:NIKKE_E2_EXAMPLE_ROOT = $taskE2Run
 - `manifest.json`: SHA-256 `dce19030539f74bf0f80b275d5c82befc9956567b7ec87737dca87fe83baf184`.
 
 자료는 ignored artifacts이며 위 테스트 소스로 재생성할 수 있다. 첫 실행 증거 `artifacts/e2/d0261412ed604666b3310794bbead3ae/`와 과거 E1/P04 artifacts도 보존했다. 변경 파일은 신규 엔진 테스트와 이 담당 문서 두 개뿐이다. 기존 package-lock.json은 미추적 상태 그대로 남아 있다.
+
+E2 검증·예제 결과 커밋: `9a9ec72` (`test(engine): provide reproducible E2 replay and JSON contract checks`), 기준 `908047f`. 이 커밋 ID 기록 후에는 테스트/제품 코드 변경이 없다.
