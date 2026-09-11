@@ -29,12 +29,112 @@ import {
   fetchDamageLog,
   exportDamageLogToJson,
   exportDamageLogToCsv,
+  buildHitAudit,
+  createAuditContext,
+  formatAuditNumber,
   DAMAGE_LOG_PROVISIONAL_NOTICE
 } from './damage-log-adapter.js';
 
 const $ = id => document.getElementById(id);
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const num = v => v == null ? '—' : Number(v).toLocaleString('ko-KR');
+
+const AUDIT_EFFECT_GROUPS = [
+  ['applied', '이 타격 피해 계산에 반영된 효과'],
+  ['excluded', '이 타격에서는 조건 미충족으로 미반영'],
+  ['indirect', '활성 효과 · 피해 산식 항 아님'],
+  ['unverified', '반영 여부 미확인']
+];
+
+/**
+ * Renders the per-hit audit from buildHitAudit(). Values are the stored engine terms; every
+ * dynamic string is escaped. Missing values read "미제공" instead of a plausible 0/1.
+ */
+export function renderDamageAuditPanel(hit, audit) {
+  const b = audit.breakdown;
+  const f = formatAuditNumber;
+  const card = (label, value, sub = '', tone = '') => `
+    <div class="audit-stat-card">
+      <span class="audit-label">${esc(label)}</span>
+      <strong class="audit-val ${tone}">${esc(value)}</strong>
+      ${sub ? `<small class="audit-sub">${esc(sub)}</small>` : ''}
+    </div>`;
+  const chargeSub = b.charge.applied === true
+    ? `풀차지: ${f(b.charge.base)} × (1 + ${f(b.charge.multiplierBonus)}) + ${f(b.charge.add)}`
+    : b.charge.applied === false ? '풀차지 아님 → 1' : '';
+  const bonusSub = b.bonuses
+    .map(x => x.active === null ? `${x.label} 미제공` : x.active ? `${x.label} +${f(x.bonus)}` : `${x.label} 미적용`)
+    .join(' · ');
+  const bonusValue = b.minimum ? '미적용 (최소 피해)' : b.bonusSum === null ? '미제공' : f(1 + b.bonusSum);
+  const factorValue = b.minimum ? '미적용 (최소 피해)'
+    : b.factors.every(x => x.factor !== null) ? b.factors.map(x => f(x.factor)).join(' × ') : '미제공';
+  const finalSub = b.finalMatchesStored === true ? '저장된 발당 피해와 일치'
+    : b.finalMatchesStored === false ? `저장된 발당 피해 ${f(b.storedDamage)}와 불일치` : '저장값 대조 불가';
+  const cards = [
+    card('기초 공격력 (Base ATK)', f(b.baseAttack)),
+    card('버프 적용 공격력 (최종 공격력)', f(b.effectiveAttack), '', 'text-cyan'),
+    card('적 방어력 (Target DEF)', f(b.defense), b.defenseIgnored ? '방어 무시 타격' : ''),
+    card('공방차 (ATK − DEF)', f(b.attackDefenseDifference), '', 'text-green'),
+    card('스킬 계수', b.coefficient === null ? '미제공' : `${f(b.coefficient * 100)}%`),
+    card('차지 배율', b.charge.value === null ? '미제공' : `${f(b.charge.value)}×`, chargeSub),
+    card('기본 피해 P (정수화 전)', f(b.p)),
+    card('가산 보너스 묶음 (1 + 합)', bonusValue, bonusSub),
+    card('B3 × B4 × B5', factorValue, 'B3 공격·관통·파츠 / B4 받는 대미지 / B5 우월 코드'),
+    card('정수화 정책', b.policy ?? '미제공', '', 'font-mono'),
+    card('최종 피해', f(b.finalValue), finalSub,
+      b.finalMatchesStored === false ? 'text-bad' : b.finalMatchesStored === true ? 'text-ok' : '')
+  ].join('');
+  const steps = b.hasSteps ? `
+    <div class="table-scroll audit-steps-shell">
+      <table class="audit-steps">
+        <thead><tr><th>단계</th><th>입력</th><th>결과</th><th>저장된 연산</th></tr></thead>
+        <tbody>${b.steps.map(s => `
+          <tr data-term="${esc(s.name)}">
+            <td>${esc(s.label)} <small class="audit-sub">${esc(s.name)}</small></td>
+            <td>${esc(f(s.before))}</td>
+            <td><strong>${esc(f(s.after))}</strong></td>
+            <td class="audit-op">${esc(s.operation)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`
+    : '<p class="audit-missing">저장된 단계별 계산 기록(calculation.terms 배열)이 없어 정수화 단계를 검산할 수 없습니다.</p>';
+  const missing = b.hasSteps && b.missing.length
+    ? `<p class="audit-missing">누락된 계산 항목: ${esc(b.missing.join(', '))} (미제공으로 표시)</p>` : '';
+  const effectItem = e => `
+    <li>
+      <strong>${esc(e.sourceText)}</strong> · ${esc(e.label)} <span class="audit-effect-value">${esc(e.valueText)}</span>
+      ${e.axis ? `<span class="pill-badge cyan">${esc(e.axis)}</span>` : ''}
+      <small class="audit-sub">${esc([e.reason, e.basisText, e.note, e.durationText, e.originText].filter(Boolean).join(' · '))}</small>
+    </li>`;
+  const groups = AUDIT_EFFECT_GROUPS.map(([key, title]) => {
+    const list = audit.effects[key];
+    return list.length
+      ? `<div class="audit-effect-group" data-audit-group="${key}"><h6>${esc(title)} (${list.length}건)</h6><ul>${list.map(effectItem).join('')}</ul></div>`
+      : '';
+  }).join('');
+  const attack = audit.attackSources?.length
+    ? `<div class="audit-effect-group" data-audit-group="attack"><h6>최종 공격력 입력 (hit 기록)</h6><ul>${audit.attackSources
+      .map(s => `<li>${esc(s.kind)} · ${esc(s.source)} <span class="audit-effect-value">${esc(s.valueText)}</span></li>`).join('')}</ul></div>`
+    : '';
+  return `
+    <div class="damage-audit-panel surface">
+      <div class="audit-header">
+        <h4>발당 피해 검산 근거 (타격 #${esc(hit.hitId)} · 발사 #${esc(hit.shotId ?? '—')} · ${esc(hit.seconds)}초)</h4>
+        <button type="button" class="ghost-close-btn" id="btn-close-audit" aria-label="검산 근거 닫기">✕</button>
+      </div>
+      <div class="audit-stats-grid">${cards}</div>
+      <div class="audit-buffs-box">
+        <h5>계산 단계 (저장된 calculation.terms)</h5>
+        <ol class="audit-formula">${audit.formula.map(line => `<li>${esc(line)}</li>`).join('')}</ol>
+        ${steps}${missing}
+      </div>
+      <div class="audit-buffs-box">
+        <h5>효과 스냅샷 ${audit.effectCount}건 · 피해 대상과 적에게 적용 중</h5>
+        ${attack}${groups || '<p class="audit-missing">기록된 효과가 없습니다.</p>'}
+      </div>
+    </div>`;
+}
 
 export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, getToken, status }) {
   let activeReplay = null;
@@ -226,68 +326,8 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, ge
 
     let auditHtml = '';
     if (selectedHit) {
-      const a = selectedHit.audit;
-      auditHtml = `
-        <div class="damage-audit-panel surface">
-          <div class="audit-header">
-            <h4>발당 피해 검산 근거 (타격 #${selectedHit.hitId} · 발사 #${selectedHit.shotId ?? '—'} · ${selectedHit.seconds}초)</h4>
-            <button type="button" class="ghost-close-btn" id="btn-close-audit">✕</button>
-          </div>
-          <div class="audit-stats-grid">
-            <div class="audit-stat-card">
-              <span class="audit-label">기초 공격력 (Base ATK)</span>
-              <strong class="audit-val">${num(a?.baseAtk)}</strong>
-            </div>
-            <div class="audit-stat-card">
-              <span class="audit-label">버프 적용 공격력 (Buffed ATK)</span>
-              <strong class="audit-val text-cyan">${num(a?.buffedAtk)}</strong>
-            </div>
-            <div class="audit-stat-card">
-              <span class="audit-label">적 방어력 (Target DEF)</span>
-              <strong class="audit-val">${num(a?.effectiveDefense)}</strong>
-            </div>
-            <div class="audit-stat-card">
-              <span class="audit-label">공방차 (ATK - DEF)</span>
-              <strong class="audit-val text-green">${num(a?.statDiff)}</strong>
-            </div>
-            <div class="audit-stat-card">
-              <span class="audit-label">스킬 계수</span>
-              <strong class="audit-val">${(a?.skillMultiplier * 100).toFixed(1)}%</strong>
-            </div>
-            <div class="audit-stat-card">
-              <span class="audit-label">차지 배율</span>
-              <strong class="audit-val">${a?.chargeMultiplier}x</strong>
-            </div>
-            <div class="audit-stat-card">
-              <span class="audit-label">크리티컬 배율</span>
-              <strong class="audit-val">${a?.critMultiplier}x</strong>
-            </div>
-            <div class="audit-stat-card">
-              <span class="audit-label">코어 타격 배율</span>
-              <strong class="audit-val">${a?.coreMultiplier}x</strong>
-            </div>
-            <div class="audit-stat-card">
-              <span class="audit-label">팀 풀버스트 보너스</span>
-              <strong class="audit-val">${a?.fullBurstMultiplier}x</strong>
-            </div>
-            <div class="audit-stat-card">
-              <span class="audit-label">정수화 정책</span>
-              <strong class="audit-val font-mono">${esc(a?.roundingPolicy)}</strong>
-            </div>
-          </div>
-          <div class="audit-buffs-box">
-            <h5>적용된 버프 목록 (${a?.activeBuffs?.length ?? 0}건)</h5>
-            <ul>
-              ${(a?.activeBuffs ?? []).map(b => `
-                <li><strong>${esc(b.source)}</strong>: ${esc(b.type)} +${Math.round(b.value * 100)}% ${b.remainingFrames ? `(잔여 ${b.remainingFrames}F)` : '(상시)'}</li>
-              `).join('')}
-            </ul>
-          </div>
-          <p class="audit-formula-hint">
-            산식: <code>(버프적용공격력 - 방어력) × 계수 × 차지배율 × 크리배율 × 코어배율 × 풀버스트배율</code> 후 정수화 정책 적용
-          </p>
-        </div>
-      `;
+      const audit = buildHitAudit(selectedHit.rawEntry ?? null, createAuditContext(activeLogData?.auditSource, members));
+      auditHtml = renderDamageAuditPanel(selectedHit, audit);
     }
 
     container.innerHTML = `
