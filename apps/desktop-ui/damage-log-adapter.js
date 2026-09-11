@@ -1,17 +1,22 @@
 /**
- * Damage Log & Burst Tactics Boundary Adapter
+ * Damage Log & Burst Tactics Boundary Adapter (U2 Integration Edition)
  *
- * Provides isolation between the Desktop UI and upstream Engine/Backend APIs.
- * When real Backend (B1) / Engine (E1) endpoints are not yet available or return 404/501,
- * it safely delivers deterministic mock fixtures conforming to the verified specification.
+ * Provides strict isolation between Desktop UI and upstream Backend (B1) / Engine (E1) APIs.
+ *
+ * Conforms to:
+ * - Backend contract: docs/damage-log-api-contract.ko.md (bf19679)
+ * - Engine contract: docs/damage-log-engine-contract.ko.md (908047f)
+ *
+ * Distinctly separates real API integration from explicit mock fixtures.
+ * Never silently disguises uncollected/failed logs as mocks.
  */
 
-export const DAMAGE_LOG_SCHEMA_VERSION = '2026-09-11.p04.team.2';
+export const DAMAGE_LOG_SCHEMA_VERSION = 1;
 export const DAMAGE_LOG_PROVISIONAL_NOTICE = '잠정 정확도 · 실게임 관측 대조 전 합성 시뮬레이션';
 
 /**
  * Validates burst tactics against the current formation members.
- * Returns diagnostic badges and issues.
+ * Returns diagnostic badges, issues, and execution status.
  */
 export function auditBurstTactics(membersWithMeta, tactics) {
   const issues = [];
@@ -76,8 +81,14 @@ export function auditBurstTactics(membersWithMeta, tactics) {
     }
   }
 
+  const hasError = issues.some(i => i.level === 'error');
+  const executionStatus = staleIds.length > 0 ? 'stale'
+    : hasError ? 'draft_incomplete'
+    : 'requires_execution_validation';
+
   return {
-    valid: issues.every(i => i.level !== 'error'),
+    valid: !hasError,
+    executionStatus,
     issues,
     staleIds
   };
@@ -99,7 +110,6 @@ export function createDefaultTactics(membersWithMeta) {
     else if (m.burstStep === 3) stage3.push(m.id);
   }
 
-  // If Alice (5004) is present in Stage 3, default first caster to Alice
   const hasAlice = stage3.includes('5004');
   const firstCaster = hasAlice ? '5004' : (stage3[0] ?? null);
 
@@ -113,45 +123,196 @@ export function createDefaultTactics(membersWithMeta) {
     },
     stage3Mode: 'alternate', // 'alternate' (순환 교대) | 'priority_only' (우선순위 고정)
     firstCaster,
-    fallbackPolicy: 'next_ready' // 'next_ready' (대체 후보 발동) | 'wait_preferred' (우선 후보 대기)
+    fallbackPolicy: 'next_ready' // 'next_ready' | 'wait_preferred'
   };
 }
 
 /**
- * Fetches damage log from server or falls back to synthetic mock fixture.
+ * Converts internal UI tactics model to Backend/Engine BurstTacticSettings (schemaVersion: 1)
  */
-export async function fetchDamageLog(api, replayId, characterId, replayData, membersWithMeta) {
-  // If replayData already has log embedded from new engine/backend:
+export function toServerTacticDto(tactics, membersWithMeta) {
+  if (!tactics) return null;
+
+  const memberIds = new Set(membersWithMeta.map(m => m.id));
+  const allowedCharacterIds = membersWithMeta
+    .map(m => m.id)
+    .filter(id => tactics.allowlist?.[id] !== false);
+
+  const filterAllowed = list => (list || []).filter(id => memberIds.has(id) && allowedCharacterIds.includes(id));
+
+  const stage1Priority = filterAllowed(tactics.priority?.stage1);
+  const stage2Priority = filterAllowed(tactics.priority?.stage2);
+  const stage3Priority = filterAllowed(tactics.priority?.stage3);
+
+  let burst3Rotation = [];
+  if (tactics.stage3Mode === 'priority_only') {
+    burst3Rotation = stage3Priority.slice(0, 1);
+  } else {
+    // alternate mode: all allowed stage 3 priority candidates
+    burst3Rotation = stage3Priority.length > 0 ? [...stage3Priority] : [];
+  }
+
+  const firstBurst3CharacterId = (tactics.firstCaster && burst3Rotation.includes(tactics.firstCaster))
+    ? tactics.firstCaster
+    : (burst3Rotation[0] ?? null);
+
+  return {
+    schemaVersion: 1,
+    allowedCharacterIds,
+    stage1Priority,
+    stage2Priority,
+    stage3Priority,
+    burst3Rotation,
+    firstBurst3CharacterId,
+    unavailablePolicy: tactics.fallbackPolicy === 'wait_preferred' ? 'wait_preferred' : 'next_ready'
+  };
+}
+
+/**
+ * Converts Backend/Engine BurstTacticSettings (schemaVersion: 1) to internal UI tactics model
+ */
+export function fromServerTacticDto(dto, membersWithMeta) {
+  if (!dto) return createDefaultTactics(membersWithMeta);
+
+  const allowlist = {};
+  for (const m of membersWithMeta) {
+    allowlist[m.id] = (dto.allowedCharacterIds || []).includes(m.id);
+  }
+
+  const stage3Priority = dto.stage3Priority || [];
+  const rotation = dto.burst3Rotation || [];
+  const isAlternate = rotation.length > 1;
+
+  return {
+    version: 2,
+    allowlist,
+    priority: {
+      stage1: dto.stage1Priority || [],
+      stage2: dto.stage2Priority || [],
+      stage3: stage3Priority
+    },
+    stage3Mode: isAlternate ? 'alternate' : 'priority_only',
+    firstCaster: dto.firstBurst3CharacterId || rotation[0] || stage3Priority[0] || null,
+    fallbackPolicy: dto.unavailablePolicy || 'next_ready'
+  };
+}
+
+/**
+ * Saves burst tactic to server (PUT /api/accounts/{id}/burst-tactic)
+ */
+export async function saveBurstTacticToServer(api, accountId, snapshotId, formationSlots, tactics, membersWithMeta) {
+  if (!api || !accountId) return { ok: false, error: '계정이 선택되지 않았습니다.' };
+  const dto = toServerTacticDto(tactics, membersWithMeta);
+  const payload = {
+    snapshotId,
+    formationSlots,
+    tactic: dto
+  };
+
+  try {
+    const res = await api(`/accounts/${accountId}/burst-tactic`, 'PUT', payload);
+    return { ok: true, data: res };
+  } catch (err) {
+    return { ok: false, error: err.message || '서버 전술 저장 실패' };
+  }
+}
+
+/**
+ * Loads burst tactic from server (GET /api/accounts/{id}/burst-tactic)
+ */
+export async function loadBurstTacticFromServer(api, accountId, membersWithMeta) {
+  if (!api || !accountId) return { ok: false, error: '계정이 선택되지 않았습니다.' };
+  try {
+    const res = await api(`/accounts/${accountId}/burst-tactic`);
+    if (res && res.saved && res.saved.tactic) {
+      const tactics = fromServerTacticDto(res.saved.tactic, membersWithMeta);
+      return {
+        ok: true,
+        tactics,
+        stale: Boolean(res.stale),
+        executionStatus: res.executionStatus || 'saved',
+        savedAt: res.saved.savedAt
+      };
+    }
+    return { ok: true, tactics: null, stale: false, executionStatus: 'legacy' };
+  } catch (err) {
+    return { ok: false, error: err.message || '서버 전술 조회 실패' };
+  }
+}
+
+/**
+ * Fetches damage log from server with strict distinction between:
+ * - Real server log (collected / no_damage)
+ * - Server uncollected / legacy replay
+ * - Explicit mock fixture (only when user requested mock preview)
+ */
+export async function fetchDamageLog(api, replayId, characterId, replayData, membersWithMeta, options = {}) {
+  const { allowMock = false } = options;
+
+  // 1. If replayData already has embedded damageLogs from new engine/backend:
   if (replayData?.damageLogs?.[characterId]) {
     return {
       isMock: false,
+      status: 'collected',
       schemaVersion: replayData.damageLogSchemaVersion || DAMAGE_LOG_SCHEMA_VERSION,
       truncated: Boolean(replayData.damageLogTruncated),
       log: replayData.damageLogs[characterId]
     };
   }
 
-  // Try fetching dedicated log endpoint if it exists
+  // 2. Try fetching from dedicated server API endpoint
   if (replayId && api) {
     try {
       const res = await api(`/runtime/skill-replays/${replayId}/damage-log?characterId=${characterId}`);
       if (res && res.hits) {
         return {
           isMock: false,
+          status: res.status || 'collected',
           schemaVersion: res.schemaVersion || DAMAGE_LOG_SCHEMA_VERSION,
           truncated: Boolean(res.truncated),
           log: res
         };
+      } else if (res && res.status === 'uncollected') {
+        return {
+          isMock: false,
+          status: 'uncollected',
+          schemaVersion: null,
+          truncated: false,
+          log: null,
+          message: '과거 실행 결과이거나 대미지 로그가 수집되지 않은 리플레이입니다.'
+        };
+      } else if (res && res.status === 'no_damage') {
+        return {
+          isMock: false,
+          status: 'no_damage',
+          schemaVersion: res.schemaVersion || DAMAGE_LOG_SCHEMA_VERSION,
+          truncated: false,
+          log: { characterId, totalHits: 0, totalDamage: 0, hits: [] },
+          message: '전투 중 해당 니케의 유효 피해 기록이 0입니다.'
+        };
       }
     } catch {
-      // Endpoint not implemented yet; fallback to mock adapter boundary
+      // API call failed or not found (404/501)
     }
   }
 
-  // Synthesize deterministic mock log conforming to the verified contract
+  // 3. Fallback behavior: DO NOT silently disguise as mock unless allowMock is explicitly true!
+  if (!allowMock) {
+    return {
+      isMock: false,
+      status: 'uncollected',
+      schemaVersion: null,
+      truncated: false,
+      log: null,
+      message: '서버 백엔드/엔진에서 시간별 발당 피해 로그를 아직 수집하지 않았습니다 (E1/B1 연동 대기).'
+    };
+  }
+
+  // 4. Explicit Mock Mode requested
   const mockLog = createSyntheticDamageLog(characterId, replayData, membersWithMeta);
   return {
     isMock: true,
+    status: 'collected',
     schemaVersion: DAMAGE_LOG_SCHEMA_VERSION,
     truncated: false,
     log: mockLog
@@ -164,9 +325,7 @@ export async function fetchDamageLog(api, replayId, characterId, replayData, mem
 export function createSyntheticDamageLog(characterId, replayData, membersWithMeta) {
   const isAlice = characterId === '5004';
   const isModernia = characterId === '5044';
-  const isLiter = characterId === '5011';
   const durationFrames = replayData?.conditions?.combat?.durationFrames ?? 10800; // 180s * 60fps
-  const totalDamage = replayData?.result?.members?.find(m => m.characterId === characterId)?.damage ?? (isAlice ? 124500000 : 98000000);
   const fullBursts = replayData?.result?.teamBurst?.fullBursts ?? [
     { cycle: 1, caster: '5004', startFrame: 650, endFrame: 1250 },
     { cycle: 2, caster: '5044', startFrame: 1850, endFrame: 2750 },
@@ -179,21 +338,18 @@ export function createSyntheticDamageLog(characterId, replayData, membersWithMet
   ];
 
   const hits = [];
-  let currentFrame = 12; // Initial firing start
+  let currentFrame = 12;
   let shotId = 1;
   let hitId = 1;
   let cumulativeDamage = 0;
 
-  // Base stats definition
   const baseAtk = isAlice ? 48500 : isModernia ? 44200 : 38000;
   const def = replayData?.conditions?.combat?.enemyDefense ?? 30925;
 
   while (currentFrame < durationFrames) {
-    // Check if team full burst is active at this frame
     const activeFb = fullBursts.find(fb => currentFrame >= fb.startFrame && (fb.endFrame === null || currentFrame < fb.endFrame));
     const isTeamFullBurst = Boolean(activeFb);
 
-    // Check if self burst effect is active (Alice: active for 600 frames after she casts Burst III)
     let isSelfBurstActive = false;
     if (isAlice) {
       const aliceCasts = fullBursts.filter(fb => fb.caster === '5004');
@@ -203,41 +359,34 @@ export function createSyntheticDamageLog(characterId, replayData, membersWithMet
       isSelfBurstActive = moderniaCasts.some(fb => currentFrame >= fb.startFrame && currentFrame < fb.startFrame + 900);
     }
 
-    // Interval & charging logic
     let intervalFrames = 60;
     let isFullCharge = false;
     let chargeRate = 1.0;
     let chargeFrames = 0;
 
     if (isAlice) {
-      // Alice is sniper rifle (charge weapon)
-      // During self-burst, Alice has massive charge speed buff (charge time reduced to ~10-18 frames)
       if (isSelfBurstActive) {
         chargeFrames = 12;
-        intervalFrames = 15; // 0.25s rapid tap/charge
+        intervalFrames = 15;
         isFullCharge = true;
         chargeRate = 1.0;
       } else {
         chargeFrames = 54;
-        intervalFrames = 62; // ~1s per shot
-        // Occasionally a non-full charge (e.g. 5% of shots)
+        intervalFrames = 62;
         isFullCharge = (shotId % 15 !== 0);
         chargeRate = isFullCharge ? 1.0 : 0.65;
       }
     } else if (isModernia) {
-      // Machine gun (rapid fire)
-      intervalFrames = 6; // 10 shots/sec
+      intervalFrames = 6;
       isFullCharge = false;
       chargeRate = 1.0;
     } else {
       intervalFrames = 40;
     }
 
-    // Critical & Core hit determinism
     const isCritical = (shotId % 4 === 0 || (isSelfBurstActive && shotId % 2 === 0));
-    const isCore = (shotId % 3 !== 0); // 66% core hit
+    const isCore = (shotId % 3 !== 0);
 
-    // Damage calculation audit
     const literBuff = isTeamFullBurst ? 0.44 : 0.15;
     const selfBurstBuff = isSelfBurstActive ? (isAlice ? 0.55 : 0.25) : 0.0;
     const noirBuff = 0.14;
@@ -306,9 +455,8 @@ export function createSyntheticDamageLog(characterId, replayData, membersWithMet
     hitId++;
     currentFrame += intervalFrames;
 
-    // Reload pause (e.g. every 20 shots for Alice, every 300 for Modernia)
     if (isAlice && shotId % 20 === 0 && !isSelfBurstActive) {
-      currentFrame += 90; // 1.5s reload
+      currentFrame += 90;
     }
   }
 
@@ -337,7 +485,7 @@ export function exportDamageLogToJson(meta, damageLogData) {
       characterId: damageLogData.characterId,
       totalDamage: damageLogData.totalDamage,
       totalHits: damageLogData.totalHits,
-      durationSeconds: Number((damageLogData.durationFrames / 60).toFixed(1)),
+      durationSeconds: Number(((damageLogData.durationFrames || 10800) / 60).toFixed(1)),
       roundingPolicy: meta.roundingPolicy ?? 'final_round_even'
     },
     burstTactics: meta.tactics ?? null,
@@ -350,9 +498,11 @@ export function exportDamageLogToJson(meta, damageLogData) {
 
 /**
  * Exports damage log to RFC 4180 compliant CSV string with UTF-8 BOM.
+ * Matches Backend format (Metadata row + hit rows).
  */
-export function exportDamageLogToCsv(damageLogData) {
+export function exportDamageLogToCsv(damageLogData, meta = {}) {
   const headers = [
+    'recordType',
     'time_sec',
     'frame',
     'shot_id',
@@ -379,9 +529,22 @@ export function exportDamageLogToCsv(damageLogData) {
 
   const rows = [headers.join(',')];
 
-  for (const h of damageLogData.hits) {
+  // Metadata row (B1 specification compliance)
+  const metaJson = JSON.stringify({
+    schemaVersion: DAMAGE_LOG_SCHEMA_VERSION,
+    characterId: damageLogData.characterId,
+    totalDamage: damageLogData.totalDamage,
+    totalHits: damageLogData.totalHits,
+    snapshotId: meta.snapshotId ?? null,
+    provisionalNotice: DAMAGE_LOG_PROVISIONAL_NOTICE
+  }).replace(/"/g, '""');
+
+  rows.push(['metadata', '0.00', '0', '', '', damageLogData.characterId, '0', '0', '0', '0', '0', '0', '0', '0', '"meta"', '', '', '', '', '', '', '', `"${metaJson}"`].join(','));
+
+  for (const h of damageLogData.hits || []) {
     const buffSummary = (h.audit?.activeBuffs ?? []).map(b => `${b.source}(+${Math.round(b.value * 100)}%)`).join(';');
     const row = [
+      'hit',
       h.seconds,
       h.frame,
       h.shotId,

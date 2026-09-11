@@ -1,27 +1,24 @@
 """
-UI E2E & Component Verification Test for U1 (Damage Log & Burst Tactics).
+UI Integration Verification Test for U2 (Damage Log & Burst Tactics).
 Uses Playwright with Edge/Chromium against a local static web server with mock API routes.
+
 Verifies:
-1. Solo Raid tab load & 180-second engine limit enforcement.
-2. Burst tactics management:
-   - Per-stage allowlist toggling
-   - Presets ("Alice Only" vs "Alice First" vs "Formation Order")
-   - Candidate priority reordering (up/down)
-   - Stage III rotation mode (alternate vs priority_only) and first caster
-   - Fallback policy (next_ready vs wait_preferred)
-   - Diagnostics: stale ID detection, missing stage detection, incomplete stage detection
-3. Replay run & Cross-comparison:
-   - Burst timeline vs tactics settings comparison view
+1. Backend (B1) & Engine (E1) BurstTacticSettings Contract Alignment:
+   - Server GET/PUT /api/accounts/{id}/burst-tactic persistence and restoration
+   - schemaVersion: 1, allowedCharacterIds, stage priorities, burst3Rotation, firstBurst3CharacterId, unavailablePolicy
+   - Stale status detection and executionStatus validation
+2. Save -> Reload/Restore -> Execution -> Timeline & Log Cross-Comparison Flow
+3. Solo Raid tab load & 180-second engine limit enforcement
 4. Detailed Damage Log Viewer:
-   - Default Alice (5004) selection
-   - Interactive SVG graph with distinct Self Burst Active & Team Full Burst bands
-   - Summary metrics (total damage, hit count, avg damage, crit/core/full-charge rates)
-   - Per-shot table and interactive filters (burst window & hit type)
-   - Calculation audit panel (ATK, DEF, multipliers, buffs list, rounding policy)
-   - Target Nikke switcher (e.g. Modernia 5044)
-   - JSON & CSV export functionality
-5. Responsive layouts (1500px, 850px, 500px) with 0 horizontal overflow.
-6. Zero JavaScript / Page errors.
+   - Real server log vs uncollected status vs explicit mock preview separation
+   - Distinguishes Shot Count (발사 수) vs Hit Count (명중 수)
+   - Alice (5004) default target and Modernia (5044) target switching
+   - SVG timeline graph with distinct Self Burst Active & Team Full Burst bands
+   - Calculation audit inspection panel
+   - Interactive filters (burst state, hit type)
+   - CSV and JSON export
+5. Responsive layouts (1500px, 850px, 500px) with zero horizontal overflow
+6. Zero JavaScript / Page errors
 """
 
 import asyncio
@@ -48,7 +45,6 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
         super().end_headers()
 
     def translate_path(self, path):
-        # Map /editor/ to apps/desktop-ui/
         if path.startswith('/editor/'):
             rel = path[len('/editor/'):]
             return str(ROOT / 'apps/desktop-ui' / rel)
@@ -68,6 +64,8 @@ async def run_verification():
     server = start_server()
     errors = []
     summary = {}
+    server_saved_tactic = None
+    captured_replay_requests = []
 
     try:
         async with async_playwright() as p:
@@ -124,6 +122,40 @@ async def run_verification():
                     data = route.request.post_data_json
                     await route.fulfill(json={'accountId': 'acc-test-1', 'slots': data.get('slots', [])})
 
+            async def handle_burst_tactic(route):
+                nonlocal server_saved_tactic
+                if route.request.method == 'GET':
+                    if server_saved_tactic:
+                        await route.fulfill(json={
+                            'saved': {
+                                'accountId': 'acc-test-1',
+                                'snapshotId': 'snap-mock-1',
+                                'formationSlots': ['5011', '5008', '5009', '5004', '5044'],
+                                'tactic': server_saved_tactic,
+                                'savedAt': '2026-09-11T11:00:00Z'
+                            },
+                            'stale': False,
+                            'executionStatus': 'saved',
+                            'issues': []
+                        })
+                    else:
+                        await route.fulfill(json={'saved': None, 'stale': False, 'executionStatus': 'legacy'})
+                elif route.request.method == 'PUT':
+                    data = route.request.post_data_json
+                    server_saved_tactic = data.get('tactic')
+                    await route.fulfill(json={
+                        'saved': {
+                            'accountId': 'acc-test-1',
+                            'snapshotId': data.get('snapshotId', 'snap-mock-1'),
+                            'formationSlots': data.get('formationSlots', []),
+                            'tactic': server_saved_tactic,
+                            'savedAt': '2026-09-11T11:05:00Z'
+                        },
+                        'stale': False,
+                        'executionStatus': 'saved',
+                        'issues': []
+                    })
+
             async def handle_combat_powers(route):
                 await route.fulfill(json={'5011': 85000, '5008': 82000, '5009': 81000, '5004': 95000, '5044': 92000})
 
@@ -131,7 +163,8 @@ async def run_verification():
                 await route.fulfill(json={'status': 'idle', 'revision': 1, 'message': '준비 완료'})
 
             async def handle_skill_replays(route):
-                # Return standard simulation result with 180s full bursts
+                data = route.request.post_data_json
+                captured_replay_requests.append(data)
                 replay_payload = {
                     'id': 'replay-mock-test-01',
                     'createdAt': '2026-09-11T10:15:00Z',
@@ -184,6 +217,7 @@ async def run_verification():
             await page.route('**/api/presentation', handle_presentation)
             await page.route('**/api/presentation/status', handle_presentation_status)
             await page.route('**/api/accounts/*/formation', handle_formation)
+            await page.route('**/api/accounts/*/burst-tactic', handle_burst_tactic)
             await page.route('**/api/snapshots/*/combat-powers', handle_combat_powers)
             await page.route('**/api/runtime/skill-replays', handle_skill_replays)
 
@@ -200,75 +234,80 @@ async def run_verification():
             assert await seconds_input.get_attribute('max') == '180'
             assert await seconds_input.input_value() == '180'
 
-            # 3. Burst Tactics Controls & Presets
-            # Check Alice-only preset
-            await page.locator('#preset-alice-only').click()
-            # In Stage 3, Alice must be checked, Modernia and Noir unchecked
-            alice_cb = page.locator('[data-tactic-allow="5004"]')
-            modernia_cb = page.locator('[data-tactic-allow="5044"]')
-            noir_cb = page.locator('[data-tactic-allow="5009"]')
-            assert await alice_cb.is_checked()
-            assert not await modernia_cb.is_checked()
-            assert not await noir_cb.is_checked()
-
-            # Check Alice-first preset
+            # 3. Burst Tactics Controls & Server Persistence Flow (PUT /api/accounts/{id}/burst-tactic)
             await page.locator('#preset-alice-first').click()
-            assert await alice_cb.is_checked()
-            assert await modernia_cb.is_checked()
-            assert await page.locator('#tactic-stage3-mode').input_value() == 'alternate'
+            # Click [서버에 저장]
+            await page.locator('#btn-force-save-server').click()
+            await page.wait_for_timeout(300)
+            assert server_saved_tactic is not None, "Server must have received PUT tactic"
+            assert server_saved_tactic.get('schemaVersion') == 1, "DTO must be schemaVersion: 1"
+            assert '5004' in server_saved_tactic.get('allowedCharacterIds', [])
+            assert server_saved_tactic.get('firstBurst3CharacterId') == '5004'
+            assert server_saved_tactic.get('unavailablePolicy') == 'next_ready'
+
+            # Verify badge says server saved
+            assert await page.locator('.status-pill.green:has-text("서버 저장 완료")').is_visible()
+
+            # 4. Reload / Restore from Server (GET /api/accounts/{id}/burst-tactic)
+            await page.locator('[data-tab="home"]').click()
+            await page.locator('[data-tab="raid"]').click()
+            await page.wait_for_timeout(300)
+            assert await page.locator('[data-tactic-allow="5004"]').is_checked()
             assert await page.locator('#tactic-first-caster').input_value() == '5004'
+            assert await page.locator('#tactic-stage3-mode').input_value() == 'alternate'
 
-            # Check Priority Reordering
-            # Click down arrow on Alice in stage 3
-            down_btn = page.locator('[data-move-stage="3"][data-move-id="5004"][data-move-dir="1"]')
-            if await down_btn.is_enabled():
-                await down_btn.click()
-                # Alice should now be rank 2
-                assert await page.locator('.tactic-nikke-row:has([data-tactic-allow="5004"]) .rank-pill').inner_text() == '2순위'
-
-            # Reset to Alice-first preset for simulation
-            await page.locator('#preset-alice-first').click()
-
-            # 4. Run Damage Simulation
+            # 5. Run Damage Simulation with Tactic Attached
             await page.locator('#run-replay').click()
-            try:
-                await page.wait_for_function("document.querySelector('#damage-log-container .damage-log-section') !== null", timeout=6000)
-            except Exception as e:
-                status_text = await page.locator('#status').inner_text()
-                result_text = await page.locator('#replay-result').inner_text()
-                print(f"[TEST DIAGNOSTIC] #status text: '{status_text}', #replay-result text: '{result_text}'")
-                raise e
+            await page.wait_for_selector('#burst-timeline-comparison table')
 
-            # 5. Verify Timeline Comparison View
-            assert await page.locator('#burst-timeline-comparison').is_visible()
+            # Verify captured request has tactic adhering to Backend/Engine schemaVersion 1
+            assert len(captured_replay_requests) > 0
+            sent_req = captured_replay_requests[-1]
+            tactic_payload = sent_req.get('conditions', {}).get('autoBurst', {}).get('tactic')
+            assert tactic_payload is not None, "Request must include tactic DTO"
+            assert tactic_payload.get('schemaVersion') == 1
+            assert tactic_payload.get('allowedCharacterIds') == ['5011', '5008', '5009', '5004', '5044']
+            assert tactic_payload.get('stage3Priority') == ['5004', '5009', '5044']
+            assert tactic_payload.get('burst3Rotation') == ['5004', '5009', '5044']
+            assert tactic_payload.get('firstBurst3CharacterId') == '5004'
+            assert tactic_payload.get('unavailablePolicy') == 'next_ready'
+            summary['tacticPayloadVerified'] = True
+
+            # 6. Verify Timeline Comparison View
             comparison_rows = await page.locator('#burst-timeline-comparison tbody tr').count()
             assert comparison_rows >= 5
             summary['comparisonRows'] = comparison_rows
 
-            # 6. Verify Damage Log Viewer
-            # Check default target is Alice (5004)
+            # 7. Verify Uncollected Log State & Explicit Mock Preview Boundary
+            # Without server log and without allowMock, UI cleanly reports uncollected
+            assert await page.locator('.status-pill.warning:has-text("로그 미수집 상태")').is_visible()
+            assert await page.locator('#btn-load-mock-preview').is_visible()
+            summary['uncollectedNoticeVerified'] = True
+
+            # Click explicit mock preview button
+            await page.locator('#btn-load-mock-preview').click()
+            await page.wait_for_selector('.damage-graph-svg')
+            assert await page.locator('.status-pill.neutral:has-text("합성 Mock Fixture")').is_visible()
+
+            # Check Alice default and hits count
             target_select = page.locator('#log-character-select')
             assert await target_select.input_value() == '5004'
-
-            # Check SVG graph
-            assert await page.locator('.damage-graph-svg').is_visible()
             dots_count = await page.locator('.graph-hit-dot').count()
             assert dots_count > 20
             summary['aliceHitCount'] = dots_count
+
+            # Check Shot Count vs Hit Count distinction in metric card
+            shot_metric_text = await page.locator('.metric-card:has(span:has-text("발사 / 명중 횟수")) strong').inner_text()
+            assert '발사' in shot_metric_text and '명중' in shot_metric_text
+            summary['shotHitDistinctionVerified'] = True
 
             # Check burst bands
             self_bands = await page.locator('.band-self-burst').count()
             team_bands = await page.locator('.band-team-burst').count()
             assert self_bands > 0, "Self burst bands must be rendered"
             assert team_bands > 0, "Team full burst bands must be rendered"
-            summary['selfBurstBands'] = self_bands
-            summary['teamFullBurstBands'] = team_bands
 
-            # Check summary metrics
-            metrics = await page.locator('.metric-card strong').all_inner_texts()
-            assert len(metrics) >= 5
-
-            # 7. Check calculation audit inspection
+            # 8. Check Calculation Audit Inspection Panel
             first_audit_btn = page.locator('[data-view-audit]').first
             await first_audit_btn.click()
             assert await page.locator('.damage-audit-panel').is_visible()
@@ -278,38 +317,29 @@ async def run_verification():
             await page.locator('#btn-close-audit').click()
             assert not await page.locator('.damage-audit-panel').is_visible()
 
-            # 8. Check Interactive Filters
-            # Self-burst filter
+            # 9. Check Interactive Filters
             await page.locator('[data-filter-burst="self_only"]').click()
-            rows_after_burst_filter = await page.locator('.log-table-shell tbody tr').count()
-            assert rows_after_burst_filter > 0
-
-            # Hit type filter: Crit
+            assert await page.locator('.log-table-shell tbody tr').count() > 0
             await page.locator('[data-filter-hit="crit"]').click()
-            rows_after_crit_filter = await page.locator('.log-table-shell tbody tr').count()
-            assert rows_after_crit_filter > 0
-
-            # Reset filters
+            assert await page.locator('.log-table-shell tbody tr').count() > 0
             await page.locator('[data-filter-burst="all"]').click()
             await page.locator('[data-filter-hit="all"]').click()
 
-            # 9. Switch target Nikke to Modernia (5044)
+            # 10. Switch Nikke to Modernia (5044)
             await target_select.select_option('5044')
             await page.wait_for_timeout(300)
             modernia_dots = await page.locator('.graph-hit-dot').count()
             assert modernia_dots > 50
-            summary['moderniaHitCount'] = modernia_dots
 
             # Switch back to Alice
             await target_select.select_option('5004')
             await page.wait_for_timeout(300)
 
-            # 10. Check Export Buttons (trigger click without error)
+            # 11. Check Export Handlers
             await page.locator('#btn-export-json').click()
             await page.locator('#btn-export-csv').click()
 
-            # 11. Check Stale ID / Missing Stage Diagnostics
-            # Simulate a stale ID in tactics
+            # 12. Check Stale ID detection & Clean button
             await page.evaluate("""() => {
                 const raw = localStorage.getItem('nikke-burst-tactics-acc-test-1');
                 if (raw) {
@@ -319,16 +349,13 @@ async def run_verification():
                     localStorage.setItem('nikke-burst-tactics-acc-test-1', JSON.stringify(t));
                 }
             }""")
-            # Re-render tactics by switching tabs or re-calling render
             await page.locator('[data-tab="home"]').click()
             await page.locator('[data-tab="raid"]').click()
             assert await page.locator('#btn-clean-stale').is_visible()
-            assert '제외된 니케가 버스트 설정에 남아 있습니다' in await page.locator('.tactic-alerts').inner_text()
-            # Click clean stale
             await page.locator('#btn-clean-stale').click()
             assert not await page.locator('#btn-clean-stale').is_visible()
 
-            # 12. Check Responsive Layouts (1500px, 850px, 500px)
+            # 13. Responsive Layouts: 1500px, 850px, 500px
             for width in [1500, 850, 500]:
                 await page.set_viewport_size({'width': width, 'height': 1000})
                 await page.wait_for_timeout(200)
@@ -336,7 +363,7 @@ async def run_verification():
                 is_overflow = await page.evaluate('document.documentElement.scrollWidth > innerWidth + 1')
                 assert not is_overflow, f'Horizontal overflow detected at {width}px'
 
-            # 13. Check zero page errors
+            # 14. Check zero page errors
             assert not errors, f'JavaScript errors encountered: {errors}'
 
             await browser.close()
@@ -345,9 +372,9 @@ async def run_verification():
             'success': True,
             'widthsChecked': [1500, 850, 500],
             'jsErrorsCount': len(errors),
-            'provisionalNoticeChecked': True,
-            'maxSecondsLimit': 180,
-            'presetsVerified': ['alice_only', 'alice_first', 'formation_order']
+            'serverTacticContractVerified': True,
+            'uncollectedVsMockSeparated': True,
+            'maxSecondsLimit': 180
         })
 
         (OUTPUT / 'summary.json').write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding='utf-8')

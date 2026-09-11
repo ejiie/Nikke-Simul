@@ -4,6 +4,7 @@ import { connectRenderer, renderNikkeCards, appendPortrait } from './cards.js';
 import { renderLocalLabDetail, updateDetailReport, detailPreviewFailed, detailDirty } from './local-lab-adapter.js';
 import { createBurstTacticsManager } from './burst-tactics.js';
 import { createDamageLogViewer } from './damage-log.js';
+import { toServerTacticDto } from './damage-log-adapter.js';
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -39,7 +40,7 @@ const getMembersWithMeta=()=>{
     };
   });
 };
-const tacticsManager=createBurstTacticsManager({getSnapshot:()=>snapshot,getMembersWithMeta,status});
+const tacticsManager=createBurstTacticsManager({api,getSnapshot:()=>snapshot,getMembersWithMeta,getFormationSlots:()=>formation.slots(),status});
 const damageLogViewer=createDamageLogViewer({api,getSnapshot:()=>snapshot,getMembersWithMeta,status});
 connectRenderer({state,isSelecting:()=>selectedPage==='formation',isChosen:id=>formation.contains(id),selectCharacter:id=>formation.select(id),effectiveProfileValue:(field,id)=>({integerValue:build(id)?.[field==='limit_break'?'limitBreak':'core']}),
   configuredCharacterLevel:id=>build(id)?.level,openNikkeDetail});
@@ -100,6 +101,7 @@ async function refresh(force=false){
       includeSavedCharacters();renderNikkeCards();renderAccount();renderDiagnostics();
       formation.render();
       if(state.selectedNikkeUid&&!$('nikke-detail').hidden&&!detailDirty())await openNikkeDetail(state.selectedNikkeUid,false);
+      try{await tacticsManager.syncFromServer();}catch(error){}
     }
     // A formation load failure must not prevent the account/catalogue from loading.
     try{await formation.load();}catch(error){status(`편성을 불러오지 못했습니다. ${error.message}`);}
@@ -212,10 +214,11 @@ function renderRaid(){
     const windows=['none','auto'].includes(b3)?[]:[{startFrame:frame+2,endFrame:Math.min(seconds*60,frame+2+(b3==='5044'?900:600))}];
     if(windows.some(w=>w.startFrame>=w.endFrame)){status('버스트 시점은 전투 종료보다 앞서야 합니다.');return;}
     const formRotation=form.get('burstRotation');
-    const burst3Rotation=formRotation?String(formRotation).split(',').filter(Boolean):(currentTactics?.priority?.stage3??[]);
-    const unavailablePolicy=form.get('burstUnavailable')||currentTactics?.fallbackPolicy||'next_ready';
+    const serverTactic=toServerTacticDto(currentTactics,getMembersWithMeta());
+    const burst3Rotation=formRotation?String(formRotation).split(',').filter(Boolean):(serverTactic?.burst3Rotation??[]);
+    const unavailablePolicy=form.get('burstUnavailable')||serverTactic?.unavailablePolicy||'next_ready';
     const request={snapshotId:snapshot.id,characterIds:members,scenarioLevel:form.get('level')===''?null:Number(form.get('level')),
-      conditions:{autoBurst:b3==='auto'?{burst3Rotation,unavailablePolicy,tactics:currentTactics}:null,roundingPolicy:form.get('rounding'),casts:['none','auto'].includes(b3)?[]:['5011','5008',b3].map((id,i)=>({frame:frame+i,characterId:id,slot:'burst'})),
+      conditions:{autoBurst:b3==='auto'?{burst3Rotation,unavailablePolicy,tactic:serverTactic}:null,roundingPolicy:form.get('rounding'),casts:['none','auto'].includes(b3)?[]:['5011','5008',b3].map((id,i)=>({frame:frame+i,characterId:id,slot:'burst'})),
         combat:{manualCharacterId:b3==='auto'?form.get('manualCharacter'):'',manualStyle:b3==='auto'?form.get('manualStyle'):'full_charge',durationFrames:seconds*60,enemyDefense:Number(form.get('defense')),critMode:form.get('crit'),core:form.has('core'),properDistance:form.has('distance'),elementAdvantage:form.has('element'),pelletCoefficientPolicy:form.get('pellet'),fullBurstWindows:windows,trace:false,targetLabel:'solo_raid_challenge'}}};
     $('run-replay').disabled=true;$('replay-result').textContent='검산 중…';
     try{lastReplay=await api('/runtime/skill-replays','POST',request);renderReplay(lastReplay);status('검산 결과를 저장했습니다.');}

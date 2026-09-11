@@ -1,8 +1,19 @@
 /**
- * Detailed Per-Shot Damage Log & Interactive Timeline Graph Component
+ * Detailed Per-Shot Damage Log & Interactive Timeline Graph Component (U2 Edition)
+ *
+ * Conforms to:
+ * - Backend contract: docs/damage-log-api-contract.ko.md (bf19679)
+ * - Engine contract: docs/damage-log-engine-contract.ko.md (908047f)
  *
  * Features:
  * - Default selection of Alice (5004), switchable to any formation Nikke
+ * - Distinct handling of:
+ *   * Collected real log (수집 완료)
+ *   * Uncollected / legacy replay (미수집 상태)
+ *   * Zero damage (피해 0)
+ *   * Truncated (로그 상한 도달)
+ *   * Explicit synthetic mock preview (사용자가 명시적으로 선택 시에만 로드)
+ * - Clear distinction between Shot Count (발사 수) and Hit Count (명중 수)
  * - Interactive SVG time-series graph with clear distinction between:
  *   * Self Burst Active windows (자체 버스트 효과 구간)
  *   * Team Full Burst windows (팀 풀버스트 구간)
@@ -10,8 +21,8 @@
  * - Cumulative damage tracking
  * - Detailed table with interactive filters (burst window, charge status, crit, core)
  * - Calculation audit inspection (base atk, buffs, enemy def, multipliers, rounding policy)
- * - JSON and CSV export
- * - Badges: 180s engine limit, provisional accuracy notice, truncation/missing status
+ * - Server-first JSON and CSV export with local fallback
+ * - 180s engine limit and provisional accuracy notice
  */
 
 import {
@@ -28,26 +39,40 @@ const num = v => v == null ? '—' : Number(v).toLocaleString('ko-KR');
 export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, status }) {
   let activeReplay = null;
   let activeLogData = null;
+  let logStatus = 'idle'; // 'idle' | 'collected' | 'uncollected' | 'no_damage'
+  let logMessage = '';
+  let isMockMode = false;
+  let isTruncated = false;
   let selectedCharacterId = '5004';
   let filterBurst = 'all'; // all | self_only | team_only | both | none
   let filterHitType = 'all'; // all | full_charge | non_full_charge | crit | core
   let minDamageFilter = 0;
   let selectedHit = null;
 
-  async function loadForCharacter(characterId) {
+  async function loadForCharacter(characterId, allowMock = false) {
     selectedCharacterId = characterId;
     selectedHit = null;
     if (!activeReplay) return;
 
     status?.('발당 피해 로그를 불러오는 중…');
     const members = getMembersWithMeta();
-    const result = await fetchDamageLog(api, activeReplay.id, selectedCharacterId, activeReplay, members);
+    const result = await fetchDamageLog(api, activeReplay.id, selectedCharacterId, activeReplay, members, { allowMock });
+
+    logStatus = result.status;
+    isMockMode = result.isMock;
+    isTruncated = result.truncated;
+    logMessage = result.message || '';
     activeLogData = result.log;
-    activeLogData.isMock = result.isMock;
-    activeLogData.schemaVersion = result.schemaVersion;
-    activeLogData.truncated = result.truncated;
+
     render();
-    status?.(result.isMock ? '합성 검증용 피해 로그가 준비되었습니다 (Mock).' : '실제 피해 로그를 불러왔습니다.');
+
+    if (result.status === 'collected') {
+      status?.(result.isMock ? '합성 검증용 피해 로그가 준비되었습니다 (Mock).' : '실제 피해 로그를 불러왔습니다.');
+    } else if (result.status === 'uncollected') {
+      status?.(logMessage || '피해 로그가 수집되지 않은 리플레이입니다.');
+    } else if (result.status === 'no_damage') {
+      status?.('해당 니케의 피해 기록이 0입니다.');
+    }
   }
 
   function setReplay(replay) {
@@ -55,14 +80,15 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, st
     const members = getMembersWithMeta();
     const hasAlice = members.some(m => m.id === '5004');
     selectedCharacterId = hasAlice ? '5004' : (members[0]?.id ?? '5004');
-    loadForCharacter(selectedCharacterId);
+    // Default: try real log first, do not force mock
+    loadForCharacter(selectedCharacterId, false);
   }
 
   function render(containerId = 'damage-log-container') {
     const container = $(containerId);
     if (!container) return;
 
-    if (!activeReplay || !activeLogData) {
+    if (!activeReplay) {
       container.innerHTML = `
         <div class="surface empty-state">
           대미지 검산을 실행하면 선택한 니케의 시간별 발당 피해 그래프와 검산 근거가 표시됩니다.
@@ -75,39 +101,97 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, st
     const currentMember = members.find(m => m.id === selectedCharacterId);
     const memberName = currentMember?.displayName || (selectedCharacterId === '5004' ? '앨리스' : selectedCharacterId);
 
-    // 1. Selector options
     const nikkeOptions = members.map(m => `
       <option value="${m.id}" ${m.id === selectedCharacterId ? 'selected' : ''}>
         ${esc(m.displayName)} (${m.burstStep ? `버스트 ${['I', 'II', 'III'][m.burstStep - 1]}` : ''})
       </option>
     `).join('');
 
-    // 2. Summary stats
-    const hits = activeLogData.hits || [];
+    // If uncollected or no_damage and not in mock mode:
+    if (logStatus === 'uncollected' && !activeLogData) {
+      container.innerHTML = `
+        <section class="surface damage-log-section">
+          <div class="damage-log-topbar">
+            <div>
+              <h3>시간별 발당 피해 분석 & 검산</h3>
+              <p class="microcopy">180초 동안의 타격별 피해, 버스트 효과 구간, 계산 근거를 확인합니다.</p>
+            </div>
+            <div class="topbar-controls">
+              <label class="nikke-select-label">
+                <span>대상 니케:</span>
+                <select id="log-character-select">${nikkeOptions}</select>
+              </label>
+            </div>
+          </div>
+          <div class="status-badges-row">
+            <span class="status-pill warning">로그 미수집 상태 (서버 E1/B1 연동 대기)</span>
+            <span class="status-pill neutral">Replay ID: ${esc(activeReplay.id)}</span>
+          </div>
+          <div class="surface empty-state" style="padding:24px;text-align:center;">
+            <p><strong>${esc(memberName)}</strong>의 시간별 발당 피해 로그가 서버에 저장되어 있지 않습니다.</p>
+            <p class="microcopy">${esc(logMessage)}</p>
+            <div style="margin-top:16px;">
+              <button type="button" class="primary small-btn" id="btn-load-mock-preview">합성 Mock 미리보기 (UI 검증용)</button>
+            </div>
+          </div>
+        </section>
+      `;
+      $('log-character-select').onchange = e => loadForCharacter(e.target.value, false);
+      const btnMock = $('btn-load-mock-preview');
+      if (btnMock) btnMock.onclick = () => loadForCharacter(selectedCharacterId, true);
+      return;
+    }
+
+    if (logStatus === 'no_damage' && (!activeLogData || activeLogData.totalHits === 0)) {
+      container.innerHTML = `
+        <section class="surface damage-log-section">
+          <div class="damage-log-topbar">
+            <div>
+              <h3>시간별 발당 피해 분석 & 검산</h3>
+              <p class="microcopy">180초 동안의 타격별 피해, 버스트 효과 구간, 계산 근거를 확인합니다.</p>
+            </div>
+            <div class="topbar-controls">
+              <label class="nikke-select-label">
+                <span>대상 니케:</span>
+                <select id="log-character-select">${nikkeOptions}</select>
+              </label>
+            </div>
+          </div>
+          <div class="status-badges-row">
+            <span class="status-pill neutral">피해 기록 0 (No Damage)</span>
+          </div>
+          <div class="surface empty-state" style="padding:24px;text-align:center;">
+            <p><strong>${esc(memberName)}</strong>는 전투 중 발생한 피해가 없습니다 (총 피해량: 0).</p>
+          </div>
+        </section>
+      `;
+      $('log-character-select').onchange = e => loadForCharacter(e.target.value, false);
+      return;
+    }
+
+    // Collected / Mock log display
+    const hits = activeLogData?.hits || [];
     const critCount = hits.filter(h => h.isCritical).length;
     const coreCount = hits.filter(h => h.isCore).length;
     const fullChargeCount = hits.filter(h => h.isFullCharge).length;
-    const avgDamage = hits.length ? Math.round(activeLogData.totalDamage / hits.length) : 0;
+    const avgDamage = hits.length ? Math.round((activeLogData.totalDamage || 0) / hits.length) : 0;
 
-    // 3. SVG Graph generation
+    // Distinguish Shots vs Hits
+    const uniqueShots = new Set(hits.map(h => h.shotId).filter(Boolean)).size || hits.length;
+
     const graphSvg = generateGraphSvg(activeLogData);
 
-    // 4. Filtered table rows
     const filteredHits = hits.filter(h => {
       if (minDamageFilter > 0 && h.damage < minDamageFilter) return false;
-
-      // Burst filter
       if (filterBurst === 'self_only' && (!h.isSelfBurstActive || h.isTeamFullBurst)) return false;
       if (filterBurst === 'team_only' && (!h.isTeamFullBurst || h.isSelfBurstActive)) return false;
       if (filterBurst === 'both' && (!h.isSelfBurstActive || !h.isTeamFullBurst)) return false;
       if (filterBurst === 'none' && (h.isSelfBurstActive || h.isTeamFullBurst)) return false;
 
-      // Hit type filter
       if (filterHitType === 'full_charge' && !h.isFullCharge) return false;
       if (filterHitType === 'non_full_charge' && h.isFullCharge) return false;
       if (filterHitType === 'crit' && !h.isCritical) return false;
       if (filterHitType === 'core' && !h.isCore) return false;
-
       return true;
     });
 
@@ -116,7 +200,7 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, st
       return `
         <tr class="${isSelected ? 'selected-row' : ''}" data-hit-id="${h.hitId}">
           <td>${h.seconds}초 <small>(${h.frame}F)</small></td>
-          <td>#${h.shotId}</td>
+          <td>#${h.shotId ?? '—'} <small>(Hit #${h.hitId})</small></td>
           <td><strong>${num(h.damage)}</strong></td>
           <td>${num(h.cumulativeDamage)}</td>
           <td>${h.isFullCharge ? '<span class="pill-badge green">풀차지</span>' : '<span class="pill-badge gray">비풀차지</span>'}</td>
@@ -135,14 +219,13 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, st
       `;
     }).join('');
 
-    // Audit panel markup if a hit is selected
     let auditHtml = '';
     if (selectedHit) {
       const a = selectedHit.audit;
       auditHtml = `
         <div class="damage-audit-panel surface">
           <div class="audit-header">
-            <h4>발당 피해 검산 근거 (타격 #${selectedHit.hitId} · ${selectedHit.seconds}초)</h4>
+            <h4>발당 피해 검산 근거 (타격 #${selectedHit.hitId} · 발사 #${selectedHit.shotId ?? '—'} · ${selectedHit.seconds}초)</h4>
             <button type="button" class="ghost-close-btn" id="btn-close-audit">✕</button>
           </div>
           <div class="audit-stats-grid">
@@ -224,8 +307,8 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, st
         <div class="status-badges-row">
           <span class="status-pill cyan">180초 엔진 한도 준수</span>
           <span class="status-pill warning">${DAMAGE_LOG_PROVISIONAL_NOTICE}</span>
-          ${activeLogData.isMock ? '<span class="status-pill neutral">합성 Fixture (E1/B1 계약 대기 Adapter)</span>' : '<span class="status-pill green">서버 로그 연동</span>'}
-          ${activeLogData.truncated ? '<span class="status-pill red">로그 상한 도달 (잘림 발생)</span>' : ''}
+          ${isMockMode ? '<span class="status-pill neutral">합성 Mock Fixture (명시적 미리보기)</span>' : '<span class="status-pill green">서버 로그 연동 (schema v1)</span>'}
+          ${isTruncated ? '<span class="status-pill red">로그 상한 도달 (잘림 발생)</span>' : ''}
         </div>
 
         <div class="summary-metrics-grid">
@@ -234,8 +317,8 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, st
             <strong>${num(activeLogData.totalDamage)}</strong>
           </div>
           <div class="metric-card">
-            <span>총 발사(히트) 횟수</span>
-            <strong>${num(hits.length)}회</strong>
+            <span>발사 / 명중 횟수</span>
+            <strong>${num(uniqueShots)}회 발사 / ${num(hits.length)}회 명중</strong>
           </div>
           <div class="metric-card">
             <span>평균 발당 피해</span>
@@ -290,7 +373,7 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, st
             <thead>
               <tr>
                 <th>시간</th>
-                <th>발사 ID</th>
+                <th>발사 / Hit</th>
                 <th>발당 피해</th>
                 <th>누적 피해</th>
                 <th>차지 상태</th>
@@ -308,8 +391,7 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, st
       </section>
     `;
 
-    // Event Bindings
-    $('log-character-select').onchange = e => loadForCharacter(e.target.value);
+    $('log-character-select').onchange = e => loadForCharacter(e.target.value, isMockMode);
 
     container.querySelectorAll('[data-filter-burst]').forEach(btn => {
       btn.onclick = () => { filterBurst = btn.dataset.filterBurst; render(); };
@@ -331,8 +413,19 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, st
     const btnCloseAudit = $('btn-close-audit');
     if (btnCloseAudit) btnCloseAudit.onclick = () => { selectedHit = null; render(); };
 
-    // Export handlers
-    $('btn-export-json').onclick = () => {
+    // Export handlers with server endpoint attempt
+    $('btn-export-json').onclick = async () => {
+      if (!isMockMode && api && activeReplay?.id) {
+        try {
+          const res = await api(`/runtime/skill-replays/${activeReplay.id}/damage-log/export.json?characterId=${selectedCharacterId}`);
+          if (res) {
+            downloadBlob(JSON.stringify(res, null, 2), `server-damage-log-${selectedCharacterId}-${Date.now()}.json`, 'application/json');
+            status?.('서버 원본 JSON 로그를 내보냈습니다.');
+            return;
+          }
+        } catch {}
+      }
+
       const json = exportDamageLogToJson({
         snapshotId: getSnapshot()?.id,
         characterId: selectedCharacterId,
@@ -342,13 +435,28 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, st
       status?.('JSON 로그 파일을 내보냈습니다.');
     };
 
-    $('btn-export-csv').onclick = () => {
-      const csv = exportDamageLogToCsv(activeLogData);
+    $('btn-export-csv').onclick = async () => {
+      if (!isMockMode && api && activeReplay?.id) {
+        try {
+          // Direct download link from server if available
+          const token = api.token || '';
+          const res = await fetch(`/api/runtime/skill-replays/${activeReplay.id}/damage-log/export.csv?characterId=${selectedCharacterId}`, {
+            headers: token ? { 'X-Nikke-Token': token } : {}
+          });
+          if (res.ok) {
+            const csvText = await res.text();
+            downloadBlob(csvText, `server-damage-log-${selectedCharacterId}-${Date.now()}.csv`, 'text/csv;charset=utf-8;');
+            status?.('서버 원본 CSV 로그를 내보냈습니다.');
+            return;
+          }
+        } catch {}
+      }
+
+      const csv = exportDamageLogToCsv(activeLogData, { snapshotId: getSnapshot()?.id });
       downloadBlob(csv, `nikke-damage-log-${selectedCharacterId}-${Date.now()}.csv`, 'text/csv;charset=utf-8;');
       status?.('CSV 로그 파일을 내보냈습니다.');
     };
 
-    // Attach Graph interactive tooltips and clicks
     bindGraphInteractions(container);
   }
 
@@ -365,7 +473,7 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, st
   }
 
   function generateGraphSvg(data) {
-    const hits = data.hits || [];
+    const hits = data?.hits || [];
     const width = 1000;
     const height = 300;
     const padL = 60;
@@ -375,14 +483,12 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, st
     const plotW = width - padL - padR;
     const plotH = height - padT - padB;
 
-    const maxTime = 180; // 180 seconds limit
+    const maxTime = 180;
     const maxDmg = hits.length ? Math.max(...hits.map(h => h.damage)) * 1.15 : 500000;
 
     const getX = sec => padL + (sec / maxTime) * plotW;
     const getY = dmg => padT + plotH - (dmg / maxDmg) * plotH;
 
-    // 1. Burst window background rects
-    // Team full bursts:
     const teamBands = (data.fullBursts || []).map(fb => {
       const startSec = (fb.startFrame || 0) / 60;
       const endSec = (fb.endFrame || (fb.startFrame + 600)) / 60;
@@ -392,13 +498,12 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, st
       return `<rect x="${x1}" y="${padT}" width="${w}" height="${plotH}" fill="rgba(22, 173, 242, 0.12)" class="band-team-burst" />`;
     }).join('');
 
-    // Self burst active bands:
     let selfBands = '';
     if (data.characterId === '5004') {
       const aliceBursts = (data.fullBursts || []).filter(fb => fb.caster === '5004');
       selfBands = aliceBursts.map(fb => {
         const startSec = (fb.startFrame || 0) / 60;
-        const endSec = startSec + 10; // 600 frames = 10s
+        const endSec = startSec + 10;
         const x1 = getX(startSec);
         const x2 = getX(Math.min(maxTime, endSec));
         const w = Math.max(2, x2 - x1);
@@ -406,7 +511,6 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, st
       }).join('');
     }
 
-    // 2. Axes and grid lines
     let gridLines = '';
     for (let s = 0; s <= 180; s += 30) {
       const x = getX(s);
@@ -425,7 +529,6 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, st
       `;
     }
 
-    // 3. Cumulative damage background curve (subtle)
     let cumulativePath = '';
     if (hits.length > 1) {
       const maxCum = data.totalDamage || 1;
@@ -433,7 +536,6 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, st
       cumulativePath = `<polyline points="${points}" fill="none" stroke="#94a3b8" stroke-width="1.5" opacity="0.4" stroke-dasharray="4,2" />`;
     }
 
-    // 4. Hit points
     const hitPoints = hits.map(h => {
       const cx = getX(h.seconds);
       const cy = getY(h.damage);
@@ -452,16 +554,12 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, st
 
     return `
       <svg viewBox="0 0 ${width} ${height}" class="damage-graph-svg" preserveAspectRatio="xMidYMid meet" aria-label="시간별 발당 대미지 그래프">
-        <!-- Background Burst Windows -->
         ${teamBands}
         ${selfBands}
-        <!-- Grid & Axes -->
         ${gridLines}
         <line x1="${padL}" y1="${padT + plotH}" x2="${padL + plotW}" y2="${padT + plotH}" stroke="#94a3b8" stroke-width="1.5" />
         <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + plotH}" stroke="#94a3b8" stroke-width="1.5" />
-        <!-- Cumulative subtle curve -->
         ${cumulativePath}
-        <!-- Hits -->
         ${hitPoints}
       </svg>
     `;
