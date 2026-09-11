@@ -30,6 +30,7 @@ export function createBurstTacticsManager({ api, getSnapshot, getMembersWithMeta
   let serverMessage = '';
   let serverIssues = [];
   let isServerStale = false;
+  let activeSyncId = 0;
 
   function storageKey(accountId) {
     return `nikke-burst-tactics-${accountId || 'default'}`;
@@ -65,8 +66,19 @@ export function createBurstTacticsManager({ api, getSnapshot, getMembersWithMeta
     const account = getSnapshot()?.accountId;
     if (!api || !account) return;
 
+    const syncId = ++activeSyncId;
+    const initialTacticJson = JSON.stringify(tactics);
     const members = getMembersWithMeta();
     const result = await loadBurstTacticFromServer(api, account, members);
+
+    // Guard against race conditions:
+    // 1. A newer sync has been started
+    if (syncId !== activeSyncId) return;
+    // 2. Account changed during network flight
+    if (account !== getSnapshot()?.accountId) return;
+    // 3. User edited tactics locally during flight
+    if (JSON.stringify(tactics) !== initialTacticJson) return;
+
     if (result.ok && result.tactics) {
       tactics = result.tactics;
       isServerStale = result.stale;
@@ -162,6 +174,7 @@ export function createBurstTacticsManager({ api, getSnapshot, getMembersWithMeta
       tactics.firstCaster = '5004';
       tactics.stage3Mode = 'priority_only';
       tactics.priority.stage3 = ['5004', ...stage3Members.filter(m => m.id !== '5004').map(m => m.id)];
+      tactics.burst3Rotation = ['5004'];
       status?.('프리셋 적용: [앨리스만 사용] (다른 버스트 III 니케는 발동 제외)');
     } else if (presetType === 'alice_first') {
       if (!hasAlice) {
@@ -174,6 +187,7 @@ export function createBurstTacticsManager({ api, getSnapshot, getMembersWithMeta
       tactics.firstCaster = '5004';
       tactics.stage3Mode = 'alternate';
       tactics.priority.stage3 = ['5004', ...stage3Members.filter(m => m.id !== '5004').map(m => m.id)];
+      tactics.burst3Rotation = [...tactics.priority.stage3];
       status?.('프리셋 적용: [앨리스 우선순위 1위 + 교대 순환]');
     } else if (presetType === 'formation_order') {
       tactics = createDefaultTactics(members);
@@ -193,6 +207,10 @@ export function createBurstTacticsManager({ api, getSnapshot, getMembersWithMeta
     const temp = list[idx];
     list[idx] = list[targetIdx];
     list[targetIdx] = temp;
+
+    if (stage === 3 && tactics.stage3Mode === 'alternate') {
+      tactics.burst3Rotation = [...tactics.priority.stage3];
+    }
 
     saveTactics();
   }
@@ -289,9 +307,12 @@ export function createBurstTacticsManager({ api, getSnapshot, getMembersWithMeta
     }).join('');
 
     const stage3Members = members.filter(m => m.burstStep === 3 && tactics.allowlist[m.id] !== false);
-    const firstCasterOptions = stage3Members.map(m => `
-      <option value="${m.id}" ${tactics.firstCaster === m.id ? 'selected' : ''}>${esc(m.displayName)} (버스트 III)</option>
-    `).join('');
+    const firstCasterOptions = [
+      `<option value="" ${!tactics.firstCaster ? 'selected' : ''}>순환 첫 번째 니케 (기본값 / null)</option>`,
+      ...stage3Members.map(m => `
+        <option value="${m.id}" ${tactics.firstCaster === m.id ? 'selected' : ''}>${esc(m.displayName)} (버스트 III)</option>
+      `)
+    ].join('');
 
     container.innerHTML = `
       <div class="tactic-manager-shell">
@@ -364,7 +385,7 @@ export function createBurstTacticsManager({ api, getSnapshot, getMembersWithMeta
     if (modeSel) modeSel.onchange = e => { tactics.stage3Mode = e.target.value; saveTactics(); };
 
     const firstSel = $('tactic-first-caster');
-    if (firstSel) firstSel.onchange = e => { tactics.firstCaster = e.target.value; saveTactics(); };
+    if (firstSel) firstSel.onchange = e => { tactics.firstCaster = e.target.value || null; saveTactics(); };
 
     const fallbackSel = $('tactic-fallback-policy');
     if (fallbackSel) fallbackSel.onchange = e => { tactics.fallbackPolicy = e.target.value; saveTactics(); };
