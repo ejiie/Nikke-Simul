@@ -78,8 +78,13 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, st
   function setReplay(replay) {
     activeReplay = replay;
     const members = getMembersWithMeta();
-    const hasAlice = members.some(m => m.id === '5004');
-    selectedCharacterId = hasAlice ? '5004' : (members[0]?.id ?? '5004');
+    const embeddedChar = replay?.result?.damageLog?.characterId;
+    if (embeddedChar && members.some(m => m.id === embeddedChar)) {
+      selectedCharacterId = embeddedChar;
+    } else {
+      const hasAlice = members.some(m => m.id === '5004');
+      selectedCharacterId = hasAlice ? '5004' : (members[0]?.id ?? '5004');
+    }
     // Default: try real log first, do not force mock
     loadForCharacter(selectedCharacterId, false);
   }
@@ -176,8 +181,8 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, st
     const fullChargeCount = hits.filter(h => h.isFullCharge).length;
     const avgDamage = hits.length ? Math.round((activeLogData.totalDamage || 0) / hits.length) : 0;
 
-    // Distinguish Shots vs Hits
-    const uniqueShots = new Set(hits.map(h => h.shotId).filter(Boolean)).size || hits.length;
+    // Distinguish Shots vs Hits (direct skill hits without shotId are not counted as fired shots)
+    const uniqueShots = new Set(hits.map(h => h.shotId).filter(v => v !== null && v !== undefined)).size;
 
     const graphSvg = generateGraphSvg(activeLogData);
 
@@ -428,8 +433,10 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, st
 
       const json = exportDamageLogToJson({
         snapshotId: getSnapshot()?.id,
+        replayId: activeReplay?.id,
         characterId: selectedCharacterId,
-        roundingPolicy: activeReplay?.conditions?.roundingPolicy
+        roundingPolicy: activeReplay?.conditions?.roundingPolicy,
+        rawReplay: activeReplay
       }, activeLogData);
       downloadBlob(json, `nikke-damage-log-${selectedCharacterId}-${Date.now()}.json`, 'application/json');
       status?.('JSON 로그 파일을 내보냈습니다.');
@@ -452,7 +459,11 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, st
         } catch {}
       }
 
-      const csv = exportDamageLogToCsv(activeLogData, { snapshotId: getSnapshot()?.id });
+      const csv = exportDamageLogToCsv(activeLogData, {
+        snapshotId: getSnapshot()?.id,
+        replayId: activeReplay?.id,
+        rawReplay: activeReplay
+      });
       downloadBlob(csv, `nikke-damage-log-${selectedCharacterId}-${Date.now()}.csv`, 'text/csv;charset=utf-8;');
       status?.('CSV 로그 파일을 내보냈습니다.');
     };
@@ -498,18 +509,33 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, st
       return `<rect x="${x1}" y="${padT}" width="${w}" height="${plotH}" fill="rgba(22, 173, 242, 0.12)" class="band-team-burst" />`;
     }).join('');
 
-    let selfBands = '';
-    if (data.characterId === '5004') {
-      const aliceBursts = (data.fullBursts || []).filter(fb => fb.caster === '5004');
-      selfBands = aliceBursts.map(fb => {
-        const startSec = (fb.startFrame || 0) / 60;
-        const endSec = startSec + 10;
-        const x1 = getX(startSec);
-        const x2 = getX(Math.min(maxTime, endSec));
-        const w = Math.max(2, x2 - x1);
-        return `<rect x="${x1}" y="${padT}" width="${w}" height="${plotH}" fill="rgba(244, 162, 97, 0.18)" class="band-self-burst" />`;
-      }).join('');
+    // Extract actual self-burst active spans directly from hits where isSelfBurstActive is true
+    // Never invent startFrame + 600 or arbitrary +10s spans
+    const selfBurstSpans = [];
+    let currentSpan = null;
+    for (const h of hits) {
+      if (h.isSelfBurstActive) {
+        if (!currentSpan) {
+          currentSpan = { startSec: h.seconds, endSec: h.seconds };
+        } else if (h.seconds - currentSpan.endSec <= 3.0) {
+          currentSpan.endSec = h.seconds;
+        } else {
+          selfBurstSpans.push(currentSpan);
+          currentSpan = { startSec: h.seconds, endSec: h.seconds };
+        }
+      } else if (currentSpan) {
+        selfBurstSpans.push(currentSpan);
+        currentSpan = null;
+      }
     }
+    if (currentSpan) selfBurstSpans.push(currentSpan);
+
+    const selfBands = selfBurstSpans.map(span => {
+      const x1 = getX(span.startSec);
+      const x2 = getX(Math.min(maxTime, span.endSec + 0.5));
+      const w = Math.max(3, x2 - x1);
+      return `<rect x="${x1}" y="${padT}" width="${w}" height="${plotH}" fill="rgba(244, 162, 97, 0.18)" class="band-self-burst" />`;
+    }).join('');
 
     let gridLines = '';
     for (let s = 0; s <= 180; s += 30) {
@@ -605,6 +631,7 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, st
   return {
     setReplay,
     loadForCharacter,
+    getSelectedCharacterId: () => selectedCharacterId,
     render
   };
 }

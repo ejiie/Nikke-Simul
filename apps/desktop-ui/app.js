@@ -213,13 +213,45 @@ function renderRaid(){
     if(!['none','auto'].includes(b3)&&!['5011','5008',b3].every(id=>members.includes(id))){status('버스트 순서에 포함된 니케를 모두 편성하세요.');return;}
     const windows=['none','auto'].includes(b3)?[]:[{startFrame:frame+2,endFrame:Math.min(seconds*60,frame+2+(b3==='5044'?900:600))}];
     if(windows.some(w=>w.startFrame>=w.endFrame)){status('버스트 시점은 전투 종료보다 앞서야 합니다.');return;}
-    const formRotation=form.get('burstRotation');
-    const serverTactic=toServerTacticDto(currentTactics,getMembersWithMeta());
-    const burst3Rotation=formRotation?String(formRotation).split(',').filter(Boolean):(serverTactic?.burst3Rotation??[]);
-    const unavailablePolicy=form.get('burstUnavailable')||serverTactic?.unavailablePolicy||'next_ready';
-    const request={snapshotId:snapshot.id,characterIds:members,scenarioLevel:form.get('level')===''?null:Number(form.get('level')),
-      conditions:{autoBurst:b3==='auto'?{burst3Rotation,unavailablePolicy,tactic:serverTactic}:null,roundingPolicy:form.get('rounding'),casts:['none','auto'].includes(b3)?[]:['5011','5008',b3].map((id,i)=>({frame:frame+i,characterId:id,slot:'burst'})),
-        combat:{manualCharacterId:b3==='auto'?form.get('manualCharacter'):'',manualStyle:b3==='auto'?form.get('manualStyle'):'full_charge',durationFrames:seconds*60,enemyDefense:Number(form.get('defense')),critMode:form.get('crit'),core:form.has('core'),properDistance:form.has('distance'),elementAdvantage:form.has('element'),pelletCoefficientPolicy:form.get('pellet'),fullBurstWindows:windows,trace:false,targetLabel:'solo_raid_challenge'}}};
+    const serverTactic = toServerTacticDto(currentTactics, getMembersWithMeta());
+    let autoBurstPayload = null;
+    if (b3 === 'auto') {
+      if (serverTactic) {
+        // Tactic mode: legacy burst3Rotation must be empty, unavailablePolicy next_ready (no mix rejection)
+        autoBurstPayload = { tactic: serverTactic, burst3Rotation: [], unavailablePolicy: 'next_ready' };
+      } else {
+        const formRotation = form.get('burstRotation');
+        const burst3Rotation = formRotation ? String(formRotation).split(',').filter(Boolean) : [];
+        const unavailablePolicy = form.get('burstUnavailable') || 'next_ready';
+        autoBurstPayload = { burst3Rotation, unavailablePolicy };
+      }
+    }
+    const targetDamageLogCharId = (typeof damageLogViewer !== 'undefined' && damageLogViewer?.getSelectedCharacterId?.()) || '5004';
+    const request = {
+      snapshotId: snapshot.id,
+      characterIds: members,
+      scenarioLevel: form.get('level') === '' ? null : Number(form.get('level')),
+      conditions: {
+        damageLog: { characterId: targetDamageLogCharId },
+        autoBurst: autoBurstPayload,
+        roundingPolicy: form.get('rounding'),
+        casts: ['none', 'auto'].includes(b3) ? [] : ['5011', '5008', b3].map((id, i) => ({ frame: frame + i, characterId: id, slot: 'burst' })),
+        combat: {
+          manualCharacterId: b3 === 'auto' ? form.get('manualCharacter') : '',
+          manualStyle: b3 === 'auto' ? form.get('manualStyle') : 'full_charge',
+          durationFrames: seconds * 60,
+          enemyDefense: Number(form.get('defense')),
+          critMode: form.get('crit'),
+          core: form.has('core'),
+          properDistance: form.has('distance'),
+          elementAdvantage: form.has('element'),
+          pelletCoefficientPolicy: form.get('pellet'),
+          fullBurstWindows: windows,
+          trace: false,
+          targetLabel: 'solo_raid_challenge'
+        }
+      }
+    };
     $('run-replay').disabled=true;$('replay-result').textContent='검산 중…';
     try{lastReplay=await api('/runtime/skill-replays','POST',request);renderReplay(lastReplay);status('검산 결과를 저장했습니다.');}
     catch(error){$('replay-result').textContent=error.message;}
