@@ -770,6 +770,312 @@
           ]
         }
       ]
+    },
+    "all_flags_false": {
+      "hit": {
+        "statAttack": 144863,
+        "attackBuffs": [
+          {
+            "source": "overload:syn:head:1:StatAtk",
+            "rate": 0.1111,
+            "stacks": 1
+          }
+        ],
+        "runtimeAttackBuffs": [
+          {
+            "source": "skill:5011:108231001",
+            "rate": 0.66,
+            "stacks": 1
+          }
+        ],
+        "attackFlatBuffs": [
+          {
+            "source": "skill:5009:227110701",
+            "amount": 17191
+          }
+        ],
+        "defense": 30925,
+        "coefficient": 0.6904,
+        "damageType": "normal",
+        "attackStatBasis": "native_caster_attack",
+        "snapshotTiming": "explicit_single_hit",
+        "canCrit": true,
+        "canCore": true,
+        "crit": false,
+        "core": false,
+        "chargeApplicable": true,
+        "fullCharge": false,
+        "chargeBase": 3.5,
+        "chargeMultiplierBonus": 0.0947,
+        "chargeAdd": 0.07,
+        "properDistance": false,
+        "distanceBonus": 0.3,
+        "fullBurst": false,
+        "burstBonus": 0.5,
+        "critBonus": 0.6246,
+        "coreBonus": 1,
+        "pierce": false,
+        "parts": false,
+        "attackDamage": 0,
+        "pierceDamage": 0,
+        "partsDamage": 0,
+        "dotDamage": 0,
+        "sequentialDamage": 0,
+        "trueDamage": 0,
+        "damageTaken": 0.3926,
+        "distributionDamage": 0,
+        "elementAdvantage": false,
+        "elementBase": 0.1,
+        "elementBonus": 0
+      },
+      "candidates": [
+        {
+          "policy": "legacy_term_floor",
+          "damage": 233470,
+          "residual": null,
+          "relativeError": null,
+          "terms": [
+            {
+              "name": "effectiveAttack",
+              "before": 144863,
+              "after": 273758,
+              "operation": "native \u002B grouped rounded native * (OL \u002B passive \u002B active skill rates) \u002B caster-based flat grants"
+            },
+            {
+              "name": "effectiveDefense",
+              "before": 30925,
+              "after": 30925,
+              "operation": "identity"
+            },
+            {
+              "name": "charge",
+              "before": 3.5,
+              "after": 1,
+              "operation": "base * (1 \u002B multiplierBonus) \u002B add; gated by fullCharge"
+            },
+            {
+              "name": "P",
+              "before": 242833,
+              "after": 167651.9032,
+              "operation": "attackDefenseDifference * coefficient * charge"
+            },
+            {
+              "name": "base",
+              "before": 167651.9032,
+              "after": 167651,
+              "operation": "floor"
+            },
+            {
+              "name": "distance",
+              "before": 0,
+              "after": 0,
+              "operation": "floor"
+            },
+            {
+              "name": "fullBurst",
+              "before": 0,
+              "after": 0,
+              "operation": "floor"
+            },
+            {
+              "name": "critical",
+              "before": 0,
+              "after": 0,
+              "operation": "floor"
+            },
+            {
+              "name": "core",
+              "before": 0,
+              "after": 0,
+              "operation": "floor"
+            },
+            {
+              "name": "B2",
+              "before": 167651.9032,
+              "after": 167651,
+              "operation": "sum of floored base and active bonus terms"
+            },
+            {
+              "name": "B3",
+              "before": 167651,
+              "after": 167651,
+              "operation": "multiply 1"
+            },
+            {
+              "name": "B4",
+              "before": 167651,
+              "after": 233470.7826,
+              "operation": "multiply 1.3926"
+            },
+            {
+              "name": "B5",
+              "before": 233470.7826,
+              "after": 233470.7826,
+              "operation": "multiply 1"
+            },
+            {
+              "name": "final",
+              "before": 233470.7826,
+              "after": 233470,
+              "operation": "floor"
+            }
+          ]
+        },
+        {
+          "policy": "final_round_even",
+          "damage": 233472,
+          "residual": null,
+          "relativeError": null,
+          "terms": [
+            {
+              "name": "effectiveAttack",
+              "before": 144863,
+              "after": 273758,
+              "operation": "native \u002B grouped rounded native * (OL \u002B passive \u002B active skill rates) \u002B caster-based flat grants"
+            },
+            {
+              "name": "effectiveDefense",
+              "before": 30925,
+              "after": 30925,
+              "operation": "identity"
+            },
+            {
+              "name": "charge",
+              "before": 3.5,
+              "after": 1,
+              "operation": "base * (1 \u002B multiplierBonus) \u002B add; gated by fullCharge"
+            },
+            {
+              "name": "P",
+              "before": 242833,
+              "after": 167651.9032,
+              "operation": "attackDefenseDifference * coefficient * charge"
+            },
+            {
+              "name": "B2",
+              "before": 167651.9032,
+              "after": 167651.9032,
+              "operation": "P * (1 \u002B active bonuses)"
+            },
+            {
+              "name": "B3",
+              "before": 167651.9032,
+              "after": 167651.9032,
+              "operation": "multiply 1"
+            },
+            {
+              "name": "B4",
+              "before": 167651.9032,
+              "after": 233472.04039632002,
+              "operation": "multiply 1.3926"
+            },
+            {
+              "name": "B5",
+              "before": 233472.04039632002,
+              "after": 233472.04039632002,
+              "operation": "multiply 1"
+            },
+            {
+              "name": "final",
+              "before": 233472.04039632002,
+              "after": 233472,
+              "operation": "round ties-to-even; min 1"
+            }
+          ]
+        },
+        {
+          "policy": "nested_floor",
+          "damage": 233470,
+          "residual": null,
+          "relativeError": null,
+          "terms": [
+            {
+              "name": "effectiveAttack",
+              "before": 144863,
+              "after": 273758,
+              "operation": "native \u002B grouped rounded native * (OL \u002B passive \u002B active skill rates) \u002B caster-based flat grants"
+            },
+            {
+              "name": "effectiveDefense",
+              "before": 30925,
+              "after": 30925,
+              "operation": "identity"
+            },
+            {
+              "name": "charge",
+              "before": 3.5,
+              "after": 1,
+              "operation": "base * (1 \u002B multiplierBonus) \u002B add; gated by fullCharge"
+            },
+            {
+              "name": "P",
+              "before": 242833,
+              "after": 167651.9032,
+              "operation": "attackDefenseDifference * coefficient * charge"
+            },
+            {
+              "name": "base",
+              "before": 167651.9032,
+              "after": 167651,
+              "operation": "floor"
+            },
+            {
+              "name": "distance",
+              "before": 0,
+              "after": 0,
+              "operation": "floor"
+            },
+            {
+              "name": "fullBurst",
+              "before": 0,
+              "after": 0,
+              "operation": "floor"
+            },
+            {
+              "name": "critical",
+              "before": 0,
+              "after": 0,
+              "operation": "floor"
+            },
+            {
+              "name": "core",
+              "before": 0,
+              "after": 0,
+              "operation": "floor"
+            },
+            {
+              "name": "B2",
+              "before": 167651.9032,
+              "after": 167651,
+              "operation": "sum of floored base and active bonus terms"
+            },
+            {
+              "name": "B3",
+              "before": 167651,
+              "after": 167651,
+              "operation": "multiply 1; floor"
+            },
+            {
+              "name": "B4",
+              "before": 167651,
+              "after": 233470,
+              "operation": "multiply 1.3926; floor"
+            },
+            {
+              "name": "B5",
+              "before": 233470,
+              "after": 233470,
+              "operation": "multiply 1; floor"
+            },
+            {
+              "name": "final",
+              "before": 233470,
+              "after": 233470,
+              "operation": "floor"
+            }
+          ]
+        }
+      ]
     }
   }
 }

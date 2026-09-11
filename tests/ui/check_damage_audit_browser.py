@@ -17,6 +17,7 @@ import http.server
 import io
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import socket
@@ -47,7 +48,7 @@ PANEL_PROBE = """() => {
   const shells = [...p.querySelectorAll('.table-scroll')];
   const outside = [...p.querySelectorAll('*')].filter(e => !shells.some(s => s.contains(e)))
     .filter(e => e.getBoundingClientRect().right > p.getBoundingClientRect().right + 1).length;
-  return { text: p.innerText, cards, steps, groups,
+  return { text: p.innerText, cards, steps, groups, row: document.querySelector('tr.selected-row')?.innerText ?? null,
     overflow: { document: document.documentElement.scrollWidth - window.innerWidth, panel: p.scrollWidth - p.clientWidth, outsideElements: outside } };
 }"""
 
@@ -129,6 +130,79 @@ def synthetic_replay(template):
     return replay
 
 
+def missing_flags_replay(template):
+    """Synthetic: stored terms kept while hit flags are removed, null or explicitly false."""
+    fixture = json.loads(FIXTURE.read_text(encoding='utf-8'))
+
+    def case(name):
+        c = fixture['cases'][name]
+        return c['hit'], next(x for x in c['candidates'] if x['policy'] == 'legacy_term_floor')
+
+    crit_hit, crit_calc = case('crit_core_fullburst_distance')
+    false_hit, false_calc = case('all_flags_false')
+    partial = dict(crit_hit, crit=None, pierce=None)
+    for key in ('fullCharge', 'properDistance', 'damageTaken', 'runtimeAttackBuffs'):
+        partial.pop(key, None)
+
+    def buffs(frame):
+        def buff(source, fid, type_, value, basis, target='5004'):
+            return {'effect': {'source': source, 'target': target, 'functionId': fid, 'groupId': fid // 100, 'type': type_,
+                               'value': value, 'stacks': 1, 'expiresAt': frame + 300, 'basis': basis},
+                    'appliedAtFrame': frame - 30, 'eventId': fid % 1000, 'burstCastId': None}
+        return [buff('5011', 208211008, 51, 0.1246, 'native_recipient'), buff('5004', 119111003, 11, 0.07, 'native_caster'),
+                buff('5004', 219120701, 54, 10, 'native_caster'), buff('5008', 127031004, 42, 0.3926, 'native_recipient', target='boss'),
+                buff('5009', 227120701, 14, 1, 'native_recipient'), buff('5011', 208211006, 14, 0.4517, 'native_recipient'),
+                buff('5011', 108231001, 1, 0.66, 'native_recipient')]
+
+    variants = [('empty_hit', {}, crit_calc, None), ('partial_null_hit', partial, crit_calc, None),
+                ('no_hit', None, crit_calc, None), ('explicit_false', false_hit, false_calc, False)]
+    entries, total = [], 0
+    for index, (variant, hit, calculation, flag) in enumerate(variants):
+        total += calculation['damage']
+        frame = 900 + index * 60
+        entry = {'hitId': 9100 + index, 'parentId': 8100 + index, 'shotId': 8100 + index, 'pelletIndex': 0, 'frame': frame,
+                 'seconds': frame / 60, 'source': '5004', 'target': 'boss', 'effect': 'normal_attack', 'kind': 2, 'skillId': None,
+                 'functionId': None, 'damage': calculation['damage'], 'cumulativeDamage': total, 'weaponShotId': 1019101,
+                 'chargeRatioRaw': None, 'fullCharge': flag, 'effectiveChargeFrames': None, 'actualChargeFrames': None, 'shot': None,
+                 'ownBurstEffectActive': flag, 'ownBurstCastId': None, 'calculation': calculation, 'buffs': buffs(frame),
+                 'syntheticVariant': variant}
+        if hit is not None:
+            entry['hit'] = hit
+        entries.append(entry)
+    replay = copy.deepcopy(template)
+    replay['id'] = 'synthetic-audit-missing-flags'
+    replay['result']['damageLog'] = {'schemaVersion': 1, 'characterId': '5004', 'status': 'complete', 'truncated': False,
+                                     'truncationReason': None, 'eventCount': len(entries), 'totalDamage': total, 'entries': entries}
+    return replay
+
+
+def expect_flags(probe, entry):
+    """Missing/null flags must stay unknown; explicit false may be stated; type14 integer never gets a unit."""
+    problems = []
+    text, cards, groups, row = probe['text'], probe['cards'], probe['groups'], probe.get('row') or ''
+    if '단위 미확인 · 원값 1' not in text or '+45.17%' not in text or '+1발' in text or '+100%' in text:
+        problems.append('type14 unit claim')
+    bonus = cards.get('가산 보너스 묶음 (1 + 합)')
+    if entry['syntheticVariant'] == 'explicit_false':
+        excluded = ' '.join(groups.get('excluded', []))
+        if bonus != '1' or '풀차지 아님 → 1' not in text:
+            problems.append(f'explicit false not stated: {bonus!r}')
+        if '크리티컬 아님' not in excluded or '풀차지 타격 아님' not in excluded:
+            problems.append('explicit false exclusions missing')
+        if '일반' not in row or '비풀차지' not in row:
+            problems.append('explicit false row: ' + row)
+    else:
+        if bonus != '미확인' or '풀차지 여부 미기록' not in text:
+            problems.append(f'unknown flags shown as known: {bonus!r}')
+        if groups.get('applied') or groups.get('excluded'):
+            problems.append(f"unprovable claim: {groups.get('applied')} {groups.get('excluded')}")
+        if any(word in text for word in ('크리티컬 아님', '풀차지 아님', '미적용')):
+            problems.append('missing flag rendered as false')
+        if '판정 미기록' not in row or '차지 기록 없음' not in row or '버스트 기록 없음' not in row:
+            problems.append('row flags: ' + row)
+    return problems
+
+
 def pick_hit(replay):
     entries = replay['result']['damageLog']['entries']
     def score(e):
@@ -175,6 +249,8 @@ def compare_panel(probe, entry):
             problems.append('bad effect text: ' + li)
         if 'HP 지속 회복' in li and ('%' in li.split('·')[1] or '초당 HP' not in li):
             problems.append('heal shown as percent: ' + li)
+        if re.search(r'최대 장탄 수 (스택당 )?[+-]?[\d,.]+발', li):
+            problems.append('ammo count claimed without value-type metadata: ' + li)
     if '크리배율 × 코어배율 × 풀버스트배율' in probe['text']:
         problems.append('old multiplicative formula still shown')
     return problems
@@ -330,15 +406,22 @@ async def run(args):
         async with async_playwright() as playwright:
             browser = await playwright.chromium.launch(channel='msedge', headless=True)
             try:
-                for label, replay in [('synthetic_http_real_saved_replay', real), ('synthetic_http_boundary', boundary)]:
+                scenarios = [('synthetic_http_real_saved_replay', real), ('synthetic_http_boundary', boundary),
+                             ('synthetic_http_missing_flags', missing_flags_replay(real))]
+                for label, replay in scenarios:
                     entries = replay['result']['damageLog']['entries']
-                    targets = entries if label == 'synthetic_http_boundary' else [pick_hit(replay)]
+                    targets = [pick_hit(replay)] if label == 'synthetic_http_real_saved_replay' else entries
                     for entry in targets:
                         key = f"{label}-hit{entry['hitId']}"
                         after, after_errors = await capture(browser, key + '-after', after_base, replay, entry, output, WIDTHS)
-                        scenario = {'hitId': entry['hitId'], 'policy': entry['calculation']['policy'], 'damage': entry['damage'],
-                                    'crit': entry['hit'].get('crit'), 'core': entry['hit'].get('core'), 'fullBurst': entry['hit'].get('fullBurst'),
-                                    'problems': compare_panel(after[1500]['probe'], entry), 'errors': after_errors,
+                        problems = compare_panel(after[1500]['probe'], entry)
+                        if label == 'synthetic_http_missing_flags':
+                            problems += expect_flags(after[1500]['probe'], entry)
+                        hit = entry.get('hit') or {}
+                        scenario = {'hitId': entry['hitId'], 'variant': entry.get('syntheticVariant'),
+                                    'policy': entry['calculation']['policy'], 'damage': entry['damage'],
+                                    'crit': hit.get('crit'), 'core': hit.get('core'), 'fullBurst': hit.get('fullBurst'),
+                                    'row': after[1500]['probe'].get('row'), 'problems': problems, 'errors': after_errors,
                                     'overflow': {w: s['overflow'] for w, s in after.items()},
                                     'screenshots': [s['screenshot'] for s in after.values()],
                                     'effects': after[1500]['probe']['groups'], 'cards': after[1500]['probe']['cards']}

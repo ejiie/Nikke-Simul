@@ -425,8 +425,11 @@ export function describeBuffSnapshot(snapshot, frame, ctx = null) {
     } else if (typeId === 61 && basis === 'caster_charge_centiseconds') {
       unit = 'chargeCs'; label = '차지 시간'; basisText = '시전자 차지 시간 기준 · 고정 단축량';
     } else if (typeId === 14 && NATIVE_BASES.has(basis)) {
-      unit = value !== null && Number.isInteger(value) ? 'ammoCount' : 'ratio'; basisText = standard;
-      if (unit === 'ammoCount') note = '값 유형 미기록 · 정수 원값을 탄 수로 표시';
+      // StatAmmo is Integer (raw count kept as an integer) or Percent (raw/10000). The snapshot carries no
+      // value type, so only a non-integer value proves Percent; an integer (1 = 1발 or 100%) stays unknown.
+      basisText = standard;
+      if (value !== null && !Number.isInteger(value)) { unit = 'ratio'; note = '소수 원값 → 비율(Percent) 확정'; }
+      else { unit = 'unknownUnit'; note = '탄 수/비율 구분 기록 없음'; }
     } else if (def.unit === 'ratio' && NATIVE_BASES.has(basis)) {
       unit = 'ratio'; basisText = standard;
     } else if (def.unit !== 'raw') {
@@ -438,12 +441,13 @@ export function describeBuffSnapshot(snapshot, frame, ctx = null) {
     : unit === 'flat' ? formatSignedAudit(v)
     : unit === 'hpPerSecond' ? `초당 HP ${formatSignedAudit(v)}`
     : unit === 'chargeCs' ? formatSignedAudit(-v / 100, '초')
-    : unit === 'ammoCount' ? formatSignedAudit(v, '발')
+    : unit === 'unknownUnit' ? `단위 미확인 · 원값 ${formatAuditNumber(v)}`
     : `원값 ${formatAuditNumber(v)}`;
   let valueText;
   if (value === null) valueText = '값 미기록';
   else if (stacks !== null && stacks > 1) {
-    valueText = unit === 'raw' ? `${format(value)} · ${stacks}스택` : `스택당 ${format(value)} × ${stacks} = ${format(value * stacks)}`;
+    valueText = unit === 'raw' || unit === 'unknownUnit'
+      ? `${format(value)} · ${stacks}스택` : `스택당 ${format(value)} × ${stacks} = ${format(value * stacks)}`;
   } else valueText = format(value);
   const duration = describeAuditDuration(effect.expiresAt, frame);
   const sourceId = effect.source != null ? String(effect.source) : null;
@@ -451,7 +455,7 @@ export function describeBuffSnapshot(snapshot, frame, ctx = null) {
   return {
     typeId,
     typeKey: def?.key ?? null,
-    known: Boolean(def) && !note?.startsWith('예상하지'),
+    known: Boolean(def) && unit !== 'unknownUnit' && !note?.startsWith('예상하지'),
     label,
     unit,
     value,
@@ -479,35 +483,62 @@ export function describeBuffSnapshot(snapshot, frame, ctx = null) {
  * Decides whether an active effect is an input of this hit's HitCalculator call.
  * Uses stored hit fields only; contributions that the log cannot prove stay 'unverified'.
  */
+// A missing or null flag is "not recorded", never false.
+const triState = v => v === true ? true : v === false ? false : null;
+
+const HIT_INDEPENDENT_TYPES = new Set([0, 2, 3, 5, 8, 14, 27, 40, 61, 62, 94]); // never HitCalculator inputs
+
 export function classifyBuffForHit(desc, hit, ctx = null) {
-  if (!hit || typeof hit !== 'object') return { group: 'unverified', axis: null, reason: '타격 계산 입력(hit) 미제공' };
+  const hitMissing = !hit || typeof hit !== 'object';
+  const ownTarget = desc.typeId === 42 && desc.targetId != null && desc.targetId !== 'boss';
+  if (hitMissing && !HIT_INDEPENDENT_TYPES.has(desc.typeId) && !ownTarget) {
+    return { group: 'unverified', axis: null, reason: '타격 계산 입력(hit) 미제공' };
+  }
+  hit = hitMissing ? {} : hit;
   const indirect = reason => ({ group: 'indirect', axis: null, reason });
+  const unverified = (axis, reason) => ({ group: 'unverified', axis, reason });
+  const applied = axis => ({ group: 'applied', axis, reason: null });
+  const excluded = (axis, reason) => ({ group: 'excluded', axis, reason });
+  // Additive/multiplier effects need a recorded value with the engine's ratio basis before a claim.
+  const measurable = desc.value !== null && desc.unit === 'ratio';
+  const unmeasured = axis => unverified(axis, '값 또는 basis 미확인');
   switch (desc.typeId) {
     case 1: {
+      const rates = Array.isArray(hit.runtimeAttackBuffs) ? hit.runtimeAttackBuffs : null;
+      const flats = Array.isArray(hit.attackFlatBuffs) ? hit.attackFlatBuffs : null;
       const key = `skill:${desc.sourceId}:${desc.functionId}`;
-      if ((hit.runtimeAttackBuffs ?? []).some(b => b?.source === key)) return { group: 'applied', axis: '최종 공격력 · 비율 합산', reason: null };
-      if ((hit.attackFlatBuffs ?? []).some(b => b?.source === key)) return { group: 'applied', axis: '최종 공격력 · 고정 가산', reason: null };
-      return { group: 'unverified', axis: '최종 공격력', reason: '타격 공격력 입력 목록에 같은 출처가 없음' };
+      if (rates?.some(b => b?.source === key)) return applied('최종 공격력 · 비율 합산');
+      if (flats?.some(b => b?.source === key)) return applied('최종 공격력 · 고정 가산');
+      return unverified('최종 공격력', rates && flats ? '타격 공격력 입력 목록에 같은 출처가 없음' : '타격 공격력 입력 목록 미기록');
     }
-    case 11:
-      return hit.fullCharge && hit.chargeApplicable
-        ? { group: 'applied', axis: '차지 배율 · 가산항', reason: null }
-        : { group: 'excluded', axis: '차지 배율', reason: '풀차지 타격 아님 → 차지 배율 1' };
-    case 51:
-      return hit.crit
-        ? { group: 'applied', axis: '가산 묶음 · 크리티컬 보너스', reason: null }
-        : { group: 'excluded', axis: '크리티컬 보너스', reason: '크리티컬 아님' };
+    case 11: {
+      const fullCharge = triState(hit.fullCharge);
+      if (fullCharge === false) return excluded('차지 배율', '풀차지 타격 아님 → 차지 배율 1');
+      if (fullCharge === null || triState(hit.chargeApplicable) !== true) return unverified('차지 배율', '풀차지 적용 여부 미기록');
+      return measurable ? applied('차지 배율 · 가산항') : unmeasured('차지 배율 · 가산항');
+    }
+    case 51: {
+      const crit = triState(hit.crit);
+      if (crit === false) return excluded('크리티컬 보너스', '크리티컬 아님');
+      if (crit === null) return unverified('크리티컬 보너스', '크리티컬 여부 미기록');
+      return measurable ? applied('가산 묶음 · 크리티컬 보너스') : unmeasured('가산 묶음 · 크리티컬 보너스');
+    }
     case 42:
-      return desc.targetId === 'boss'
-        ? { group: 'applied', axis: 'B4 · 받는 대미지', reason: null }
-        : indirect('아군 대상 효과 · 이 타격 산식 항 아님');
+      if (desc.targetId == null) return unverified('B4 · 받는 대미지', '효과 대상 미기록');
+      if (desc.targetId !== 'boss') return indirect('아군 대상 효과 · 이 타격 산식 항 아님');
+      if (!isFiniteNumber(hit.damageTaken)) return unverified('B4 · 받는 대미지', '타격 받는 대미지 입력 미기록');
+      return measurable ? applied('B4 · 받는 대미지') : unmeasured('B4 · 받는 대미지');
     case 96:
-      if (ctx?.interruptionTarget === true) return { group: 'applied', axis: 'B3 · 공격 대미지(저지 대상)', reason: null };
-      if (ctx?.interruptionTarget === false) return { group: 'excluded', axis: 'B3', reason: '저지 대상 조건 꺼짐' };
-      return { group: 'unverified', axis: 'B3', reason: '저지 대상 조건 미확인' };
-    case 54:
-      if (hit.pierce && isFiniteNumber(hit.pierceDamage) && hit.pierceDamage !== 0) return { group: 'applied', axis: 'B3 · 관통 대미지', reason: null };
-      return indirect(hit.pierce ? '관통 판정만 활성 · 관통 대미지 보너스 0' : '이 타격은 관통 판정 없음');
+      if (ctx?.interruptionTarget === false) return excluded('B3', '저지 대상 조건 꺼짐');
+      if (ctx?.interruptionTarget !== true) return unverified('B3', '저지 대상 조건 미확인');
+      return measurable ? applied('B3 · 공격 대미지(저지 대상)') : unmeasured('B3 · 공격 대미지(저지 대상)');
+    case 54: {
+      const pierce = triState(hit.pierce);
+      if (pierce === null) return unverified('B3 · 관통 대미지', '관통 판정 미기록');
+      if (pierce === false) return indirect('이 타격은 관통 판정 없음');
+      if (!isFiniteNumber(hit.pierceDamage)) return unverified('B3 · 관통 대미지', '관통 대미지 입력 미기록');
+      return hit.pierceDamage !== 0 ? applied('B3 · 관통 대미지') : indirect('관통 판정만 활성 · 관통 대미지 보너스 0');
+    }
     case 5: case 14: case 27: case 61:
       return indirect('발사·탄약 흐름에 영향 · 피해 산식 항 아님');
     case 8:
@@ -545,10 +576,11 @@ export function buildDamageBreakdown(entry) {
     ['core', '코어', 'core', 'coreBonus']
   ].map(([name, label, flag, field]) => {
     const t = term(name);
-    return { name, label, active: hit ? Boolean(hit[flag]) : null, bonus: val(hit?.[field]),
+    return { name, label, active: triState(hit?.[flag]), bonus: val(hit?.[field]),
       term: t ? { before: val(t.before), after: val(t.after) } : null };
   });
-  const bonusSum = hit && bonuses.every(b => !b.active || b.bonus !== null)
+  // Known only when every flag is explicit and every active bonus value is recorded.
+  const bonusSum = bonuses.every(b => b.active === false || (b.active === true && b.bonus !== null))
     ? bonuses.reduce((sum, b) => sum + (b.active ? b.bonus : 0), 0) : null;
   const factors = ['B3', 'B4', 'B5'].map(name => {
     const t = term(name);
@@ -571,7 +603,9 @@ export function buildDamageBreakdown(entry) {
     coefficient: val(hit?.coefficient) ?? val(legacy?.skillMultiplier),
     charge: {
       value: val(chargeTerm?.after) ?? val(legacy?.charge) ?? val(legacy?.chargeMultiplier),
-      applied: hit ? Boolean(hit.fullCharge && hit.chargeApplicable) : null,
+      // HitCalculator: charge = FullCharge ? … : 1 and FullCharge requires ChargeApplicable.
+      applied: triState(hit?.fullCharge) === false ? false
+        : triState(hit?.fullCharge) === true && triState(hit?.chargeApplicable) === true ? true : null,
       base: val(hit?.chargeBase), multiplierBonus: val(hit?.chargeMultiplierBonus), add: val(hit?.chargeAdd)
     },
     p: val(pTerm?.after),
@@ -656,11 +690,12 @@ export function mapServerEntryToHit(entry, defaultRoundingPolicy = 'final_round_
     Object.assign(termsMap, calc.terms);
   }
 
-  const isCritical = Boolean(hitContext.crit);
-  const isCore = Boolean(hitContext.core);
-  const isTeamFullBurst = Boolean(hitContext.fullBurst);
-  const isSelfBurstActive = Boolean(entry.ownBurstEffectActive);
-  const isFullCharge = entry.fullCharge !== undefined ? entry.fullCharge : null; // Preserve nullable
+  // true / false / null(미기록): a missing flag is never reported as false.
+  const isCritical = triState(hitContext.crit);
+  const isCore = triState(hitContext.core);
+  const isTeamFullBurst = triState(hitContext.fullBurst);
+  const isSelfBurstActive = triState(entry.ownBurstEffectActive);
+  const isFullCharge = triState(entry.fullCharge); // engine null = not a charge weapon or unrecorded
 
   // chargeRatioRaw / 10000 -> 0~1 ratio
   const chargeRate = (entry.chargeRatioRaw === null || entry.chargeRatioRaw === undefined)

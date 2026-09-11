@@ -62,10 +62,94 @@ await check('charge_speed_rate_vs_caster_centiseconds', () => {
   assert.equal(cs.label, '차지 시간'); assert.equal(cs.valueText, '-0.12초'); assert.equal(cs.unit, 'chargeCs');
 });
 
-await check('ammo_count_vs_rate', () => {
-  const count = describe({ type: 14, value: 4, basis: 'native_recipient' });
-  assert.equal(count.valueText, '+4발'); assert.match(count.note, /값 유형 미기록/);
-  assert.equal(describe({ type: 14, value: 0.4517, basis: 'native_recipient' }).valueText, '+45.17%');
+await check('ammo_unit_only_when_proven', () => {
+  // Integer 1 can be 1발 (Integer) or 100% (Percent 10000/10000); never pick one without metadata.
+  for (const value of [1, 4, 0, -2]) {
+    const d = describe({ type: 14, value, basis: 'native_recipient' });
+    assert.equal(d.unit, 'unknownUnit'); assert.equal(d.valueText, `단위 미확인 · 원값 ${value}`); assert.equal(d.known, false);
+    assert.ok(!d.valueText.includes('발') && !d.valueText.includes('%'));
+  }
+  assert.equal(describe({ type: 14, value: 4, basis: 'native_recipient', stacks: 2 }).valueText, '단위 미확인 · 원값 4 · 2스택');
+  const rate = describe({ type: 14, value: 0.4517, basis: 'native_recipient' });
+  assert.equal(rate.valueText, '+45.17%'); assert.match(rate.note, /Percent/);
+  assert.equal(describe({ type: 14, value: -0.25, basis: 'native_recipient' }).valueText, '-25%');
+  assert.equal(describe({ type: 14, value: 4, basis: 'odd_basis' }).valueText, '원값 4');
+  assert.equal(adapter.classifyBuffForHit(describe({ type: 14, value: 1, basis: 'native_recipient' }), {}, ctx).group, 'indirect');
+});
+
+const critHit = () => ({ ...fixture.cases.crit_core_fullburst_distance.hit });
+const withHit = hit => ({ ...caseEntry('crit_core_fullburst_distance', 'legacy_term_floor'), hit });
+
+await check('breakdown_flags_tri_state', () => {
+  const empty = adapter.buildDamageBreakdown({ hit: {}, damage: 10 });
+  assert.ok(empty.bonuses.every(x => x.active === null)); assert.equal(empty.bonusSum, null); assert.equal(empty.charge.applied, null);
+  const emptyHtml = html(withHit({}));
+  assert.ok(emptyHtml.includes('미확인') && emptyHtml.includes('풀차지 여부 미기록') && emptyHtml.includes('크리티컬 미기록'));
+  assert.ok(!emptyHtml.includes('풀차지 아님') && !emptyHtml.includes('미적용'));
+  const noHit = adapter.buildDamageBreakdown({ damage: 10, calculation: caseEntry('crit_core_fullburst_distance', 'legacy_term_floor').calculation });
+  assert.ok(noHit.bonuses.every(x => x.active === null)); assert.equal(noHit.bonusSum, null); assert.equal(noHit.charge.applied, null);
+  const nullCrit = adapter.buildDamageBreakdown(withHit({ ...critHit(), crit: null }));
+  assert.equal(nullCrit.bonuses.find(x => x.name === 'critical').active, null);
+  assert.equal(nullCrit.bonuses.find(x => x.name === 'core').active, true); assert.equal(nullCrit.bonusSum, null);
+  const missing = critHit(); delete missing.properDistance; delete missing.fullCharge;
+  const missingB = adapter.buildDamageBreakdown(withHit(missing));
+  assert.equal(missingB.bonuses.find(x => x.name === 'distance').active, null); assert.equal(missingB.charge.applied, null); assert.equal(missingB.bonusSum, null);
+  const noBonusValue = critHit(); delete noBonusValue.critBonus;
+  assert.equal(adapter.buildDamageBreakdown(withHit(noBonusValue)).bonusSum, null);
+  assert.equal(adapter.buildDamageBreakdown(withHit({ ...critHit(), crit: 'true' })).bonusSum, null);
+  const allFalse = { ...critHit(), crit: false, core: false, fullBurst: false, properDistance: false, fullCharge: false };
+  const falseB = adapter.buildDamageBreakdown(withHit(allFalse));
+  assert.ok(falseB.bonuses.every(x => x.active === false)); assert.equal(falseB.bonusSum, 0); assert.equal(falseB.charge.applied, false);
+  const falseHtml = html(withHit(allFalse));
+  assert.ok(falseHtml.includes('풀차지 아님 → 1') && falseHtml.includes('크리티컬 미적용'));
+  assert.equal(adapter.buildDamageBreakdown({ hit: { fullCharge: false } }).charge.applied, false);
+  assert.equal(adapter.buildDamageBreakdown({ hit: { fullCharge: true } }).charge.applied, null);
+  assert.equal(adapter.buildDamageBreakdown({ hit: { fullCharge: true, chargeApplicable: true } }).charge.applied, true);
+  const normal = adapter.buildDamageBreakdown(caseEntry('crit_core_fullburst_distance', 'legacy_term_floor'));
+  assert.ok(normal.bonuses.every(x => x.active === true)); assert.equal(normal.charge.applied, true);
+});
+
+await check('classification_never_infers_from_missing', () => {
+  const cls = (effect, hit, context = ctx) => adapter.classifyBuffForHit(describe(effect), hit, context);
+  const crit = { type: 51, value: 0.1246, basis: 'native_recipient' };
+  assert.deepEqual([{}, { crit: null }, { crit: false }, { crit: true }].map(h => cls(crit, h).group), ['unverified', 'unverified', 'excluded', 'applied']);
+  assert.equal(cls(crit, {}).reason, '크리티컬 여부 미기록');
+  assert.equal(adapter.classifyBuffForHit({ typeId: 51, value: null, unit: 'raw' }, {}, null).group, 'unverified');
+  assert.equal(cls({ ...crit, value: null }, { crit: true }).group, 'unverified');
+  const charge = { type: 11, value: 0.07, basis: 'native_caster' };
+  assert.deepEqual([{}, { fullCharge: false }, { fullCharge: true }, { fullCharge: true, chargeApplicable: true }].map(h => cls(charge, h).group),
+    ['unverified', 'excluded', 'unverified', 'applied']);
+  const pierce = { type: 54, value: 10, basis: 'native_caster' };
+  assert.deepEqual([{}, { pierce: true }, { pierce: false }, { pierce: true, pierceDamage: 0 }, { pierce: true, pierceDamage: 0.2 }].map(h => cls(pierce, h).group),
+    ['unverified', 'unverified', 'indirect', 'indirect', 'applied']);
+  const taken = { type: 42, target: 'boss', value: 0.39, basis: 'native_recipient' };
+  assert.equal(cls(taken, {}).group, 'unverified'); assert.equal(cls(taken, { damageTaken: 0.39 }).group, 'applied');
+  assert.equal(cls({ ...taken, value: null }, { damageTaken: 0.39 }).group, 'unverified');
+  assert.equal(cls({ ...taken, target: null }, { damageTaken: 0.39 }).group, 'unverified');
+  assert.equal(cls({ ...taken, basis: 'odd_basis' }, { damageTaken: 0.39 }).group, 'unverified');
+  assert.equal(cls({ type: 1, value: 0.1, basis: 'native_recipient' }, {}).reason, '타격 공격력 입력 목록 미기록');
+  const interrupted = { ...ctx, interruptionTarget: true };
+  assert.equal(cls({ type: 96, value: null, basis: 'native_recipient' }, {}, interrupted).group, 'unverified');
+  assert.equal(cls({ type: 96, value: 0.1, basis: 'native_recipient' }, {}, interrupted).group, 'applied');
+  assert.equal(cls({ type: 61, value: 0.8, basis: 'native_caster' }, {}).group, 'indirect');
+  // Without any hit record: type-only facts stay, hit-dependent claims become unverified.
+  assert.equal(cls({ type: 61, value: 0.8, basis: 'native_caster' }, null).group, 'indirect');
+  assert.equal(cls({ type: 14, value: 1, basis: 'native_recipient' }, undefined).group, 'indirect');
+  assert.equal(cls({ ...taken, target: '5004' }, null).group, 'indirect');
+  for (const effect of [crit, charge, pierce, taken, { type: 1, value: 0.1, basis: 'native_recipient' }, { type: 777, value: 1 }]) {
+    assert.equal(cls(effect, null).group, 'unverified', `type ${effect.type}`);
+  }
+});
+
+await check('hit_model_flags_tri_state', () => {
+  const base = caseEntry('crit_core_fullburst_distance', 'legacy_term_floor');
+  const keys = ['isCritical', 'isCore', 'isTeamFullBurst', 'isSelfBurstActive', 'isFullCharge'];
+  const empty = adapter.mapServerEntryToHit({ ...base, hit: {} });
+  for (const key of keys) assert.equal(empty[key], null, key);
+  const explicit = adapter.mapServerEntryToHit({ ...base, fullCharge: false, ownBurstEffectActive: false, hit: { crit: false, core: false, fullBurst: false } });
+  for (const key of keys) assert.equal(explicit[key], false, key);
+  const yes = adapter.mapServerEntryToHit({ ...base, fullCharge: true, ownBurstEffectActive: true });
+  for (const key of keys) assert.equal(yes[key], true, key);
 });
 
 await check('raw_state_types_never_percent', () => {
@@ -251,6 +335,7 @@ if (realPath) {
           assert.ok(!e.valueText.includes('+-') && !/NaN|undefined/.test(e.valueText), e.valueText);
           if (e.typeId === 2) assert.ok(e.valueText.startsWith('초당 HP') && !e.valueText.includes('%'));
           if (e.basis === 'native_caster_flat_at_application') assert.ok(!e.valueText.includes('%'));
+          if (e.typeId === 14 && Number.isInteger(e.value)) assert.ok(e.valueText.startsWith('단위 미확인') && !e.valueText.includes('발'), e.valueText);
           const key = `${e.typeId}:${e.basis}:${e.sourceId}:${e.functionId}`;
           samples[key] ??= { label: e.label, valueText: e.valueText, group: e.group, axis: e.axis, reason: e.reason,
             origin: e.originText, raw: { type: e.typeId, value: e.value, stacks: e.stacks, basis: e.basis, expiresAt: e.raw.effect.expiresAt } };

@@ -59,13 +59,14 @@ export function renderDamageAuditPanel(hit, audit) {
       <strong class="audit-val ${tone}">${esc(value)}</strong>
       ${sub ? `<small class="audit-sub">${esc(sub)}</small>` : ''}
     </div>`;
+  // Hit flags are tri-state: only an explicit true/false supports "적용"/"미적용"; missing reads 미기록.
   const chargeSub = b.charge.applied === true
     ? `풀차지: ${f(b.charge.base)} × (1 + ${f(b.charge.multiplierBonus)}) + ${f(b.charge.add)}`
-    : b.charge.applied === false ? '풀차지 아님 → 1' : '';
+    : b.charge.applied === false ? '풀차지 아님 → 1' : '풀차지 여부 미기록';
   const bonusSub = b.bonuses
-    .map(x => x.active === null ? `${x.label} 미제공` : x.active ? `${x.label} +${f(x.bonus)}` : `${x.label} 미적용`)
+    .map(x => x.active === null ? `${x.label} 미기록` : x.active ? `${x.label} +${f(x.bonus)}` : `${x.label} 미적용`)
     .join(' · ');
-  const bonusValue = b.minimum ? '미적용 (최소 피해)' : b.bonusSum === null ? '미제공' : f(1 + b.bonusSum);
+  const bonusValue = b.minimum ? '미적용 (최소 피해)' : b.bonusSum === null ? '미확인' : f(1 + b.bonusSum);
   const factorValue = b.minimum ? '미적용 (최소 피해)'
     : b.factors.every(x => x.factor !== null) ? b.factors.map(x => f(x.factor)).join(' × ') : '미제공';
   const finalSub = b.finalMatchesStored === true ? '저장된 발당 피해와 일치'
@@ -276,9 +277,13 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, ge
 
     // Collected / Mock log display
     const hits = activeLogData?.hits || [];
-    const critCount = hits.filter(h => h.isCritical).length;
-    const coreCount = hits.filter(h => h.isCore).length;
-    const fullChargeCount = hits.filter(h => h.isFullCharge).length;
+    // Rates count only explicit true/false flags; unrecorded (null) hits are excluded and disclosed.
+    const flagRate = key => {
+      const known = hits.filter(h => h[key] === true || h[key] === false);
+      if (!known.length) return '기록 없음';
+      const pct = Math.round(known.filter(h => h[key] === true).length / known.length * 100);
+      return `${pct}%${known.length < hits.length ? ` (미기록 ${hits.length - known.length}건 제외)` : ''}`;
+    };
     const avgDamage = hits.length ? Math.round((activeLogData.totalDamage || 0) / hits.length) : 0;
 
     // Distinguish Shots vs Hits (direct skill hits without shotId are not counted as fired shots)
@@ -288,15 +293,16 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, ge
 
     const filteredHits = hits.filter(h => {
       if (minDamageFilter > 0 && h.damage < minDamageFilter) return false;
-      if (filterBurst === 'self_only' && (!h.isSelfBurstActive || h.isTeamFullBurst)) return false;
-      if (filterBurst === 'team_only' && (!h.isTeamFullBurst || h.isSelfBurstActive)) return false;
-      if (filterBurst === 'both' && (!h.isSelfBurstActive || !h.isTeamFullBurst)) return false;
-      if (filterBurst === 'none' && (h.isSelfBurstActive || h.isTeamFullBurst)) return false;
+      // Filters match explicit flags only; an unrecorded flag never counts as "not X".
+      if (filterBurst === 'self_only' && !(h.isSelfBurstActive === true && h.isTeamFullBurst === false)) return false;
+      if (filterBurst === 'team_only' && !(h.isTeamFullBurst === true && h.isSelfBurstActive === false)) return false;
+      if (filterBurst === 'both' && !(h.isSelfBurstActive === true && h.isTeamFullBurst === true)) return false;
+      if (filterBurst === 'none' && !(h.isSelfBurstActive === false && h.isTeamFullBurst === false)) return false;
 
-      if (filterHitType === 'full_charge' && !h.isFullCharge) return false;
-      if (filterHitType === 'non_full_charge' && h.isFullCharge) return false;
-      if (filterHitType === 'crit' && !h.isCritical) return false;
-      if (filterHitType === 'core' && !h.isCore) return false;
+      if (filterHitType === 'full_charge' && h.isFullCharge !== true) return false;
+      if (filterHitType === 'non_full_charge' && h.isFullCharge !== false) return false;
+      if (filterHitType === 'crit' && h.isCritical !== true) return false;
+      if (filterHitType === 'core' && h.isCore !== true) return false;
       return true;
     });
 
@@ -308,16 +314,19 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, ge
           <td>#${h.shotId ?? '—'} <small>(Hit #${h.hitId})</small></td>
           <td><strong>${num(h.damage)}</strong></td>
           <td>${num(h.cumulativeDamage)}</td>
-          <td>${h.isFullCharge ? '<span class="pill-badge green">풀차지</span>' : '<span class="pill-badge gray">비풀차지</span>'}</td>
+          <td>${h.isFullCharge === true ? '<span class="pill-badge green">풀차지</span>'
+            : h.isFullCharge === false ? '<span class="pill-badge gray">비풀차지</span>' : '<span class="text-muted">차지 기록 없음</span>'}</td>
           <td>
-            ${h.isCritical ? '<span class="pill-badge red">크리</span>' : ''}
-            ${h.isCore ? '<span class="pill-badge yellow">코어</span>' : ''}
-            ${!h.isCritical && !h.isCore ? '<span class="text-muted">일반</span>' : ''}
+            ${h.isCritical === true ? '<span class="pill-badge red">크리</span>' : ''}
+            ${h.isCore === true ? '<span class="pill-badge yellow">코어</span>' : ''}
+            ${h.isCritical === false && h.isCore === false ? '<span class="text-muted">일반</span>' : ''}
+            ${h.isCritical == null || h.isCore == null ? '<span class="text-muted">판정 미기록</span>' : ''}
           </td>
           <td>
-            ${h.isSelfBurstActive ? '<span class="pill-badge amber">자체 버스트</span>' : ''}
-            ${h.isTeamFullBurst ? '<span class="pill-badge cyan">팀 풀버스트</span>' : ''}
-            ${!h.isSelfBurstActive && !h.isTeamFullBurst ? '<span class="text-muted">—</span>' : ''}
+            ${h.isSelfBurstActive === true ? '<span class="pill-badge amber">자체 버스트</span>' : ''}
+            ${h.isTeamFullBurst === true ? '<span class="pill-badge cyan">팀 풀버스트</span>' : ''}
+            ${h.isSelfBurstActive === false && h.isTeamFullBurst === false ? '<span class="text-muted">—</span>' : ''}
+            ${h.isSelfBurstActive == null || h.isTeamFullBurst == null ? '<span class="text-muted">버스트 기록 없음</span>' : ''}
           </td>
           <td><button type="button" class="ghost small-btn" data-view-audit="${h.hitId}">근거 보기</button></td>
         </tr>
@@ -371,11 +380,11 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, ge
           </div>
           <div class="metric-card">
             <span>크리티컬 / 코어율</span>
-            <strong>${hits.length ? Math.round(critCount / hits.length * 100) : 0}% / ${hits.length ? Math.round(coreCount / hits.length * 100) : 0}%</strong>
+            <strong>${flagRate('isCritical')} / ${flagRate('isCore')}</strong>
           </div>
           <div class="metric-card">
             <span>풀차지 비율</span>
-            <strong>${hits.length ? Math.round(fullChargeCount / hits.length * 100) : 0}%</strong>
+            <strong>${flagRate('isFullCharge')}</strong>
           </div>
         </div>
 
@@ -618,9 +627,10 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, ge
       const cx = getX(h.seconds);
       const cy = getY(h.damage);
       const r = h.isFullCharge ? 4.5 : 3.0;
-      const color = h.isCritical ? '#ef4444' : '#2563eb';
-      const stroke = h.isCore ? '#f59e0b' : '#ffffff';
-      const strokeWidth = h.isCore ? 2 : 1;
+      // Unrecorded crit is grey rather than the "일반" blue.
+      const color = h.isCritical === true ? '#ef4444' : h.isCritical === false ? '#2563eb' : '#94a3b8';
+      const stroke = h.isCore === true ? '#f59e0b' : '#ffffff';
+      const strokeWidth = h.isCore === true ? 2 : 1;
 
       return `
         <circle cx="${cx}" cy="${cy}" r="${r}" fill="${color}" stroke="${stroke}" stroke-width="${strokeWidth}"
@@ -653,7 +663,7 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, ge
         const dmg = Number(dot.dataset.dmg).toLocaleString('ko-KR');
         const crit = dot.dataset.crit === 'true' ? '크리티컬 ' : '';
         const core = dot.dataset.core === 'true' ? '코어명중 ' : '';
-        const full = dot.dataset.full === 'true' ? '풀차지 ' : '비풀차지 ';
+        const full = dot.dataset.full === 'true' ? '풀차지 ' : dot.dataset.full === 'false' ? '비풀차지 ' : '';
         const self = dot.dataset.self === 'true' ? '자체버스트 ' : '';
         const team = dot.dataset.team === 'true' ? '팀풀버스트 ' : '';
 
