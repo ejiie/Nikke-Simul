@@ -125,3 +125,45 @@ Director의 확정 계정 복사본 API 결과에 적용할 CLI(입력 파일 �
 - 실게임 관측 데이터가 없어 피해·발사·차지·재장전·버스트 시점 오차는 미검증이다. 관측 부재는 오차 0이 아니다. 다중 후보 매칭 해결과 관측 시간 기준 정렬도 관측 제공 후 필요하다.
 - 196000 충전식과 세 전이 지연을 변경하지 않았다. 전체 기존 C# 회귀는 Director 소유이며 이번 실행은 예제 테스트 2개로 한정한다.
 - 현재 분석은 입력 결과와 기록된 산식의 일관성 확인이다. 엔진 자동 보정, 실전 추천, 대규모 MC, 실게임 검증 완료의 근거로 사용하지 않는다.
+
+## S3 종료 프레임 경계 결함 수정 — 2026-09-11 후속
+
+기준 `a16cb9e14f186d2fece7c81551c29816e04104eb`. 시작 `a17e079285171def7ed81e58585f74238980758a`의 미커밋 상태는 기존 미추적 package-lock.json뿐이었다. 조상 관계 확인 후 `git merge --ff-only a16cb9e14f186d2fece7c81551c29816e04104eb` 성공. package-lock.json의 전후 hash는 위 기록과 동일하다. 이 통합본에는 UI 99dfa2f가 포함되며 실제 브라우저 수용 통과는 사용자/Director 전달 결과다. 앞 절의 U3 미반영·실제 저장 로그 입력 미제공 상태는 이 후속 기록으로 갱신한다. 이번 작업에서 브라우저나 API 서버를 재실행하지 않았다.
+
+결함: `src/Nikke.Engine/Skills/SkillReplay.cs:615`의 전투 프레임 루프는 `for (frame=1; frame<=C.DurationFrames; frame++)`다. S3 검증기가 피해 행에 `frame < 0 || frame >= duration`을 사용하여 하한 0을 허용하고 마지막 프레임을 거부했다. **피해 로그 검증 범위는 `1 <= frame <= durationFrames`**로 수정했다. 전투 시작 관리 이벤트의 frame=0과 피해 행의 프레임 경계를 구별한다. 팀 풀버스트 효과 구간의 배타적 종료 조건을 바꾸는 수정은 아니다.
+
+변경은 `tools/damage-calibration/analyze.py`의 경계 조건/설명, 전용 테스트의 네 경계 사례, 본 문서뿐이다. 로그 필터링·행 삭제·피해/엔진 결과 재작성은 없다. 엔진/UI/Backend/Director·원본 데이터는 편집하지 않았다.
+
+경계 회귀는 각각 0 거부, 1 허용, duration(10800) 허용, duration+1(10801) 거부를 확인하며 모든 경우에 입력 전체 불변·행 수·피해량·마지막 프레임 보존도 검사한다. 수정 전에는 새 테스트 중 0과 duration 두 사례가 실패했고 기존 18개 및 나머지 두 경계 사례는 통과했다. 수정 후 **22개 통과, 실패 0**(기존 18개 + 경계 4개).
+
+실제 저장 로그 읽기 전용 입력:
+`C:/Users/user/orca/workspaces/Nikke-Simul/Director/artifacts/director/live-1ef80dd69d7a41669c609180d520ec85/ui-response.json`.
+입력 SHA-256 `9fa27ddbacd407f27764dcfa558556f1daa1339df6077a74047730f2a1780309`는 수정 전 분석 provenance, 수정 후 분석 provenance, 재검산 후 원본 파일에서 모두 같다. Director의 기존 실패 출력 `artifacts/s3/20260911T045358Z-30e6a72680e54fd38a6ad54b176ce0ea/analysis.json`도 읽기 전용 대조했으며 유일 issue가 outside_duration임을 확인했다.
+
+| 실제 저장 로그 재검산 | 수정 전 | 수정 후 |
+|---|---|---|
+| 입력 형태 / 수집 상태 | saved_skill_replay / complete | 동일 |
+| 명중 수 / 총 피해 | 135 / 153638004 | 동일, 전 행 보존 |
+| duration / 마지막 frame / tailFrames | 10800 / 10800 / 0 | 동일 |
+| issues / CLI 종료 코드 | outside_duration / 2 | 빈 배열 / 0 |
+| 독립 피해 산술 검사 | 135행 | 135행 일치 |
+| 관측 비교 | not_provided, 평균 절대/상대 오차 null | 동일 |
+
+실행 명령(자기 작업공간, 지시된 Python 사용):
+
+```powershell
+$taskPython = 'C:/Users/user/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe'
+& $taskPython tools/damage-calibration/test_analyze.py
+& $taskPython tools/damage-calibration/analyze.py 'C:/Users/user/orca/workspaces/Nikke-Simul/Director/artifacts/director/live-1ef80dd69d7a41669c609180d520ec85/ui-response.json'
+git diff --check
+```
+
+이번 증거는 모두 본인 작업공간의 새 artifacts 경로에 생성했다. 테스트 stdout/stderr는 Python subprocess로 tests.log에 보존했다.
+
+- 수정 전 실제 로그 재현: `artifacts/s3/20260911T045845Z-51262e9851b54cd0a4c5ec38b47961e2/analysis.json` (종료 2).
+- 수정 전 경계 회귀: `artifacts/s3/boundary-before-ae92038b35ba42f6a989e9c1b928dce2/tests.log` (20 통과 / 2 실패).
+- 최종 회귀: `artifacts/s3/boundary-after-a052268a72b9484383d2e63f9ae9b519/tests.log` (22 통과 / 실패 0).
+- 수정 후 실제 로그: `artifacts/s3/20260911T045932Z-6e504697137e4f44a4fc4aeeed4ba641/analysis.json` (종료 0), SHA-256 `ceeb2445eb3ba6e30d379ee7bcbf8d8973e2a288a4aaa70b13e54168f708c26a`.
+- `git diff --check` 통과(LF→CRLF 안내만).
+
+이 경계 결함의 수정·회귀·지정 로그 재검산은 완료했다. 제품 코드 수정이나 전체 C# 회귀는 범위 밖으로 실행하지 않았다. 실게임 관측 데이터는 여전히 미제공이므로 실제 게임 정확도·관측 오차 검증 완료를 주장하지 않는다.

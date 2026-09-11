@@ -211,7 +211,8 @@ def analyze(data, observations=None):
     if member and member["damage"] != log["totalDamage"]:
         issues.append({"code": "member_total_mismatch"})
     duration = result["conditions"]["combat"]["durationFrames"]
-    if any(e["frame"] < 0 or e["frame"] >= duration for e in entries):
+    # SkillReplay.Run steps damage frames from 1 through DurationFrames inclusive.
+    if any(e["frame"] < 1 or e["frame"] > duration for e in entries):
         issues.append({"code": "outside_duration"})
     shot_rows = sorted(shots.values(), key=lambda e: (e["frame"], e["hitId"]))
     intervals = []
