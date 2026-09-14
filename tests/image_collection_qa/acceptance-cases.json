@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "evidence": "planned_cases_not_execution_results",
+  "baselineCommit": "b1d37d2321a47587e5e57f94d7a0bce60775f407",
+  "fixedCommit": null,
+  "successMatrix": {
+    "dataRoot": ["default_in_isolated_code_copy", "external_with_no_code_local_data"],
+    "entry": ["initial", "update-index", "refresh"],
+    "cache": ["absent", "present"],
+    "repeat": 2,
+    "expect": ["both_catalogs_generated", "unresolved_empty", "API_succeeded", "mapping_and_image_hashes_preserved"]
+  },
+  "failureMatrix": {
+    "dataRoot": "external_with_no_code_local_data",
+    "cache": ["absent", "present"],
+    "cases": [
+      "missing_calculation_current",
+      "missing_versioned_cube_effect_table",
+      "missing_game_catalog",
+      "both_catalog_dependencies_missing",
+      "image_HTTP_404",
+      "image_non_PNG_or_WEBP_response",
+      "catalog_dependency_and_image_HTTP_error"
+    ],
+    "expect": ["exact_resource_paths_and_counts", "image_vs_catalog_message", "safe_cause_code", "accurate_cache_flag", "old_cache_preserved_if_available"],
+    "thenRecover": ["restore_only_isolated_inputs", "actual_API_refresh", "unresolved_empty", "succeeded", "advanced_revision"]
+  },
+  "browserCases": [
+    "isolated_server_message_equals_visible_UI_message",
+    "warm_error_console_cube_equipment_collection_images_still_decode",
+    "cold_error_no_false_existing_images_claim",
+    "recovery_warning_replaced_by_success"
+  ],
+  "preservation": ["source_public_files_before_after_hashes", "no_source_DB_or_session_copy", "new_artifacts_per_run", "no_requests_to_5180_or_5181", "only_stop_PID_started_by_test"],
+  "sourcePolicy": "synthetic_network_responses_explicitly_labeled_no_live_CDN_claim",
+  "existingRegression": "tools/data-pipeline/tests/test_presentation_assets.py (3 tests)"
+}
