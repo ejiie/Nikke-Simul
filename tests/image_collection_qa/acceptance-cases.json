@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "evidence": "planned_cases_not_execution_results",
   "baselineCommit": "b1d37d2321a47587e5e57f94d7a0bce60775f407",
-  "fixedCommit": null,
+  "fixedCommit": "104646006318f252f01b8d39b3424316e0a262ba",
   "successMatrix": {
     "dataRoot": ["default_in_isolated_code_copy", "external_with_no_code_local_data"],
     "entry": ["initial", "update-index", "refresh"],

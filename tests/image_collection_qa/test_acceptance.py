@@ -118,7 +118,7 @@ if __name__ == '__main__':
     RUN.mkdir(parents=True)
     with (RUN / 'tests.log').open('w', encoding='utf-8') as stream:
         result = unittest.TextTestRunner(stream=stream, verbosity=2).run(unittest.defaultTestLoader.loadTestsFromTestCase(AcceptanceOracleTests))
-    summary = {'evidence': 'synthetic_acceptance_oracle_tests_only', 'fixedCommitReceived': False,
+    summary = {'evidence': 'synthetic_acceptance_oracle_tests_only', 'productAcceptance': 'not_evaluated_by_this_self_test',
                'tests': result.testsRun, 'failures': len(result.failures), 'errors': len(result.errors), 'output': str(RUN)}
     (RUN / 'summary.json').write_text(json.dumps(summary, indent=2), encoding='utf-8')
     print(json.dumps(summary))
