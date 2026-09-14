@@ -6,7 +6,7 @@ Solo Raid의 대미지 시뮬레이션, 비중복 5덱 선정, 장비별 육성 
 
 **Windows 실행 파일 UI:** Nikke-Local-Lab의 화면·카드·상세 탭과 WinForms/WebView2 창을 이식했습니다. [이식 범위·이미지 출처·실행 방법](docs/desktop-ui-migration.ko.md).
 
-**2026-09-14 Director 실행본:** 간소화 버스트 설정·피해 설명 수정에 이어, 외부 데이터 경로의 이미지 카탈로그 준비와 실패 문구를 수정했습니다. 실행 파일은 현재 작업공간의 `artifacts/desktop/win-x64/Nikke Simul.exe`입니다. 기존 본 계정 데이터 경로를 그대로 사용하며, Documents/GitHub 쪽 이전 실행 파일과 5181 검산용 데이터는 별개입니다. [이번 통합·배포 검증 및 사용 안내](docs/desktop-release-2026-09-14.ko.md) · [이전 실행본 기록](docs/desktop-release-2026-09-12.ko.md).
+**2026-09-14 원본 실행본:** 실제 사용 경로는 `C:/Users/user/Documents/GitHub/Nikke-Simul/artifacts/desktop/win-x64/Nikke Simul.exe`이며, 바탕 화면의 `Nikke Simul.lnk`도 이 파일을 가리킵니다. 원본 `main`에 완료 커밋을 통합하고 EXE·백엔드·실행 설정을 이 위치에서 갱신했습니다. [원본 배포·검증 기록](docs/desktop-release-original-2026-09-14.ko.md). Director와 다른 worktree의 실행본은 별도 검증용이며, 그 빌드 성공을 원본 배포 완료로 간주하지 않습니다. [앞선 Director 한정 배포 기록](docs/desktop-release-2026-09-14.ko.md).
 
 **스펙 편집:** 상세 화면에서 장비·OL·스킬·성장·소장품·큐브를 변경하고 Save로 저장합니다. 공식 장비 이미지와 Local Lab 선택 UI를 사용하며, 별 3개와 코어 배지를 붙여 ±로 조정합니다. [편집·저장 범위와 출처](docs/desktop-spec-editor.ko.md).
 
