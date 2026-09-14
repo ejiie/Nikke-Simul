@@ -24,7 +24,7 @@ if (!File.Exists(gamePath)) throw new InvalidOperationException("Run npm run set
 var game = Wire.Read<GameSnapshot>(File.ReadAllText(gamePath)); store.SaveGame(game);
 builder.Services.AddSingleton(store); builder.Services.AddSingleton(game);
 builder.Services.AddSingleton(new CollectorProcess(root, dataRoot, python));
-builder.Services.AddSingleton(new PresentationService(root, Path.Combine(dataRoot, "presentation"), python));
+builder.Services.AddSingleton(new PresentationService(root, Path.Combine(dataRoot, "presentation"), python, dataRoot));
 builder.Services.AddHostedService(sp => sp.GetRequiredService<PresentationService>());
 builder.Services.AddSingleton<SyncCoordinator>(); builder.Services.AddHostedService(sp => sp.GetRequiredService<SyncCoordinator>());
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.PropertyNamingPolicy = Wire.Json.PropertyNamingPolicy);
