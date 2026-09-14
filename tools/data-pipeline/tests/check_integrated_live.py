@@ -112,7 +112,7 @@ async def browser_check(base, output):
             expected_allow = {id: id in saved_tactic['allowedCharacterIds'] for id in IDS}
             assert {item['id']: item['checked'] for item in restore_state['allow']} == expected_allow, 'Allowlist not restored at ready=true'
             assert not await page.locator('[data-tactic-allow="5044"]').is_checked(), 'Alice-only exclusion lost after reload'
-            await page.locator('[name="level"]').fill('400')
+            assert await page.locator('#replay-form [name="level"]').count() == 0
             await page.locator('[name="crit"]').select_option('off')
             await page.locator('[name="seconds"]').fill('180')
             await page.screenshot(path=str(output / 'ui-before.png'))
@@ -123,6 +123,8 @@ async def browser_check(base, output):
             (output / 'ui-response.json').write_text(json.dumps(body), encoding='utf-8')
             (output / 'ui-request.json').write_text(json.dumps(posts[-1]), encoding='utf-8')
             assert response.status == 200, f'UI replay HTTP {response.status}: {str(body)[:300]}'
+            assert posts[-1]['scenarioLevel'] == 400, 'Solo raid challenge must use level 400'
+            assert set(body['appliedLevels'].values()) == {400}, 'Replay stats must use level 400 for every member'
             assert posts[-1]['conditions']['damageLog']['characterId'] == '5004', 'UI did not request Alice log'
             assert posts[-1]['conditions']['autoBurst']['tactic'] == saved_tactic
             actual = body['result']['damageLog']
