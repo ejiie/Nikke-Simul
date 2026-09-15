@@ -34,6 +34,27 @@ public class ContractAndOlTests
             Assert.Throws<ArgumentException>(() => new ComputeAnalysis().Summarize(b, [invalid], null));
         Assert.Throws<ArgumentException>(() => new ComputeAnalysis().Summarize(b, [r, r], null));
     }
+    [Theory]
+    [InlineData(0, 3)] // Direct skill crits can exist without a normal hit.
+    [InlineData(2, 5)] // Normal hits plus additional/direct damage crits.
+    public void Wire_adapter_keeps_normal_hits_and_all_damage_crits_independent(long hits, long crits)
+    {
+        var b = Batch(n: 1); var r = Row(b, 0, 10);
+        r = r with { Members = r.Members.Select((m, i) => i == 0 ? m with { Hits = hits, CriticalHits = crits } : m).ToArray() };
+        var aggregate = ComputeAnalysis.Aggregate(b, [r]);
+        Assert.Equal((double)hits, aggregate.Metrics["liter.hits"].Mean);
+        Assert.Equal((double)crits, aggregate.Metrics["liter.criticalHits"].Mean);
+        Assert.Equal(10, new ComputeAnalysis().Summarize(b, [r], null).Team.Mean);
+    }
+    [Theory]
+    [InlineData(-1, 0)]
+    [InlineData(0, -1)]
+    public void Wire_adapter_still_rejects_negative_hit_or_crit_counts(long hits, long crits)
+    {
+        var b = Batch(n: 1); var r = Row(b, 0, 10);
+        r = r with { Members = r.Members.Select((m, i) => i == 0 ? m with { Hits = hits, CriticalHits = crits } : m).ToArray() };
+        Assert.Throws<ArgumentException>(() => new ComputeAnalysis().Summarize(b, [r], null));
+    }
     [Fact] public void Comparison_needs_frozen_holdout_proof_and_full_results()
     {
         var a = Batch("base"); var b = Batch("candidate");

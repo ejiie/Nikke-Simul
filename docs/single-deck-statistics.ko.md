@@ -32,7 +32,7 @@
 확정 `Compute.cs`의 `RunSummary`/`BatchStatus`와 `IComputeAnalysis`를 직접 사용한다. DI 등록 예: `IComputeAnalysis` → `Nikke.Analysis.ComputeAnalysis`. Backend가 API/solution/project 참조를 소유한다. 필요한 참조는 `src/Nikke.Analysis/Nikke.Analysis.csproj`이며 Analysis가 API를 참조하지 않는다.
 
 - `Summarize(batch,runs,cut)`에는 **모든 현재 유효 index의 결과**를 전달한다. 페이지 일부만 전달하면 Valid 수 불일치로 거부한다. 재개 후 유지된 정상 old-attempt 표본은 허용하되 같은 index/runId 중복, future attempt, 잘못된 `experimentId:index`, 다른 phase/fingerprint/backend를 거부한다. 실패·취소 수는 BatchStatus에서 받는다.
-- 5인 순서/ID, synchro 400, 정상 숫자, 팀 피해 합, crit≤hits, valid/requested/partial 일관성을 검사한다. hit/shot 비율을 명중률로 해석하지 않는다.
+- 5인 순서/ID, synchro 400, 정상 숫자, 팀 피해 합, valid/requested/partial 일관성을 검사한다. Hits는 평타 명중, CriticalHits는 모든 피해 경로 크리이므로 두 카운터 사이 대소관계를 강제하지 않는다. hit/shot 비율을 명중률로 해석하지 않는다.
 - `StatisticsResult` v1에는 팀/개인 **피해** 분포를 반환한다. `Aggregate` 내부 결과에는 피해 외 팀 fullBursts, 실행 ms, 각 멤버 shots/hits/criticalHits/reloads/burstCasts도 집계한다. 현재 wire의 Members 값은 MetricStatistics 하나여서 이 추가 지표 전체를 statistics route에 표시할 필드는 없다. 추가 wire 설계는 Backend 소유이며 미지원 지표를 임의 필드로 내보내지 않았다.
 - `Compare`는 snapshot/data/engine/rules/DEF/기간/편성/phase/backend 일치를 확인하고 독립 Welch-Satterthwaite 차이 CI와 개인·동료·사이클 차이를 반환한다. 실행 조건 전체와 “선언한 OL만 변경” 여부는 v1 ExperimentInput만으로 입증할 수 없다. 기본 verdict는 `unverified_design_or_input_difference`; CI 숫자만으로 추천 승격하지 않는다.
 - Backend가 frozen holdout 배정 및 선언한 OL만 변경됨을 검증할 때 생성자 `verifyFrozenHoldoutDesign` callback을 제공할 수 있다. 비교 family 크기는 사전에 고정한 `comparisonFamilySize`로 제공한다. 부분 배치는 `partial_unresolved`, 탐색 표본은 `exploratory_only`. 이 callback 없이 임의로 true를 주입하지 않는다. 실제 장비·수치 허용범위 검증은 Backend 준비 adapter의 책임이다.
@@ -94,3 +94,17 @@ Backend가 준비한 완전한 결과 JSON에는 `--batch-results <BatchResults 
 - 공식 리타·블랑·앨리스·누아르·모더니아 실제 스탯/OL catalog 기반 준비 adapter와 가상 변경 전체 재실행 연결은 Backend 의존이다. 현재 후보 생성/holdout은 독립 코어·합성 검증이며 실제 계정 추천 결과를 생성하지 않았다.
 - Engine의 새 prepared/summary 최적화 및 GPU kernel을 기다리지 않고 기존 엔진을 통한 연동 확인 경로를 제공했다. 최적화 성능·GPU·다른 PC 실측·50000회 전투·비용 효율·원본 배포는 미완료/타 담당 범위다.
 - 실게임 관측 데이터 부재와 gameVerified=false 유지. 추천은 옵션 변경의 모델 가치이며 게임 검증 완료·모듈 예산 최적 정책으로 표시하지 않는다.
+
+## B-CPU 호환 수정 — Hits와 CriticalHits 의미 분리
+
+Backend의 확정 Compute.cs/IComputeAnalysis 계약을 다시 읽고 E-CPU `0d23366:docs/single-deck-engine.ko.md`와 해당 SkillReplay 구현을 읽기 전용 대조했다. `if (crit) a.Crits++`는 모든 피해 경로에 적용되지만 `if (normal) a.Hits++`는 평타에만 적용된다. 따라서 CriticalHits > Hits는 유효한 결과이며, 최초 `480cf8a`의 크기 비교 검증은 잘못된 가정이었다.
+
+`ComputeAnalysis.Aggregate`에서 이 관계 검사만 제거하고 각 카운터를 그대로 독립 집계한다. 음수/비정상 값 검사와 팀 피해/편성/중복/attempt/phase/backend/partial 검증은 유지한다. 직접 스킬 크리가 있는 평타 0명중 `(Hits=0,CriticalHits=3)` 및 추가 피해 포함 `(2,5)`의 adapter 합성 회귀를 추가했다. 음수 Hits/CriticalHits 거부도 각각 검사한다. 카운터를 자르거나 크리를 평타 명중 수로 맞추지 않는다.
+
+외부 DTO·공용 solution·API 등록·엔진 제품 코드는 수정하지 않는다. 기존 `src/Nikke.Analysis/Nikke.Analysis.csproj` → Contracts 참조와 `ComputeAnalysis : IComputeAnalysis`를 유지한다. 통계 방법은 기존 MethodVersion/QuantileMethod/Interval.Method의 type7/Student-t/Wilson/Welch 표기를 유지한다. 이 수정의 수용은 adapter 경계 검증이며 실제 API 배치 완료나 게임 정확도 판정이 아니다.
+
+실제 실행: 위와 같은 DOTNET_CLI_HOME/NUGET_PACKAGES 환경에서 `dotnet test tests/Nikke.Analysis.Tests/Nikke.Analysis.Tests.csproj -c Release --no-restore --logger 'trx;LogFileName=analysis.trx' --results-directory <새 경로>` 사용. 수정 전에는 `--filter FullyQualifiedName~Wire_adapter_keeps_normal_hits`로 새 정상 사례 2개의 실패를 재현했다. 수정 후 필터 없는 전체 회귀 **29 통과 / 실패 0 / skip 0**(기존 25 + 신규 4), 표시 테스트 시간 1초. 빌드 경고/오류 없음, git diff 검사 통과. 확정 결과는 본 절과 코드·회귀를 포함한 후속 수정 커밋으로 Backend에 전달한다.
+
+- 수정 전 실패 근거: `artifacts/single-deck-statistics/crit-before-4f071ab475a345fba50d3a988215e0d0/{analysis.trx,test.log}`.
+- 최종 회귀 근거: `artifacts/single-deck-statistics/crit-after-a1ff7b324b25461abc7e906be777ec73/{analysis.trx,test.log}`.
+- 시작 HEAD `b9ce963`, 이전 미추적 package-lock.json 보존(앞선 SHA-256 동일). 다른 담당의 진행 중인 제품 커밋은 병합하지 않고 확정 문서/코드만 읽기 전용 대조했다.

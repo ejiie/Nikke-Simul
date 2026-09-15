@@ -52,9 +52,10 @@ public sealed class ComputeAnalysis(
                 || run.Phase != input.Phase || run.Attempt < 1 || run.Attempt > batch.Attempt || run.Index < 0 || run.Index >= batch.Requested
                 || !indexes.Add(run.Index) || run.RunId != $"{batch.Id}:{run.Index}"
                 || !run.Members.Select(m => m.CharacterId).SequenceEqual(input.CharacterIds)
-                || run.Members.Any(m => m.CriticalHits > m.Hits)
                 || Math.Abs(run.Members.Sum(m => m.Damage) - run.TeamDamage) > Math.Max(1e-7, Math.Abs(run.TeamDamage) * 1e-12))
                 throw new ArgumentException("Mixed, duplicate, inconsistent or stale run summary");
+            // Hits counts normal hits only; CriticalHits includes direct skills/additional damage.
+            // Validate each counter independently in Add, never constrain crits to normal hits.
             accumulator.Add(new(run.RunId, run.Attempt, "completed", true, identity, Metrics(run)));
         }
         var stats = accumulator.Snapshot();
