@@ -16,12 +16,13 @@ public sealed class BatchCoordinator(BatchStore store, HardwareProbe hardware, E
     {
         if(request.Runs is <1 or >50000 || request.Phase is not ("warmup" or "pilot" or "exploration" or "final") || request.RecordLevel!="summary")throw new ArgumentException("invalid_experiment_budget");
         var hw=await hardware.Detect(token);var selection=ExecutionPolicy.Conservative(hw,prepared.Input,request.Execution??new());
-        lock(gate){if(stopped)throw new InvalidOperationException("compute_stopped");var batch=store.Create(prepared,request,selection);Schedule(batch,prepared);return batch;}
+        lock(gate){if(stopped)throw new InvalidOperationException("compute_stopped");if(active.Count>=4)throw new InvalidOperationException("compute_queue_full");
+            var batch=store.Create(prepared,request,selection);Schedule(batch,prepared);return batch;}
     }
     public BatchStatus Cancel(string id)
     {lock(gate){store.Cancel(id);if(active.TryGetValue(id,out var job))job.Token.Cancel();return store.Read(id).Status;}}
     public BatchStatus Resume(string id,IPreparedExperiment prepared)
-    {lock(gate){if(stopped)throw new InvalidOperationException("compute_stopped");if(active.ContainsKey(id))throw new InvalidOperationException("attempt_still_active");
+    {lock(gate){if(stopped)throw new InvalidOperationException("compute_stopped");if(active.Count>=4)throw new InvalidOperationException("compute_queue_full");if(active.ContainsKey(id))throw new InvalidOperationException("attempt_still_active");
         if(store.Read(id).Status.Input.Fingerprint!=prepared.Input.Fingerprint)throw new InvalidOperationException("prepared_input_changed");
         var batch=store.Resume(id);Schedule(batch,prepared);return batch;}}
     private void Schedule(BatchStatus batch,IPreparedExperiment prepared)

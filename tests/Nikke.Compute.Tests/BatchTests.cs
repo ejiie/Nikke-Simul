@@ -45,6 +45,21 @@ public sealed class BatchTests
         var recovered=new BatchStore(root);var state=recovered.Read(b.Id).Status;Assert.Equal("cancelled",state.State);Assert.Equal(1,state.Valid);Assert.Equal(1,state.Failed);Assert.Equal(2,state.Cancelled);
         Assert.Equal(0,recovered.Results(b.Id)[0].TeamDamage);var next=recovered.Resume(b.Id);Assert.Equal(2,next.Attempt);Assert.Equal(0,next.Failed);Assert.Single(recovered.ValidIndices(b.Id));
     }
+    [Fact] public void Invalid_metrics_rejected_but_skill_crits_can_exceed_normal_hits()
+    {
+        var (store,p,b)=NewStore();store.Running(b.Id,1,b.Execution);var run=p.Run(b.Id,0,1,default);
+        foreach(var invalid in new[]{run with {ElapsedMilliseconds=double.NaN},run with {FullBursts=-1},run with {TeamDamage=1},
+            run with {Members=run.Members.Select(m=>m with {Reloads=-1}).ToArray()}})
+            Assert.Throws<ArgumentException>(()=>store.Write(b.Id,1,[new(0,1,invalid,null)]));
+        store.Write(b.Id,1,[new(0,1,run with {Members=run.Members.Select(m=>m with {Hits=0,CriticalHits=3}).ToArray()},null)]);
+        var snapshot=store.AnalysisSnapshot(b.Id);Assert.Equal(1,snapshot.Batch.Valid);Assert.Single(snapshot.Runs);
+    }
+    [Fact] public async Task Invalid_cached_backend_is_never_selected()
+    {
+        var root=Temp();var policy=new ExecutionPolicy(root);var p=new Prepared();var first=await policy.Select(Hardware(),p,new(),default);
+        File.WriteAllText(Path.Combine(root,first.Fingerprint+".json"),Wire.Serialize(first with {Backend="gpu",DeviceId="fake"}));
+        var fresh=await policy.Select(Hardware(),p,new(),default);Assert.Equal("cpu",fresh.Backend);Assert.NotEqual("measured_cache",fresh.Reason);
+    }
     private static async Task<BatchStatus> Wait(BatchStore store,string id)
     {for(int i=0;i<1000;i++){var b=store.Read(id).Status;if(b.State is "completed" or "cancelled" or "failed")return b;await Task.Delay(10);}throw new TimeoutException();}
     [Fact] public async Task Coordinator_cancel_resume_and_paged_results()

@@ -14,6 +14,9 @@ public record ExecutionSelection(string Requested, string Backend, string Device
     long MemoryLimitBytes, string Reason, string ValidationVersion, string BenchmarkVersion,
     string Fingerprint, string? FallbackReason);
 public record OlChange(string CharacterId, string Slot, int LineIndex, string OptionId, decimal Value);
+public record OlCandidate(string Id, OlChange Before, OlChange After, bool ThresholdSensitive);
+public record OlCandidateCatalog(string CatalogVersion, IReadOnlyList<OlCandidate> Candidates,
+    IReadOnlyList<string> Exclusions, bool GameVerified = false);
 public record ExperimentRequest(string SnapshotId, IReadOnlyList<string> CharacterIds, JsonObject Conditions,
     int Runs = 1000, string Phase = "final", string RecordLevel = "summary",
     ComputeOptions? Execution = null, IReadOnlyList<OlChange>? OlChanges = null, string? BaselineExperimentId = null,

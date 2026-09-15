@@ -63,8 +63,11 @@ public sealed class BatchStore
                 if(row.Summary is {} run && (run.ExperimentId!=id || run.Attempt!=attempt || run.Index!=row.Index || run.RunId!=$"{id}:{row.Index}"
                     || run.InputFingerprint!=batch.Input.Fingerprint || run.Backend!=batch.Execution.Backend || run.Phase!=batch.Input.Phase
                     || !double.IsFinite(run.TeamDamage) || run.TeamDamage<0 || run.Members.Count!=5
+                    || !double.IsFinite(run.ElapsedMilliseconds) || run.ElapsedMilliseconds<0 || run.FullBursts<0
                     || !run.Members.Select(m=>m.CharacterId).SequenceEqual(batch.Input.CharacterIds)
-                    || run.Members.Any(m=>!double.IsFinite(m.Damage)||m.Damage<0)))throw new ArgumentException("invalid_run_summary");
+                    || run.Members.Any(m=>!double.IsFinite(m.Damage)||m.Damage<0 || m.Shots<0 || m.Hits<0 || m.CriticalHits<0 || m.Reloads<0 || m.BurstCasts<0)
+                    || !double.IsFinite(run.Members.Sum(m=>m.Damage))
+                    || Math.Abs(run.TeamDamage-run.Members.Sum(m=>m.Damage))>Math.Max(1e-6,run.TeamDamage*1e-12)))throw new ArgumentException("invalid_run_summary");
                 Execute(db,"INSERT OR IGNORE INTO batch_runs VALUES($id,$index,$attempt,$payload,$error)",("$id",id),("$index",row.Index),("$attempt",attempt),
                     ("$payload",row.Summary is null?null:Wire.Serialize(row.Summary)),("$error",row.ErrorCode));
             }
@@ -78,4 +81,9 @@ public sealed class BatchStore
         using var r=c.ExecuteReader();var rows=new List<RunSummary>();while(r.Read())rows.Add(Wire.Read<RunSummary>(r.GetString(0)));return rows;}}
     public IEnumerable<RunSummary> AllResults(string id)
     {for(int offset=0;;offset+=1000){var page=Results(id,offset,1000);foreach(var row in page)yield return row;if(page.Count<1000)yield break;}}
+    public (BatchStatus Batch,IReadOnlyList<RunSummary> Runs) AnalysisSnapshot(string id)
+    {
+        lock(gate){var batch=Read(id).Status;using var db=Open();using var command=Command(db,"SELECT payload FROM batch_runs WHERE batch=$id AND payload IS NOT NULL ORDER BY idx",("$id",id));
+            using var reader=command.ExecuteReader();var rows=new List<RunSummary>(batch.Valid);while(reader.Read())rows.Add(Wire.Read<RunSummary>(reader.GetString(0)));return(batch,rows);}
+    }
 }

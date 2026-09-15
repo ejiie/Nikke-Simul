@@ -28,6 +28,8 @@ def main():
                 {'characterId':id,'name':game['names'][id],'level':400,'nativeLevel':400,'limitBreak':0,'core':0,'bond':0,
                  'skills':{'1':10,'2':10,'3':10},'cubeId':'0','cubeLevel':0,'collectionId':'0','collectionGrade':'none','collectionLevel':0,
                  'equipment':[{'slot':slot,'tier':0,'level':0,'manufacturer':0,'lines':[{'lineIndex':i,'presence':'absent'} for i in range(1,4)]} for slot in ('head','torso','arm','leg')]} for id in ids]}
+        alice_head=snapshot['characters'][2]['equipment'][0];alice_head['tier']=10
+        alice_head['lines'][0]={'lineIndex':1,'presence':'present','optionType':'StatAtk','normalizedValue':game['optionSteps']['atk_pct'][0],'unit':'ratio'}
         # This is a NEW database with explicitly synthetic rows; source accounts.db is never opened.
         with sqlite3.connect(data/'accounts.db') as db:
             db.execute('CREATE TABLE snapshots(id TEXT PRIMARY KEY,account_id TEXT NOT NULL,revision INTEGER NOT NULL,payload TEXT NOT NULL)')
@@ -37,6 +39,7 @@ def main():
         with socket.socket() as sock:sock.bind(('127.0.0.1',0));port=sock.getsockname()[1]
         assert port not in (5180,5181)
         env=dict(os.environ,NIKKE_DATA_ROOT=str(data),NIKKE_PROJECT_ROOT=str(ROOT),NIKKE_GAME_CATALOG=str(data/'game-catalog.json'),NIKKE_PORT=str(port),NIKKE_TEST_FIXTURE='1')
+        env.pop('NIKKE_GAME_CATALOG',None) # Verify the API default follows external dataRoot as well.
         token=''
         def call(path,payload=None,method=None):
             request=urllib.request.Request(f'http://127.0.0.1:{port}/api/'+path,data=None if payload is None else json.dumps(payload).encode(),headers={'Content-Type':'application/json','X-Nikke-Token':token},method=method)
@@ -70,6 +73,19 @@ def main():
         assert all(r['backend']=='cpu' and len(r['members'])==5 and r['fullBursts']>0 and r['teamDamage']>0 for r in rows)
         assert end['input']['synchroLevel']==400 and end['input']['defPolicy']=='fixed:30925';checks.append('actual ordered five-member 180s CPU batch and persisted tactic')
         report['runs']=rows
+        stats=call('compute/experiments/'+batch['id']+'/statistics?cut=0');assert stats['team']['n']==4 and stats['team']['meanCi'] is not None
+        assert abs(stats['team']['mean']-sum(r['teamDamage'] for r in rows)/4)<1e-6;report['statistics']=stats;checks.append('actual CPU results through Analysis mean and CI API')
+        catalog=call('compute/experiments/'+batch['id']+'/ol-candidates');assert catalog['catalogVersion']==game['id']
+        assert all(c['after']['characterId']==ids[2] and c['after']['slot']=='head' and c['after']['lineIndex']==1 for c in catalog['candidates'])
+        assert not any(c['after']['optionId'] in ('StatAccuracyCircle','IncHurtDef','StatDef','IncElementDmg') for c in catalog['candidates'])
+        report['catalog']={'candidateCount':len(catalog['candidates']),'exclusions':catalog['exclusions']};report['comparisons']=[]
+        for option,value in [('StatAtk',game['optionSteps']['atk_pct'][1]),('StatChargeTime',-game['optionSteps']['charge_speed_pct'][0])]:
+            change=next(c['after'] for c in catalog['candidates'] if c['after']['optionId']==option and c['after']['value']==value)
+            candidate_request=dict(request,baselineExperimentId=batch['id'],olChanges=[change])
+            candidate=call('compute/experiments',candidate_request);assert wait(candidate['id'])['state']=='completed'
+            comparison=call('compute/experiments/'+candidate['id']+'/comparison');assert comparison['teamMeanDifference'] is not None and comparison['verdict']=='unverified_design_or_input_difference'
+            report['comparisons'].append(comparison)
+        checks.append('authoritative positive/signed OL candidates, actual slot full CPU reruns, unresolved comparison')
         try:call('compute/experiments',dict(request,execution={'requested':'gpu'}));raise AssertionError('GPU accepted')
         except urllib.error.HTTPError as error:assert error.code==409 and 'gpu_unavailable' in error.read().decode()
         checks.append('forced GPU rejected before batch execution')

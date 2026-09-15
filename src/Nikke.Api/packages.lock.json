@@ -55,6 +55,12 @@
           "SQLitePCLRaw.core": "3.0.5"
         }
       },
+      "nikke.analysis": {
+        "type": "Project",
+        "dependencies": {
+          "Nikke.Contracts": "[1.0.0, )"
+        }
+      },
       "nikke.compute": {
         "type": "Project",
         "dependencies": {
@@ -70,6 +76,7 @@
       "nikke.data": {
         "type": "Project",
         "dependencies": {
+          "Nikke.Analysis": "[1.0.0, )",
           "Nikke.Contracts": "[1.0.0, )",
           "Nikke.Core": "[1.0.0, )",
           "Nikke.Engine": "[1.0.0, )"

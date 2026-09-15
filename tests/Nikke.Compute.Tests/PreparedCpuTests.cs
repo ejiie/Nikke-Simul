@@ -18,6 +18,8 @@ public sealed class PreparedCpuTests
                 new Dictionary<string,SkillDefinition>{{"skill1",new(){SkillId=1}},{"skill2",new(){SkillId=2}},{"burst",new(){SkillId=3}}}))).ToArray();
         var conditions=new SkillReplayConditions{RoundingPolicy="final_round_even",Combat=new(){DurationFrames=120,Trace=false}};
         var prepared=PreparedCompute.Create(members,new(new Dictionary<int,SkillFunction>(),new Dictionary<int,SkillDefinition>()),conditions,"synthetic","synthetic","final");
+        var pilot=PreparedCompute.Create(members,new(new Dictionary<int,SkillFunction>(),new Dictionary<int,SkillDefinition>()),conditions,"synthetic","synthetic","pilot");
+        Assert.Equal(prepared.Input.Fingerprint,pilot.Input.Fingerprint);Assert.NotEqual(prepared.Input.Phase,pilot.Input.Phase);
         members[0].Weapon.Weapon.maxAmmo=1;
         var restored=PreparedCompute.Restore(prepared.PersistedInput);
         var runs=await Task.WhenAll(Enumerable.Range(0,6).Select(i=>Task.Run(()=>restored.Run("batch",i,1,default))));

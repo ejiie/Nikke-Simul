@@ -66,45 +66,34 @@ public sealed partial class RuntimeReplayService
 // Private frozen input; no references from mutable account/request objects escape into battles.
 public sealed class PreparedCompute : IPreparedExperiment
 {
-    public const string ImplementationVersion="backend-current-skill-run-1";
+    public const string ImplementationVersion=PreparedSkillReplay.Version;
     private sealed record Payload(ExperimentInput Input,IReadOnlyList<SkillReplayMember> Members,SkillGraph Graph,SkillReplayConditions Conditions);
     private readonly Payload payload;
+    private readonly PreparedSkillReplay engine;
     public ExperimentInput Input=>payload.Input with {CharacterIds=payload.Input.CharacterIds.ToArray()};
     public string PersistedInput {get;}
     private PreparedCompute(string persisted)
     {PersistedInput=persisted;payload=Wire.Read<Payload>(persisted);
-        if(payload.Input.EngineVersion!=ImplementationVersion)throw new InvalidOperationException("engine_version_changed");}
+        if(payload.Input.EngineVersion!=ImplementationVersion)throw new InvalidOperationException("engine_version_changed");
+        engine=PreparedSkillReplay.Create(payload.Members,payload.Graph,payload.Conditions);}
     public static PreparedCompute Restore(string persisted)=>new(persisted);
     public static PreparedCompute Create(IReadOnlyList<SkillReplayMember> members,SkillGraph graph,SkillReplayConditions conditions,string snapshotId,string dataVersion,string phase)
     {
         if(members.Count!=5)throw new ArgumentException("compute_requires_five_members");
-        conditions=conditions with {Combat=conditions.Combat with {Trace=false},DamageLog=null};
-        var hash=Wire.Hash(Wire.Canonical(JsonSerializer.SerializeToNode(new {members,graph,conditions,snapshotId,dataVersion,level=400,phase,implementation=ImplementationVersion},Wire.Json)));
+        conditions=conditions with {Combat=conditions.Combat with {Trace=false},DamageLog=null,
+            AutoBurst=conditions.AutoBurst is {} auto?auto with {TimelineLimit=0}:null};
+        var hash=Wire.Hash(Wire.Canonical(JsonSerializer.SerializeToNode(new {members,graph,conditions,snapshotId,dataVersion,level=400,implementation=ImplementationVersion},Wire.Json)));
         var input=new ExperimentInput(hash,snapshotId,dataVersion,ImplementationVersion,
             SkillReplay.Version+":"+TeamBurstController.Version+":"+Nikke.Core.Combat.HitCalculator.Version+":"+conditions.RoundingPolicy,
             members.Select(m=>m.Weapon.CharacterId).ToArray(),400,conditions.Combat.DurationFrames,phase,"summary",
             "fixed:"+conditions.Combat.EnemyDefense.ToString("R",System.Globalization.CultureInfo.InvariantCulture));
         return new(Wire.Serialize(new Payload(input,members,graph,conditions)));
     }
-    private sealed class RunRandom : IRandomSource
-    {private readonly Random random=new();public double NextDouble()=>random.NextDouble();}
-    private sealed class Counter(CancellationToken token) : ICombatEventSink
-    {
-        public Dictionary<string,long> Reloads {get;}=[];
-        public Dictionary<string,long> Bursts {get;}=[];
-        public int FullBursts;
-        public void OnEvent(CombatEvent e)
-        {token.ThrowIfCancellationRequested();if(e.Kind==CombatEventKind.ReloadCompleted)Reloads[e.Source]=Reloads.GetValueOrDefault(e.Source)+1;
-            if(e.Kind==CombatEventKind.SkillCast)Bursts[e.Source]=Bursts.GetValueOrDefault(e.Source)+1;
-            if(e.Kind==CombatEventKind.FullBurstEntered)FullBursts++;}
-    }
     public RunSummary Run(string experimentId,int index,int attempt,CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();var watch=Stopwatch.StartNew();var events=new Counter(cancellationToken);
-        var result=SkillReplay.Run(payload.Members,payload.Graph,payload.Conditions,new RunRandom(),events);
-        cancellationToken.ThrowIfCancellationRequested();
-        return new($"{experimentId}:{index}",attempt,index,experimentId,payload.Input.Fingerprint,"cpu",payload.Input.Phase,result.TotalDamage,
-            result.Members.Select(m=>new MemberRunSummary(m.CharacterId,m.Damage,m.Shots,m.Hits,m.CriticalHits,events.Reloads.GetValueOrDefault(m.CharacterId),events.Bursts.GetValueOrDefault(m.CharacterId))).ToArray(),
-            events.FullBursts,watch.Elapsed.TotalMilliseconds);
+        var result=engine.Run(cancellationToken);
+        return new($"{experimentId}:{index}",attempt,index,experimentId,payload.Input.Fingerprint,"cpu",payload.Input.Phase,result.TeamDamage,
+            result.Members.Select(m=>new MemberRunSummary(m.CharacterId,m.Damage,m.Shots,m.Hits,m.CriticalHits,m.Reloads,m.BurstCasts)).ToArray(),
+            result.FullBursts,result.ElapsedMilliseconds);
     }
 }

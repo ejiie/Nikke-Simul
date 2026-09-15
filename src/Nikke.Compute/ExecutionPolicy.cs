@@ -5,7 +5,7 @@ namespace Nikke.Compute;
 
 public sealed class ExecutionPolicy(string cacheRoot)
 {
-    public const string Version = "cpu-policy-1";
+    public const string Version = "cpu-policy-2";
     public const long WorkerReserve = 64L*1024*1024;
     public static ExecutionSelection Conservative(HardwareProfile hw, ExperimentInput input, ComputeOptions options)
     {
@@ -29,12 +29,15 @@ public sealed class ExecutionPolicy(string cacheRoot)
         if (!options.Retune && File.Exists(path))
             try { var cached=Wire.Read<ExecutionSelection>(File.ReadAllText(path));
                 if (cached.Fingerprint==selection.Fingerprint && cached.Workers>=1 && cached.Workers<=selection.Workers &&
-                    cached.MemoryLimitBytes==selection.MemoryLimitBytes && cached.BenchmarkVersion==Version)
+                    cached.MemoryLimitBytes==selection.MemoryLimitBytes && cached.BenchmarkVersion==Version &&
+                    cached.Backend=="cpu" && cached.DeviceId=="cpu" && cached.ChunkSize is >=1 and <=64 &&
+                    cached.ValidationVersion==selection.ValidationVersion)
                     return cached with {Requested=options.Requested,FallbackReason=selection.FallbackReason,Reason="measured_cache"}; }
             catch (Exception ex) when (ex is IOException or System.Text.Json.JsonException) { }
         int best=1; double bestRate=0, bestMs=1000; bool measured=false;
         using var budget=CancellationTokenSource.CreateLinkedTokenSource(token);
-        budget.CancelAfter(TimeSpan.FromSeconds(3));
+        // Includes cold JIT warmup; the initial 3-second budget could finish no measured sample.
+        budget.CancelAfter(TimeSpan.FromSeconds(10));
         try {
             await Task.Run(()=>prepared.Run("warmup",0,0,budget.Token),budget.Token);
             for (int workers=1; workers<=selection.Workers; workers*=2)

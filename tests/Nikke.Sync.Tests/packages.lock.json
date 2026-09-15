@@ -146,6 +146,12 @@
           "xunit.extensibility.core": "[2.9.2]"
         }
       },
+      "nikke.analysis": {
+        "type": "Project",
+        "dependencies": {
+          "Nikke.Contracts": "[1.0.0, )"
+        }
+      },
       "nikke.contracts": {
         "type": "Project"
       },
@@ -155,6 +161,7 @@
       "nikke.data": {
         "type": "Project",
         "dependencies": {
+          "Nikke.Analysis": "[1.0.0, )",
           "Nikke.Contracts": "[1.0.0, )",
           "Nikke.Core": "[1.0.0, )",
           "Nikke.Engine": "[1.0.0, )"
