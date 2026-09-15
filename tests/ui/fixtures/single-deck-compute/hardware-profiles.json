@@ -1,0 +1,79 @@
+{
+  "_note": "Synthetic HardwareProfile payloads for UI state rendering. Vendor names are placeholders and are NOT evidence that any vendor was verified on real hardware.",
+  "cpuOnly": {
+    "status": "ok",
+    "os": "Windows 11",
+    "architecture": "x64",
+    "detectedAt": "2026-09-15T01:00:00Z",
+    "memoryLimitBytes": 17179869184,
+    "cpu": { "model": "합성 CPU A", "logicalProcessors": 8, "physicalCores": 4, "availableParallelism": 8 },
+    "gpus": [],
+    "failures": []
+  },
+  "multiGpu": {
+    "status": "ok",
+    "os": "Windows 11",
+    "architecture": "x64",
+    "detectedAt": "2026-09-15T01:05:00Z",
+    "memoryLimitBytes": 34359738368,
+    "cpu": { "model": "합성 CPU B", "logicalProcessors": 16, "physicalCores": 8, "availableParallelism": 12 },
+    "gpus": [
+      {
+        "deviceId": "gpu-verified-0",
+        "vendor": "합성 벤더 V",
+        "name": "합성 GPU 검증본",
+        "backend": "synthetic-compute",
+        "driverVersion": "1.2.3",
+        "memoryBytes": 8589934592,
+        "doublePrecision": true,
+        "stage": "benchmark"
+      },
+      {
+        "deviceId": "gpu-name-only-1",
+        "vendor": "합성 벤더 W",
+        "name": "합성 GPU 이름만",
+        "backend": null,
+        "driverVersion": null,
+        "memoryBytes": null,
+        "doublePrecision": null,
+        "stage": "inventory",
+        "failureReason": "런타임을 찾지 못해 kernel 실행을 시도하지 못했습니다."
+      },
+      {
+        "deviceId": "gpu-accuracy-fail-2",
+        "vendor": "합성 벤더 X",
+        "name": "합성 GPU 정확성 실패",
+        "backend": "synthetic-compute",
+        "driverVersion": "0.9.1",
+        "memoryBytes": 4294967296,
+        "doublePrecision": false,
+        "stage": "self_test",
+        "failureReason": "FP64 미지원으로 수치 정확성 검사를 통과하지 못했습니다."
+      }
+    ],
+    "failures": []
+  },
+  "detectionFailed": {
+    "status": "failed",
+    "os": "Windows 11",
+    "architecture": "x64",
+    "detectedAt": "2026-09-15T01:10:00Z",
+    "memoryLimitBytes": null,
+    "cpu": { "model": null, "logicalProcessors": null, "physicalCores": null, "availableParallelism": 4 },
+    "gpus": [],
+    "failures": [
+      { "scope": "gpu_inventory", "reason": "장치 조회 권한이 거부되었습니다 (원격 세션)." },
+      { "scope": "gpu_runtime", "reason": "probe timeout 2000ms 초과" }
+    ]
+  },
+  "measuring": {
+    "status": "measuring",
+    "os": "Windows 11",
+    "architecture": "x64",
+    "detectedAt": null,
+    "memoryLimitBytes": 17179869184,
+    "cpu": { "model": "합성 CPU A", "logicalProcessors": 8, "physicalCores": 4, "availableParallelism": null },
+    "gpus": [],
+    "failures": []
+  }
+}

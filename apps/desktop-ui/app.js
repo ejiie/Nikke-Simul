@@ -5,6 +5,7 @@ import { renderLocalLabDetail, updateDetailReport, detailPreviewFailed, detailDi
 import { createBurstTacticsManager } from './burst-tactics.js';
 import { createDamageLogViewer } from './damage-log.js';
 import { toServerTacticDto } from './damage-log-adapter.js';
+import { createSingleDeckStatsView } from './single-deck-stats.js';
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -12,7 +13,7 @@ const num=v=>v==null?'미확인':Number(v).toLocaleString('ko-KR',{maximumFracti
 const time=v=>new Date(v).toLocaleString('ko-KR');
 const parts={head:'머리',torso:'몸통',arm:'팔',leg:'다리'};
 const consoles={'1001':'공용','1101':'화력형','1102':'방어형','1103':'지원형','1201':'엘리시온','1202':'미실리스','1203':'테트라','1204':'필그림','1205':'어브노멀'};
-const pageTitles={home:['NIKKE SIMUL','홈'],account:['계정 정보','계정 설정'],nikkes:['전체 니케','니케 관리'],raid:['대미지 검산','솔로 레이드'],formation:['솔로 레이드','편성'],import:['블라블라 연결','계정 가져오기'],advanced:['문제 해결','고급 진단']};
+const pageTitles={home:['NIKKE SIMUL','홈'],account:['계정 정보','계정 설정'],nikkes:['전체 니케','니케 관리'],raid:['대미지 검산','솔로 레이드'],stats:['단일 덱 통계','반복 실행 통계'],formation:['솔로 레이드','편성'],import:['블라블라 연결','계정 가져오기'],advanced:['문제 해결','고급 진단']};
 const state={presentation:{characters:[]},presentationByCharacter:new Map(),combatPowerByCharacter:new Map(),currentProfile:null,selectedNikkeUid:null};
 let boot={token:'',connections:[],jobs:[]},snapshot=null,busy=false,refreshing=false;
 let connectionId=localStorage.getItem('nikke-sync-connection'),snapshotId=null,selectedPage='home',detailSequence=0;
@@ -42,6 +43,20 @@ const getMembersWithMeta=()=>{
 };
 const tacticsManager=createBurstTacticsManager({api,getSnapshot:()=>snapshot,getMembersWithMeta,getFormationSlots:()=>formation.slots(),status});
 const damageLogViewer=createDamageLogViewer({api,getSnapshot:()=>snapshot,getMembersWithMeta,getToken:()=>boot.token,status});
+const statsView=createSingleDeckStatsView({api,getSnapshot:()=>snapshot,getMembersWithMeta,status,
+  getTacticSummary:()=>{
+    const tactics=tacticsManager.getTactics?.();
+    const order=(tactics?.burst3Rotation?.length?tactics.burst3Rotation:tactics?.priority?.stage3)??[];
+    return order.map(id=>state.presentationByCharacter.get(id)?.displayName??id).join(' → ');
+  },
+  getConditions:()=>{
+    const form=$('replay-form');
+    if(!form)return{};
+    const data=new FormData(form),seconds=Number(data.get('seconds')),defense=Number(data.get('defense'));
+    return {durationSeconds:Number.isFinite(seconds)&&seconds>0?Math.min(180,seconds):180,
+      enemyDefense:Number.isFinite(defense)?defense:null};
+  }});
+let statsMounted=false;
 connectRenderer({state,isSelecting:()=>selectedPage==='formation',isChosen:id=>formation.contains(id),selectCharacter:id=>formation.select(id),effectiveProfileValue:(field,id)=>({integerValue:build(id)?.[field==='limit_break'?'limitBreak':'core']}),
   configuredCharacterLevel:id=>build(id)?.level,openNikkeDetail});
 
@@ -67,6 +82,10 @@ function setPage(tab){
   $('formation-editor').hidden=tab!=='formation';
   if(tab==='nikkes'||tab==='formation')renderNikkeCards();
   if(tab==='raid'){formation.render();tacticsManager.render('burst-tactics-container');}
+  if(tab==='stats'){
+    if(statsMounted)statsView.render('stats-content');
+    else{statsMounted=true;statsView.mount('stats-content');}
+  }
   const panel=tab==='formation'?'nikkes':tab,nav=tab==='formation'?'raid':tab;
   document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===nav)));
   document.querySelectorAll('[data-tab-panel]').forEach(p=>p.hidden=p.dataset.tabPanel!==panel);

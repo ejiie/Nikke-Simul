@@ -1,0 +1,11 @@
+{
+  "_note": "Synthetic batch lifecycle payloads: queued/running/cancelling/cancelled/completed/failed plus partial and resumed attempts.",
+  "queued": { "batchId": "batch-synthetic-1", "state": "queued", "requestedRuns": 1000, "validRuns": 0, "failedRuns": 0, "cancelledRuns": 0, "attempt": 1, "partial": false },
+  "running": { "batchId": "batch-synthetic-1", "state": "running", "requestedRuns": 1000, "validRuns": 320, "failedRuns": 2, "cancelledRuns": 0, "attempt": 1, "partial": false, "incompleteExcluded": 1 },
+  "cancelling": { "batchId": "batch-synthetic-1", "state": "cancelling", "requestedRuns": 1000, "validRuns": 512, "failedRuns": 2, "cancelledRuns": 0, "attempt": 1, "partial": false },
+  "cancelledPartial": { "batchId": "batch-synthetic-1", "state": "cancelled", "requestedRuns": 1000, "validRuns": 512, "failedRuns": 2, "cancelledRuns": 486, "attempt": 1, "partial": true, "incompleteExcluded": 3, "message": "사용자 취소 · 완료된 표본만 집계했습니다." },
+  "completed": { "batchId": "batch-synthetic-1", "state": "completed", "requestedRuns": 1000, "validRuns": 1000, "failedRuns": 0, "cancelledRuns": 0, "attempt": 1, "partial": false },
+  "failed": { "batchId": "batch-synthetic-2", "state": "failed", "requestedRuns": 1000, "validRuns": 120, "failedRuns": 880, "cancelledRuns": 0, "attempt": 1, "partial": true, "message": "GPU attempt 실패 · 결과를 폐기했습니다." },
+  "resumedAttempt": { "batchId": "batch-synthetic-2", "state": "running", "requestedRuns": 1000, "validRuns": 140, "failedRuns": 880, "cancelledRuns": 0, "attempt": 2, "partial": false, "message": "새 CPU attempt로 재개했습니다. 이전 attempt 결과는 중복 집계하지 않습니다." },
+  "unknownState": { "batchId": "batch-synthetic-3", "state": null, "requestedRuns": null, "validRuns": null, "failedRuns": null, "cancelledRuns": null }
+}

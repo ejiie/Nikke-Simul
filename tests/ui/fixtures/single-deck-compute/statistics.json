@@ -1,0 +1,67 @@
+{
+  "_note": "Synthetic Statistics payloads. Mean CI and quantiles are separate fields; unsupported metrics are listed explicitly.",
+  "normal": {
+    "n": 1000,
+    "unit": "팀 총 피해",
+    "mean": 152382293.4,
+    "sampleStandardDeviation": 4821904.5,
+    "meanConfidenceInterval": { "low": 152083461.2, "high": 152681125.6 },
+    "median": 152401002,
+    "p5": 144512900,
+    "p95": 160233815,
+    "quantileMethod": "empirical_type7",
+    "confidenceIntervalMethod": "student_t_95",
+    "cut": { "threshold": 150000000, "successRate": 0.683, "confidenceInterval": { "low": 0.654, "high": 0.711 } },
+    "perMember": [
+      { "characterId": "5004", "displayName": "앨리스", "mean": 61230011.5, "meanConfidenceInterval": { "low": 61102003, "high": 61358020 }, "share": 0.4018 },
+      { "characterId": "5044", "displayName": "모더니아", "mean": 42110552.1, "meanConfidenceInterval": { "low": 42001110, "high": 42219994 }, "share": 0.2763 },
+      { "characterId": "5009", "displayName": "누아르", "mean": 21990013.2, "meanConfidenceInterval": { "low": 21900001, "high": 22080025 }, "share": 0.1443 },
+      { "characterId": "5011", "displayName": "리타", "mean": 15020880.9, "meanConfidenceInterval": { "low": 14960004, "high": 15081757 }, "share": 0.0986 },
+      { "characterId": "5008", "displayName": "블랑", "mean": 12030835.7, "meanConfidenceInterval": { "low": 11980002, "high": 12081669 }, "share": 0.079 }
+    ],
+    "unsupported": []
+  },
+  "empty": { "n": 0, "unit": "팀 총 피해", "mean": null, "sampleStandardDeviation": null, "meanConfidenceInterval": null, "median": null, "p5": null, "p95": null, "perMember": [], "unsupported": [] },
+  "single": {
+    "n": 1,
+    "unit": "팀 총 피해",
+    "mean": 151002993,
+    "sampleStandardDeviation": null,
+    "meanConfidenceInterval": null,
+    "median": 151002993,
+    "p5": null,
+    "p95": null,
+    "quantileMethod": "empirical_type7",
+    "perMember": [{ "characterId": "5004", "displayName": "앨리스", "mean": 60112000, "meanConfidenceInterval": null, "share": 0.398 }],
+    "unsupported": []
+  },
+  "zeroDamage": {
+    "n": 250,
+    "unit": "팀 총 피해",
+    "mean": 0,
+    "sampleStandardDeviation": 0,
+    "meanConfidenceInterval": { "low": 0, "high": 0 },
+    "median": 0,
+    "p5": 0,
+    "p95": 0,
+    "quantileMethod": "empirical_type7",
+    "confidenceIntervalMethod": "student_t_95",
+    "cut": { "threshold": 150000000, "successRate": 0, "confidenceInterval": { "low": 0, "high": 0.0147 } },
+    "perMember": [{ "characterId": "5004", "displayName": "앨리스", "mean": 0, "meanConfidenceInterval": { "low": 0, "high": 0 }, "share": 0 }],
+    "unsupported": []
+  },
+  "partialUnsupported": {
+    "n": 512,
+    "unit": "팀 총 피해",
+    "mean": 151884220.7,
+    "sampleStandardDeviation": 4711002.4,
+    "meanConfidenceInterval": { "low": 151475110, "high": 152293331 },
+    "median": null,
+    "p5": null,
+    "p95": null,
+    "confidenceIntervalMethod": "student_t_95",
+    "perMember": [],
+    "unsupported": ["median", "p5", "p95", "cutSuccessRate", "cutSuccessCi"],
+    "cut": { "threshold": 150000000, "successRate": null, "confidenceInterval": null }
+  }
+}

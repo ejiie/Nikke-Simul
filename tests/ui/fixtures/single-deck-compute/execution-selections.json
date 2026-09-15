@@ -1,0 +1,52 @@
+{
+  "_note": "Synthetic ExecutionSelection payloads. The effective backend is the truth; a CPU run is never labelled a GPU success.",
+  "autoCpu": {
+    "requested": "auto",
+    "effectiveBackend": "cpu",
+    "deviceId": null,
+    "deviceLabel": null,
+    "workers": 6,
+    "chunkSize": 64,
+    "memoryLimitBytes": 4294967296,
+    "reason": "가용 병렬도 8 중 6 worker, 짧은 벤치마크에서 run/s 최대",
+    "fallbackReason": null,
+    "benchmarkVersion": "synthetic-bench-1",
+    "validationVersion": "synthetic-valid-1"
+  },
+  "gpuFallback": {
+    "requested": "gpu",
+    "effectiveBackend": "cpu",
+    "deviceId": null,
+    "deviceLabel": null,
+    "workers": 4,
+    "chunkSize": 32,
+    "memoryLimitBytes": 2147483648,
+    "reason": "GPU backend가 전체 전투 커널을 제공하지 않아 CPU로 실행",
+    "fallbackReason": "gpu_backend_not_implemented",
+    "benchmarkVersion": "synthetic-bench-1",
+    "validationVersion": "synthetic-valid-1"
+  },
+  "gpuVerified": {
+    "requested": "gpu",
+    "effectiveBackend": "gpu",
+    "deviceId": "gpu-verified-0",
+    "deviceLabel": "합성 GPU 검증본",
+    "workers": 2,
+    "chunkSize": 256,
+    "memoryLimitBytes": 6442450944,
+    "reason": "정확성·성능 검증을 통과한 장치",
+    "fallbackReason": null,
+    "benchmarkVersion": "synthetic-bench-1",
+    "validationVersion": "synthetic-valid-1"
+  },
+  "unknownSelection": {
+    "requested": null,
+    "effectiveBackend": null,
+    "deviceId": null,
+    "workers": null,
+    "chunkSize": null,
+    "memoryLimitBytes": null,
+    "reason": null,
+    "fallbackReason": null
+  }
+}

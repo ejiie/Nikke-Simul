@@ -1,0 +1,32 @@
+{
+  "_note": "Synthetic OL comparison payloads. Virtual candidate changes only; the account's real equipment is never modified.",
+  "mixedVerdicts": {
+    "baselineExperimentId": "exp-baseline-synthetic",
+    "candidateExperimentId": "exp-candidate-synthetic",
+    "virtualOnly": true,
+    "note": "탐색 표본과 독립 최종 표본을 분리했습니다.",
+    "candidates": [
+      {
+        "candidateId": "cand-1", "characterId": "5004", "displayName": "앨리스", "part": "머리", "line": 2,
+        "optionType": "StatAtk", "optionLabel": "공격력 증가", "value": 0.1111, "valueUnit": "ratio",
+        "teamMeanDelta": 2211903.4, "deltaConfidenceInterval": { "low": 1802110, "high": 2621696 }, "n": 4000, "stage": "final"
+      },
+      {
+        "candidateId": "cand-2", "characterId": "5044", "displayName": "모더니아", "part": "팔", "line": 1,
+        "optionType": "StatCriticalDamage", "optionLabel": "크리티컬 대미지 증가", "value": 0.1246, "valueUnit": "ratio",
+        "teamMeanDelta": 154220.6, "deltaConfidenceInterval": { "low": -201884, "high": 510325 }, "n": 4000, "stage": "final"
+      },
+      {
+        "candidateId": "cand-3", "characterId": "5011", "displayName": "리타", "part": "다리", "line": 3,
+        "optionType": "StatAmmoLoad", "optionLabel": "최대 장탄 수 증가", "value": 0.4517, "valueUnit": "ratio",
+        "teamMeanDelta": -880114.2, "deltaConfidenceInterval": { "low": -1244002, "high": -516226 }, "n": 4000, "stage": "final"
+      },
+      {
+        "candidateId": "cand-4", "characterId": "5009", "displayName": "누아르", "part": "몸통", "line": 2,
+        "optionType": "StatChargeTime", "optionLabel": "차지 속도 증가", "value": 0.0286, "valueUnit": "ratio",
+        "teamMeanDelta": null, "deltaConfidenceInterval": null, "n": 400, "stage": "screening"
+      }
+    ]
+  },
+  "empty": { "baselineExperimentId": "exp-baseline-synthetic", "candidateExperimentId": null, "virtualOnly": true, "candidates": [] }
+}
