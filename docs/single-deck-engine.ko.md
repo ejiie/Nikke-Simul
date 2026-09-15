@@ -68,3 +68,9 @@ dotnet run --project tools/benchmarks/engine/EngineBench.csproj -c Release --no-
 실제 실행에서는 SDK `C:/Users/user/Documents/GitHub/Nikke-Simul/.tools/dotnet/dotnet.exe`를 읽기 전용 실행하고 DOTNET_CLI_HOME=`$PWD/.tools/dotnet-home`, NUGET_PACKAGES=`$PWD/.tools/nuget-packages`, DOTNET_CLI_TELEMETRY_OPTOUT=1로 격리했다. 최초 benchmark restore는 `-p:RestoreConfigFile=nuget.config`, 이후 명령은 `--no-restore`를 사용했다. benchmark 출력은 FileMode.CreateNew이므로 재실행은 새 결과 디렉터리를 사용한다. 위 SDK 경로는 본인 측정 환경 기록이며 제품 코드에는 하드코딩하지 않았다.
 
 미완료: Backend Data의 IPreparedExperiment 실제 adapter 연결/API cancel-resume-results/저장 복구 종단, UI/Analysis/OL 추천 연결, 실제 400레벨 대상 덱·현재 tactic 입력의 대량 실행, QA 순차 1천/1만/5만회·다른 PC 자동 설정 검수, FP64 GPU primitive 실행/전체 전투 kernel/장치별 end-to-end benchmark. 여기서는 합성 입력 엔진 독립 검증만 완료했다. 기존 실측 DEF 재검증/게임 영점/자동 DEF 전환 수용/배포 완료를 주장하지 않는다. package-lock.json은 기존 untracked 상태로 보존하고 커밋에서 제외한다.
+
+## 확정 커밋·인계 기록
+
+구현/테스트/harness/보고서 커밋 **`0d23366`** (`perf(engine): add prepared CPU summaries and isolated FP64 probe`), 선행 계약 `7bd2aef`, 공통 기준 `a5ccba6`. 코드 커밋 후 tracked 변경 없음, 기존 untracked package-lock.json만 남았다(SHA256 `2EF4178AA07DDD9AC2E4D47422038D02D8ADAADFB15586CEE6A2F1995253C767`). 최종 GPU 빌드/probe도 exit 0, `artifacts/engine-compute/gpu-probe-final/probe.json`에서 동일 FP64 미지원 결과를 확인했다.
+
+Backend `term_6c0c321c-15a9-4f93-8784-5a88b484ee45`를 조회 후 확정 API/커밋/122개 테스트/성능 근거/미완료를 전송했다. 요청 `d8511680-90ec-4197-8e3d-3bcdc031e19f`, accepted=true/input_accepted. 상대 turn_started는 관측되지 않았으므로 adapter 구현·통합 검증 완료의 근거가 아니다. Director `term_f54735fc-6293-41b3-ae3a-984fd0d5b42a`도 기존 터미널 조회를 완료했으며 본 기록 커밋과 코드 커밋이 최종 인계 대상이다. 새 worker/Run/Dispatch/lifecycle worker_done/원격 push/배포는 실행하지 않았다.
