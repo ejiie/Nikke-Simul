@@ -6,7 +6,7 @@ Solo Raid의 대미지 시뮬레이션, 비중복 5덱 선정, 장비별 육성 
 
 **Windows 실행 파일 UI:** Nikke-Local-Lab의 화면·카드·상세 탭과 WinForms/WebView2 창을 이식했습니다. [이식 범위·이미지 출처·실행 방법](docs/desktop-ui-migration.ko.md).
 
-**2026-09-12 Director 실행본:** 간소화 버스트 설정과 피해 설명 수정이 반영된 실행 파일은 현재 작업공간의 `artifacts/desktop/win-x64/Nikke Simul.exe`입니다. 기존 본 계정 데이터 경로를 실행 설정으로 연결하며, 이전 실행 파일과 5181 검산용 데이터는 덮어쓰지 않았습니다. [빌드·실행 검증 및 사용 안내](docs/desktop-release-2026-09-12.ko.md).
+**2026-09-14 원본 실행본:** 실제 사용 경로는 `C:/Users/user/Documents/GitHub/Nikke-Simul/artifacts/desktop/win-x64/Nikke Simul.exe`이며, 바탕 화면의 `Nikke Simul.lnk`도 이 파일을 가리킵니다. 원본 `main`에 완료 커밋을 통합하고 EXE·백엔드·실행 설정을 이 위치에서 갱신했습니다. [원본 배포·검증 기록](docs/desktop-release-original-2026-09-14.ko.md). Director와 다른 worktree의 실행본은 별도 검증용이며, 그 빌드 성공을 원본 배포 완료로 간주하지 않습니다. [앞선 Director 한정 배포 기록](docs/desktop-release-2026-09-14.ko.md).
 
 **스펙 편집:** 상세 화면에서 장비·OL·스킬·성장·소장품·큐브를 변경하고 Save로 저장합니다. 공식 장비 이미지와 Local Lab 선택 UI를 사용하며, 별 3개와 코어 배지를 붙여 ±로 조정합니다. [편집·저장 범위와 출처](docs/desktop-spec-editor.ko.md).
 
@@ -15,6 +15,8 @@ Solo Raid의 대미지 시뮬레이션, 비중복 5덱 선정, 장비별 육성 
 **피해 로그·버스트 전략 통합 수용 통과:** 선택 니케의 실제 명중 로그, 버스트 참여자·단계별 우선순위·III 순환/첫 시전자 설정, 저장·JSON/CSV 내보내기를 통합했습니다. 실제 API·브라우저에서 서버 전술 복원→실행→로그 표시와 원본 다운로드를 검증했고, 통계 검사기의 종료 프레임 경계 수정도 22개 회귀 및 기존 실패 로그 재검산을 통과했습니다. 실게임 발당 영점·사이클 정확도 검증은 별도 미완료입니다. 수용 범위·근거·실패 이력은 [통합 검증 기록](docs/integration-verification-2026-09-11.ko.md)을 참조하세요.
 
 **현재 P02 단일 히트 검산 구현 완료:** P01 계정 동기화에 최종 스탯 표시·확정 차지식·정수화 후보 비교·실측 입력·검산 JSON 저장을 연결했습니다. OL과 스킬 공증은 버프 적용 전 스탯을 기준으로 함께 계산합니다. [버프 처리 정정·검증](docs/p02-buff-correction.ko.md). 히트 정수화는 실측 판정 대기 중입니다.
+
+**솔로 레이드 챌린지 레벨:** 검산은 내부적으로 싱크로 레벨 400을 사용합니다. 레벨 선택란은 없으며 계정의 실제 육성 레벨은 변경하지 않습니다. [변경·검증 범위](docs/solo-raid-challenge-level.ko.md).
 
 ## 실행
 

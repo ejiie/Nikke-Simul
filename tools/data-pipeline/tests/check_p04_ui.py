@@ -16,6 +16,7 @@ async def main():
             await route.fulfill(json={'accountId':'ui-readonly-fixture','slots':['5011','5008','5009','5004','5044']})
         async def replay(route):
             data=route.request.post_data_json
+            assert data['scenarioLevel']==400, 'Solo raid challenge must use level 400'
             response=await page.request.post(isolated+'/api/runtime/skill-replays',data=data,headers={'X-Nikke-Token':boot['token']})
             await route.fulfill(response=response)
         await page.route('**/api/accounts/*/formation',formation)
@@ -25,7 +26,7 @@ async def main():
         assert await page.locator('[name="burst"]').input_value()=='auto'
         assert await page.locator('[data-prescribed-burst]').is_hidden()
         await page.locator('[name="burstRotation"]').select_option('5004,5044')
-        await page.locator('[name="level"]').fill('400')
+        assert await page.locator('#replay-form [name="level"]').count()==0
         await page.locator('#run-replay').click()
         await page.wait_for_function("document.querySelector('#replay-result').textContent.includes('자동 버스트 사이클')",timeout=90000)
         assert await page.locator('#replay-result .simul-result-grid > article').count()==5
