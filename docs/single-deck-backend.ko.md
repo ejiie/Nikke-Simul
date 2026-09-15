@@ -66,3 +66,9 @@ Data의 ComputeOverloadCatalog는 pinned GameSnapshot.OptionSteps와 실제 T10 
 최종 정책의 실제 API 재검증 `artifacts/single-deck-backend/70ef351ac0f54a61b742d33cf215ba50/summary.json`도 **7/7 passed**, 격리 포트52994, 공개 원본12개 변경0, 합성 snapshot 변경0. baseline/양수 OL/음수 OL/취소 후 재개가 각각 최종 유효4회이며 전체 전투·통계·미확정 비교가 연결됐다. 첫4회 wall41.158초, 개별1908.72~4466.84ms, fullBursts각11. 이 실행에서도 10초 튜닝 안에 측정 후보를 끝내지 못해 worker1/benchmark_not_measured fallback을 반환했다. 따라서 실제 장치의 최적 동시성·처리량을 수용했다고 주장하지 않는다. 측정/캐시 선택과 변경 무효화는 합성 workload 회귀 통과이며, 실제 정책 최적성은 QA 순차 부하 검증에 남긴다. 변동 원인을 분리한 성능 비교는 미실행이다.
 
 Backend 자체 최종 검증은 전용18 + 기존Sync81 = **99개 테스트 통과**와 실제 API7개 검사 통과다. 재실행 횟수를 합쳐 테스트 수를 부풀리지 않는다. 모든 API 테스트 프로세스는 도구 종료 시 본인 생성 PID만 종료했고, 원본 계정/세션/캐시는 열거나 복제하지 않았다. 원본5180/5181/EXE/다른 작업공간/원격 push에 대한 변경 없음.
+
+## 최종 커밋과 인계
+
+확정 제품·통합 검증 커밋은 **48c11d8654fc7a9be32cfd2ae1f5f2bc66475887**이다. 이 커밋은 e7980ef 및 확정 E/S 의존 커밋을 모두 포함한다. 본 문서와 `docs/single-deck-compute-contract.ko.md`가 인계 보고서/계약이며 portable 검증 명령은 위 절에 있다. 최종 git status는 보존한 untracked package-lock.json만 남았다.
+
+반환 대상은 기존 Director `term_f54735fc-6293-41b3-ae3a-984fd0d5b42a`이며 CLI list/read로 실행 중인 기존 세션을 확인했다. 제품/보고서 커밋과 실제99 tests/API7 checks, GPU 전체 전투·자동 holdout orchestration·실제 최적 병렬도/대량 부하·브라우저/배포 미수용을 한 번 전달한다. 입력 접수는 Director 통합 또는 QA 통과를 뜻하지 않는다.
