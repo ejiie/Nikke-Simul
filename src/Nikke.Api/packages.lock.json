@@ -55,6 +55,18 @@
           "SQLitePCLRaw.core": "3.0.5"
         }
       },
+      "nikke.analysis": {
+        "type": "Project",
+        "dependencies": {
+          "Nikke.Contracts": "[1.0.0, )"
+        }
+      },
+      "nikke.compute": {
+        "type": "Project",
+        "dependencies": {
+          "Nikke.Contracts": "[1.0.0, )"
+        }
+      },
       "nikke.contracts": {
         "type": "Project"
       },
@@ -64,6 +76,7 @@
       "nikke.data": {
         "type": "Project",
         "dependencies": {
+          "Nikke.Analysis": "[1.0.0, )",
           "Nikke.Contracts": "[1.0.0, )",
           "Nikke.Core": "[1.0.0, )",
           "Nikke.Engine": "[1.0.0, )"
@@ -73,6 +86,14 @@
         "type": "Project",
         "dependencies": {
           "Nikke.Core": "[1.0.0, )"
+        }
+      },
+      "nikke.jobs": {
+        "type": "Project",
+        "dependencies": {
+          "Nikke.Compute": "[1.0.0, )",
+          "Nikke.Contracts": "[1.0.0, )",
+          "Nikke.Storage": "[1.0.0, )"
         }
       },
       "nikke.storage": {
