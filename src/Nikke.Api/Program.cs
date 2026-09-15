@@ -75,6 +75,7 @@ var calculationPath = Path.Combine(dataRoot, "calculation");
 var calculations = new Lazy<CalculationService>(() => new CalculationService(calculationPath));
 var runtimeRoot = Path.Combine(dataRoot, "runtime");
 var runtimeReplay = new Lazy<RuntimeReplayService>(() => new(runtimeRoot, Path.Combine(dataRoot, "weapon-replays")));
+app.MapCompute(dataRoot, store, game, runtimeReplay, calculations);
 var presentationRoot = Path.Combine(dataRoot, "presentation");
 var presentation = app.Services.GetRequiredService<PresentationService>();
 app.MapGet("/api/presentation", () => presentation.Read());

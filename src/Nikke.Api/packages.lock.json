@@ -55,6 +55,12 @@
           "SQLitePCLRaw.core": "3.0.5"
         }
       },
+      "nikke.compute": {
+        "type": "Project",
+        "dependencies": {
+          "Nikke.Contracts": "[1.0.0, )"
+        }
+      },
       "nikke.contracts": {
         "type": "Project"
       },
@@ -73,6 +79,14 @@
         "type": "Project",
         "dependencies": {
           "Nikke.Core": "[1.0.0, )"
+        }
+      },
+      "nikke.jobs": {
+        "type": "Project",
+        "dependencies": {
+          "Nikke.Compute": "[1.0.0, )",
+          "Nikke.Contracts": "[1.0.0, )",
+          "Nikke.Storage": "[1.0.0, )"
         }
       },
       "nikke.storage": {
