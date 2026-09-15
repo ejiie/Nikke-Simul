@@ -4,6 +4,8 @@ namespace Nikke.Analysis;
 
 // Slots/lines/values come from Backend's frozen, versioned catalog adapter. No invented rates/costs.
 public sealed record EquipmentLine(string CharacterId, string Slot, int Line, string Option, double Value);
+// Values is the exact signed tier allow-list validated by Backend's authoritative catalog adapter.
+// Negative normalized charge-time/accuracy values must not be negated or rejected by Analysis.
 public sealed record AllowedOption(string CharacterId, string Slot, string Option, ImmutableArray<double> Values,
     bool Supported, bool HasModeledEffect, bool ThresholdSensitive);
 public sealed record OverloadCandidate(string Id, EquipmentLine Before, EquipmentLine After, bool ThresholdSensitive);
@@ -25,7 +27,7 @@ public static class OverloadCandidates
         foreach (var option in options.Where(o => o.CharacterId == line.CharacterId && o.Slot == line.Slot))
         {
             if (!option.Supported || !option.HasModeledEffect) { exclusions.Add($"{line.CharacterId}/{line.Slot}/{option.Option}:unsupported_or_no_effect"); continue; }
-            if (string.IsNullOrWhiteSpace(option.Option) || option.Values.IsDefaultOrEmpty || option.Values.Any(v => !double.IsFinite(v) || v < 0))
+            if (string.IsNullOrWhiteSpace(option.Option) || option.Values.IsDefaultOrEmpty || option.Values.Any(v => !double.IsFinite(v)))
                 throw new ArgumentException("Invalid authoritative option values");
             if (lines.Any(l => l.CharacterId == line.CharacterId && l.Slot == line.Slot && l.Line != line.Line && l.Option == option.Option))
             { exclusions.Add($"{line.CharacterId}/{line.Slot}/{line.Line}/{option.Option}:duplicate_on_equipment"); continue; }
