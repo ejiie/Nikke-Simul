@@ -108,3 +108,19 @@ Backend의 확정 Compute.cs/IComputeAnalysis 계약을 다시 읽고 E-CPU `0d2
 - 수정 전 실패 근거: `artifacts/single-deck-statistics/crit-before-4f071ab475a345fba50d3a988215e0d0/{analysis.trx,test.log}`.
 - 최종 회귀 근거: `artifacts/single-deck-statistics/crit-after-a1ff7b324b25461abc7e906be777ec73/{analysis.trx,test.log}`.
 - 시작 HEAD `b9ce963`, 이전 미추적 package-lock.json 보존(앞선 SHA-256 동일). 다른 담당의 진행 중인 제품 커밋은 병합하지 않고 확정 문서/코드만 읽기 전용 대조했다.
+
+## B-CPU 호환 수정 — authoritative OL 부호 보존
+
+Backend 계약의 `StatChargeTime`/`StatAccuracyCircle` normalized 값은 음수다. `OverloadCandidates.Generate`의 `v < 0` 일괄 거부를 제거하고 finite 검증은 유지한다. `AllowedOption.Values`는 Backend가 실제 캐릭터/부위 및 고정 catalog에 대조한 **부호 있는 허용 tier 전체 목록**이며, Analysis는 이 목록에 들어 있는 값만 그대로 사용한다. StatAtk의 양수와 차지/명중원 옵션의 음수를 임의로 변환하지 않는다.
+
+유효 범위는 이산 허용 목록이다. Analysis에서 임의의 전역 최소/최대나 옵션별 양수/음수 규칙을 중복 하드코딩하지 않는다. endpoint 밖 외삽, tier 사이 보간, 절댓값 변환, 목록에 없는 0 생성은 없다. 목록 자체의 게임 catalog 일치와 부위·줄별 적용 가능 여부는 Backend Data adapter가 검증한다. Analysis 단독으로 임의 caller의 목록을 공식 게임 범위라고 인증하지 않는다.
+
+지원·모델 효과가 있는 후보의 빈/default 목록 및 NaN/±Infinity는 거부한다. 미지원·모델 효과 없음은 후보 제외, 동일 옵션·동일 값은 변경 없음으로 제외, 실제 캐릭터·부위·줄 및 Before/After 부호는 보존한다. 0도 catalog에 명시되고 현재 값과 다를 때만 가상 변경 후보가 될 수 있으며 개선 추천을 뜻하지 않는다. 기존 독립 전투 holdout 평가가 이후 우열을 판정한다.
+
+신규 합성 회귀는 StatChargeTime/StatAccuracyCircle 음수와 StatAtk 양수 보존, 실제 줄/원본 불변, 음수 tier 양끝 및 중복 제거·목록 밖 값 미생성, 빈/default·비정상 수치 거부, 음수 옵션의 미지원·무효과 제외, 0 명시 허용 및 동일 음수값 제외를 검사한다. 이 수정은 후보 생성 계약 검증이며 실제 계정 음수 OL 변경 API 또는 게임 정확도 수용을 대신하지 않는다.
+
+수정 전 `--filter FullyQualifiedName~Authoritative_signed_values`로 양수 사례 1 통과/음수 사례 2 실패를 재현했다. 수정 후 필터 없는 전용 project 전체 회귀 **41 통과 / 실패 0 / skip 0**(기존 29 + 신규 12), 표시 테스트 시간 1초. 명령은 기존 격리 환경의 `dotnet test tests/Nikke.Analysis.Tests/Nikke.Analysis.Tests.csproj -c Release --no-restore --logger 'trx;LogFileName=analysis.trx' --results-directory <새 경로>`이며 출력 stdout/stderr도 test.log로 보존했다. 빌드 경고/오류 및 git diff 오류 없음.
+
+- 수정 전: `artifacts/single-deck-statistics/signed-before-ce396420f9c04b819655c49877b34a29/{analysis.trx,test.log}`.
+- 수정 후: `artifacts/single-deck-statistics/signed-after-b265531b0e7c4147af5ef0b755712266/{analysis.trx,test.log}`.
+- 시작 HEAD `979325c`, 미추적 package-lock.json의 전후 SHA-256 동일. 변경 범위는 Analysis 후보 생성기·새 전용 회귀 파일·본 보고서뿐이다. Backend authoritative catalog/슬롯 adapter 및 실제 API 연결은 Backend 소유로 유지한다.
