@@ -1,0 +1,20 @@
+{
+  "schema": "qa-plan-v1",
+  "productBase": "a5ccba6663241e61783b509fc69098ad3c9ecef2",
+  "backendContract": "f2327e5a99e9a6ce23e5377a53842fba63274331",
+  "implementationCommits": null,
+  "productAcceptance": "not_evaluated",
+  "hardwareCases": ["cpu_only", "unknown_topology", "memory_limit", "invalid_memory", "Intel_synthetic", "AMD_synthetic", "NVIDIA_synthetic", "multi_gpu", "disconnected_external_gpu", "remote_session", "permission_denied", "driver_missing", "runtime_unsupported", "fp64_missing", "probe_timeout", "probe_exception", "kernel_numeric_failure", "distribution_failure", "end_to_end_failure", "stale_machine_driver_runtime_engine_kernel_workload_policy", "forced_gpu_preflight_error", "gpu_failed_attempt_discard_then_cpu_retry"],
+  "engineCases": ["exact_fixed_nonrandom_boundaries", "damage_rounding_floor_round_double", "same_frame_order", "full_charge_196000", "trace_on_off_rng_consumption", "parallel_vs_sequential_independent_rng", "input_immutable", "run_state_isolation", "pool_reset_if_used", "independent_sample_equivalence"],
+  "batchCases": ["queued_running_cancelling_cancelled_completed_failed", "cancel_during_chunk", "resume_attempt_increment", "duplicate_run_attempt", "conflicting_same_key", "late_old_attempt", "crash_restart_writer_recovery", "bounded_backpressure", "incomplete_not_zero", "partial_counts", "no_mixed_backend_semantics", "snapshot_tactic_build_fingerprint"],
+  "statisticsCases": ["n0", "n1", "normal_zero", "large_damage_variance", "sample_sd", "HF7_quantiles_or_explicit_Analysis_method", "mean_CI_pending_Analysis_method", "Wilson_cut_probability", "team_quantile_not_sum", "independent_OL_difference_CI", "pilot_search_holdout_disjoint", "OL_slot_line_option_bounds", "full_combat_candidate_rerun", "no_unverified_cost_policy"],
+  "scales": [
+    {"requestedRuns": 1000, "phase": "pilot", "status": "not_run"},
+    {"requestedRuns": 10000, "phase": "final", "status": "not_run"},
+    {"requestedRuns": 50000, "phase": "sustained", "status": "not_run"}
+  ],
+  "benchmarkPrerequisites": ["confirmed_product_and_contract_commits", "allowed_nonprivate_input", "five_member_order_and_tactic_fingerprint", "synchro400_fixedDEF", "exclusive_window_agreed_with_Director_and_owners", "portable_hardware_and_versions", "cancel_and_memory_caps"],
+  "metrics": ["valid_run_per_second", "allocations", "GC", "peak_memory", "storage_bytes", "UI_response_p95", "cancel_latency", "cold_and_warm_total_time"],
+  "gpuPromotion": "actual_device_kernel_numeric_distribution_end_to_end_all_pass_required",
+  "gameVerified": false
+}

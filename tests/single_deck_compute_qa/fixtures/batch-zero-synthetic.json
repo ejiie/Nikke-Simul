@@ -1,0 +1,51 @@
+{
+  "requested": 1,
+  "valid": 1,
+  "failed": 0,
+  "cancelled": 0,
+  "partial": false,
+  "status": "completed",
+  "phase": "final",
+  "numericalModel": "fixed-def-legacy-floor",
+  "input": {
+    "synchro": 400,
+    "defPolicy": "fixed",
+    "defense": 30925,
+    "durationSeconds": 180,
+    "snapshotFingerprint": "synthetic-not-account",
+    "dataVersion": "fixture-v1",
+    "engineVersion": "fixture-v1",
+    "rulesVersion": "p04.team.2",
+    "tacticFingerprint": "synthetic-tactic",
+    "buildFingerprint": "fixture-build",
+    "members": [
+      "liter",
+      "blanc",
+      "alice",
+      "noir",
+      "modernia"
+    ]
+  },
+  "attempts": [
+    {
+      "runId": "run-0",
+      "attempt": 1,
+      "status": "valid",
+      "accepted": true,
+      "completedBattle": true,
+      "phase": "final",
+      "inputFingerprint": "fixture-build",
+      "numericalModel": "fixed-def-legacy-floor",
+      "backend": "cpu",
+      "damage": 0,
+      "memberDamage": {
+        "liter": 0,
+        "blanc": 0,
+        "alice": 0,
+        "noir": 0,
+        "modernia": 0
+      }
+    }
+  ],
+  "cutoff": 0
+}

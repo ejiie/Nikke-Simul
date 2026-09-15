@@ -1,0 +1,220 @@
+[
+  {
+    "batch": {
+      "id": "fixture-experiment",
+      "state": "completed",
+      "attempt": 2,
+      "requested": 2,
+      "valid": 2,
+      "failed": 0,
+      "cancelled": 0,
+      "partial": false,
+      "errorCode": null,
+      "input": {
+        "fingerprint": "input-fixed",
+        "snapshotId": "synthetic-no-account",
+        "dataVersion": "fixture",
+        "engineVersion": "fixture",
+        "rulesVersion": "fixture",
+        "characterIds": [
+          "liter",
+          "blanc",
+          "alice",
+          "noir",
+          "modernia"
+        ],
+        "synchroLevel": 400,
+        "durationFrames": 10800,
+        "phase": "final",
+        "recordLevel": "summary",
+        "defPolicy": "fixed:30925",
+        "gameVerified": false
+      },
+      "execution": {
+        "requested": "auto",
+        "backend": "cpu",
+        "deviceId": "cpu",
+        "workers": 2,
+        "chunkSize": 8,
+        "memoryLimitBytes": 1048576,
+        "reason": "fixture",
+        "validationVersion": "fixture",
+        "benchmarkVersion": "fixture",
+        "fingerprint": "fixture",
+        "fallbackReason": "gpu_not_implemented"
+      }
+    },
+    "offset": 0,
+    "limit": 1,
+    "runs": [
+      {
+        "runId": "fixture-experiment:0",
+        "attempt": 1,
+        "index": 0,
+        "experimentId": "fixture-experiment",
+        "inputFingerprint": "input-fixed",
+        "backend": "cpu",
+        "phase": "final",
+        "teamDamage": 0,
+        "members": [
+          {
+            "characterId": "liter",
+            "damage": 0,
+            "shots": 0,
+            "hits": 0,
+            "criticalHits": 0,
+            "reloads": 0,
+            "burstCasts": 0
+          },
+          {
+            "characterId": "blanc",
+            "damage": 0,
+            "shots": 0,
+            "hits": 0,
+            "criticalHits": 0,
+            "reloads": 0,
+            "burstCasts": 0
+          },
+          {
+            "characterId": "alice",
+            "damage": 0,
+            "shots": 0,
+            "hits": 0,
+            "criticalHits": 0,
+            "reloads": 0,
+            "burstCasts": 0
+          },
+          {
+            "characterId": "noir",
+            "damage": 0,
+            "shots": 0,
+            "hits": 0,
+            "criticalHits": 0,
+            "reloads": 0,
+            "burstCasts": 0
+          },
+          {
+            "characterId": "modernia",
+            "damage": 0,
+            "shots": 0,
+            "hits": 0,
+            "criticalHits": 0,
+            "reloads": 0,
+            "burstCasts": 0
+          }
+        ],
+        "fullBursts": 0,
+        "elapsedMilliseconds": 1
+      }
+    ]
+  },
+  {
+    "batch": {
+      "id": "fixture-experiment",
+      "state": "completed",
+      "attempt": 2,
+      "requested": 2,
+      "valid": 2,
+      "failed": 0,
+      "cancelled": 0,
+      "partial": false,
+      "errorCode": null,
+      "input": {
+        "fingerprint": "input-fixed",
+        "snapshotId": "synthetic-no-account",
+        "dataVersion": "fixture",
+        "engineVersion": "fixture",
+        "rulesVersion": "fixture",
+        "characterIds": [
+          "liter",
+          "blanc",
+          "alice",
+          "noir",
+          "modernia"
+        ],
+        "synchroLevel": 400,
+        "durationFrames": 10800,
+        "phase": "final",
+        "recordLevel": "summary",
+        "defPolicy": "fixed:30925",
+        "gameVerified": false
+      },
+      "execution": {
+        "requested": "auto",
+        "backend": "cpu",
+        "deviceId": "cpu",
+        "workers": 2,
+        "chunkSize": 8,
+        "memoryLimitBytes": 1048576,
+        "reason": "fixture",
+        "validationVersion": "fixture",
+        "benchmarkVersion": "fixture",
+        "fingerprint": "fixture",
+        "fallbackReason": "gpu_not_implemented"
+      }
+    },
+    "offset": 1,
+    "limit": 1,
+    "runs": [
+      {
+        "runId": "fixture-experiment:1",
+        "attempt": 2,
+        "index": 1,
+        "experimentId": "fixture-experiment",
+        "inputFingerprint": "input-fixed",
+        "backend": "cpu",
+        "phase": "final",
+        "teamDamage": 0,
+        "members": [
+          {
+            "characterId": "liter",
+            "damage": 0,
+            "shots": 0,
+            "hits": 0,
+            "criticalHits": 0,
+            "reloads": 0,
+            "burstCasts": 0
+          },
+          {
+            "characterId": "blanc",
+            "damage": 0,
+            "shots": 0,
+            "hits": 0,
+            "criticalHits": 0,
+            "reloads": 0,
+            "burstCasts": 0
+          },
+          {
+            "characterId": "alice",
+            "damage": 0,
+            "shots": 0,
+            "hits": 0,
+            "criticalHits": 0,
+            "reloads": 0,
+            "burstCasts": 0
+          },
+          {
+            "characterId": "noir",
+            "damage": 0,
+            "shots": 0,
+            "hits": 0,
+            "criticalHits": 0,
+            "reloads": 0,
+            "burstCasts": 0
+          },
+          {
+            "characterId": "modernia",
+            "damage": 0,
+            "shots": 0,
+            "hits": 0,
+            "criticalHits": 0,
+            "reloads": 0,
+            "burstCasts": 0
+          }
+        ],
+        "fullBursts": 0,
+        "elapsedMilliseconds": 1
+      }
+    ]
+  }
+]
