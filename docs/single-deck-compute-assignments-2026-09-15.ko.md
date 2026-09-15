@@ -91,3 +91,19 @@
 ## 통합·배포의 다음 담당
 
 Director는 확정 커밋과 독립 검수 결과를 받아 통합한다. 실제 GPU 경로 미구현/미검증을 GPU 지원 완료로 축약하지 않는다. 성능 최적화·통계 수용과 게임 영점/자동 DEF 전환 수용은 별도 표시한다. 원본 main 로컬 통합, 원본 EXE/backend/UI 갱신 및 사용자 실제 경로 실행 검증은 AGENTS.md에 따른 후속 배포 단계이며 현재 착수와 혼동하지 않는다.
+
+## 실제 전달·착수 확인
+
+Orca 1.4.200, runtime ffa5103d-ca62-43eb-9f70-5d99e6735b00. 지시서 최초 커밋 a0ae145. 기존 작업공간/터미널만 재사용했다. 아래 모두 accepted=true이며 UI는 turn_started, 나머지는 입력창에 본문이 남은 것을 screen으로 확인 후 **본문 재전송 없이 Enter 1회**로 제출했고 새 작업에 대한 담당자의 응답과 Working 상태를 확인했다. 동일 request ID 재조회는 중복 입력을 만들지 않았다. 이전 작업 완료 화면을 새 작업 시작 근거로 사용하지 않았다.
+
+| 담당 | 기존 터미널 | 최초 요청 ID | 착수 근거 |
+|---|---|---|---|
+| E-CPU/GPU | term_44567be4-135b-442d-8194-a623c9adf71b | bf0b7b1a-d1c9-409e-8e69-e8799869fe14 | 새 지시서·브랜치 확인 후 엔진 코드/테스트 진행 응답 |
+| B-CPU | term_6c0c321c-15a9-4f93-8784-5a88b484ee45 | 9da08957-e91b-401e-bdec-c70fe0162635 | B-CPU 소유 범위 구현/검증 진행 응답 |
+| S-CPU/OL | term_ede55cad-1b9e-40bc-a65a-15b4e9c7a19d | aac0cad3-86c1-4c27-bedb-90206d6b2eaa | S-CPU/OL 독립 코드/테스트 진행 응답 |
+| U-CPU | term_818b41f3-3b0b-475f-83cc-db252fb90e38 | 44e4b8aa-283c-4187-b0f3-af9ae6ed93d9 | provider=claude, input_accepted + turn_started |
+| Q-CPU/GPU | term_30f7a75f-412b-4f2f-9bd3-863c417a5e7e | 642d5b04-fada-4975-8778-9fb51aa6249a | 이전 Q-IMG 종료 확인 및 새 독립 검사 진행 응답 |
+
+작업공간 주소는 공통 prefix `07c470de-0a43-4d90-9eb6-240a5de9258c::C:/Users/user/orca/workspaces/Nikke-Simul/` 뒤에 각각 `시뮬레이션-엔진-담당`, `Backend`, `덱-육성-최적화-및-통계-담당`, `UI`, `검수`를 붙인 기존 ID다. Director 반환 터미널은 term_f54735fc-6293-41b3-ae3a-984fd0d5b42a. 모델/effort/전역 권한 변경·기존 프로세스 종료 없음. UI는 기존 Claude 세션을 유지했으며 이 전달 영수증은 상세 모델 버전까지 증명하지 않는다.
+
+이 기록은 착수 확인이며 제품 구현 완료·성능 수치·독립 수용 통과가 아니다. 원본 EXE와 계정 데이터는 이번 배정에서 변경하지 않았다.
