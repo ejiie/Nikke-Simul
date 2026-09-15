@@ -14,20 +14,27 @@ public static class SkillReplay
         ICombatEventSink events = null, ISkillBattleDriver driver = null)
     {
         Validate(members, graph, conditions);
+        return RunValidated(members,graph,conditions,random,events,driver);
+    }
+
+    internal static SkillReplayResult RunValidated(IReadOnlyList<SkillReplayMember> members, SkillGraph graph,
+        SkillReplayConditions conditions, IRandomSource random=null, ICombatEventSink events=null,
+        ISkillBattleDriver driver=null, CancellationToken cancellationToken=default, bool summaryOnly=false)
+    {
         if (conditions.AutoBurst is not null)
         {
             if (driver is not null || conditions.Casts.Count != 0 || conditions.Combat.FullBurstWindows.Count != 0)
                 throw new ArgumentException("자동 버스트와 지정 시전·풀버스트 구간을 함께 사용할 수 없습니다.");
             var rng = random ?? SystemRandomSource.Instance;
             var controller = new TeamBurstController(members, graph, conditions, rng, events);
-            var result = new Battle(members, graph, conditions, rng, controller, controller).Run();
+            var result = new Battle(members, graph, conditions, rng, controller, controller,cancellationToken,summaryOnly).Run();
             return result with { RulesVersion = TeamBurstController.Version, Status = "automatic_cycle_provisional",
                 TeamBurst = controller.Summary(conditions.Combat.DurationFrames),
                 Limitations = result.Limitations.Skip(1).Prepend("Automatic gauge uses a versioned reference candidate; gauge formula and timing await game measurements.").ToArray() };
         }
         if (driver is not null && (conditions.Casts.Count != 0 || conditions.Combat.FullBurstWindows.Count != 0))
             throw new ArgumentException("A driver replaces prescribed casts and full-burst windows.");
-        return new Battle(members, graph, conditions, random ?? SystemRandomSource.Instance, events, driver).Run();
+        return new Battle(members, graph, conditions, random ?? SystemRandomSource.Instance, events, driver,cancellationToken,summaryOnly).Run();
     }
 
     public static IReadOnlyList<string> CheckSupport(SkillLoadout loadout, SkillGraph graph)
@@ -76,7 +83,7 @@ public static class SkillReplay
         return issues.ToArray();
     }
 
-    private static void Validate(IReadOnlyList<SkillReplayMember> members, SkillGraph graph, SkillReplayConditions c)
+    internal static void Validate(IReadOnlyList<SkillReplayMember> members, SkillGraph graph, SkillReplayConditions c)
     {
         if (members is null || members.Count is < 1 or > 5 || members.Any(m => m is null || m.Weapon is null || m.Skills is null
             || !double.IsFinite(m.NativeHp) || m.NativeHp <= 0 || m.NativeHp > 1e12)
@@ -128,6 +135,7 @@ public static class SkillReplay
         public SkillReplayMember Input;
         public string Id => Input.Weapon.CharacterId;
         public SkillFiringModel Gun;
+        public bool GunDirty = true;
         public double Hp, CoverRatio = 1, CoverMaxHp = 1;
         public int Shots, Hits, Crits, AmmoConsumed;
         public Dictionary<string, double> Damage = new();
@@ -174,6 +182,8 @@ public static class SkillReplay
         private bool fullBurst;
         private readonly ICombatEventSink eventSink;
         private readonly ISkillBattleDriver driver;
+        private readonly CancellationToken cancellationToken;
+        private readonly bool summaryOnly;
         private readonly Dictionary<CombatEventKind,long> connectionCounts = new();
         private readonly List<CombatEvent> timeline = [];
         private readonly HashSet<(string,string)> frameCasts = [];
@@ -243,7 +253,7 @@ public static class SkillReplay
                 or CombatEventKind.FullBurstEntered or CombatEventKind.FullBurstExited)
             {
                 timelineCount++;
-                if (timeline.Count<20000) timeline.Add(e);
+                if (!summaryOnly && timeline.Count<20000) timeline.Add(e);
             }
             publishing=true;
             try { eventSink?.OnEvent(e); }
@@ -251,10 +261,11 @@ public static class SkillReplay
         }
 
         public Battle(IReadOnlyList<SkillReplayMember> members, SkillGraph graph, SkillReplayConditions conditions, IRandomSource random,
-            ICombatEventSink eventSink, ISkillBattleDriver driver)
+            ICombatEventSink eventSink, ISkillBattleDriver driver, CancellationToken cancellationToken, bool summaryOnly)
         {
             this.graph = graph; input = conditions; this.random = random;
             this.eventSink=eventSink; this.driver=driver;
+            this.cancellationToken=cancellationToken; this.summaryOnly=summaryOnly;
             team = members.Select(m => new Actor { Input = m,
                 Gun = new(new WeaponProfile(m.Weapon.Weapon), m.Weapon.Weapon.maxAmmo,
                     new FiringControl { Mode = C.ManualCharacterId == m.Weapon.CharacterId ? ControlMode.Manual : ControlMode.Auto,
@@ -279,7 +290,7 @@ public static class SkillReplay
             int? expires = null, HitContext hit = null)
         {
             long id = ++eventCount;
-            if (currentBurstCast is { } origin) burstOrigins[id] = origin;
+            if (input.DamageLog is not null && currentBurstCast is { } origin) burstOrigins[id] = origin;
             if (C.Trace && trace.Count < C.TraceLimit)
                 trace.Add(new(id, parent, frame, kind, source, target, effect, fid, sid, value, stacks, basis, expires, hit));
             return id;
@@ -395,6 +406,7 @@ public static class SkillReplay
         {
             double oldMax = target is null ? 0 : MaxHp(target);
             var existing = effects.SingleOrDefault(e => e.Source == owner && e.Target == target && e.Function.GroupId == f.GroupId);
+            bool replacesGunEffect=existing?.Function.FunctionType is 5 or 14 or 61;
             double value = f.FunctionType switch
             {
                 0 or 5 or 40 or 54 => f.FunctionValue,
@@ -428,7 +440,8 @@ public static class SkillReplay
                 value:value,stacks:e.Stacks,basis:basis,expires:e.Expires);
             if (f.FunctionType == 94 && target is not null)
                 target.Hp = Math.Min(MaxHp(target), target.Hp + MaxHp(target)-oldMax);
-            if (target is not null && f.FunctionType is 5 or 14 or 61) SyncGun(target);
+            if (target is not null && replacesGunEffect) target.GunDirty=true;
+            if (target is not null && f.FunctionType is 5 or 14 or 61) { target.GunDirty=true; SyncGun(target); }
         }
 
         private void Remove(Effect e, string reason)
@@ -437,7 +450,7 @@ public static class SkillReplay
             if (e.Target is not null)
             {
                 e.Target.Hp = Math.Min(e.Target.Hp, MaxHp(e.Target));
-                if (e.Function.FunctionType is 5 or 14 or 61) SyncGun(e.Target);
+                if (e.Function.FunctionType is 5 or 14 or 61) { e.Target.GunDirty=true; SyncGun(e.Target); }
             }
             Log(reason,e.Source.Id,e.Target?.Id ?? "boss",$"function:{e.Function.Id}",e.EventId,e.Function.Id,stacks:e.Stacks);
         }
@@ -472,6 +485,7 @@ public static class SkillReplay
                     case 7:
                         modes[owner.Id]=new(sk.SkillId,frame+SkillUnits.Frames(body.DurationValue),SkillUnits.Rate(values[0].SkillValue),
                             values[1].SkillValue/60d,cast,checked((int)values[2].SkillValue));
+                        owner.GunDirty=true;
                         Log("weapon_change",owner.Id,owner.Id,$"skill:{sk.SkillId}",cast,sid:sk.SkillId,value:values[2].SkillValue,
                             basis:"official_coefficient_rpm_shot_id",expires:modes[owner.Id].Expires);
                         break;
@@ -539,6 +553,7 @@ public static class SkillReplay
 
         private void SyncGun(Actor a)
         {
+            if (!a.GunDirty) return;
             var w=a.Input.Weapon.Weapon; var b=a.Input.Weapon.Buffs;
             var ammoRates=On(a,14).Where(e=>e.Function.FunctionValueType==2).Select(e=>new StatRateBuff(Key(e),e.Value,e.Stacks)).ToArray();
             int maxAmmo=checked((int)StatBuffCalculator.Apply(w.maxAmmo,b.Ammo,ammoRates)
@@ -549,6 +564,7 @@ public static class SkillReplay
             int reloadCs=OverloadProcessor.ReduceTimeCs(SkillUnits.Cs(w.reloadTimeSec),Terms(b.ReloadSpeed));
             modes.TryGetValue(a.Id,out var mode);
             a.Gun.ApplyRuntime(Math.Max(1,maxAmmo),Math.Max(0,chargeCs),reloadCs,On(a,5).Any(),mode?.Rate);
+            a.GunDirty=false;
         }
         private static double[] Terms(IEnumerable<StatRateBuff> buffs) => buffs.SelectMany(b=>Enumerable.Repeat(b.Rate,b.Stacks)).ToArray();
 
@@ -569,8 +585,9 @@ public static class SkillReplay
                 DamageTaken=a.Input.Weapon.Hit.DamageTaken+On(null,42).Sum(e=>e.Value*e.Stacks),
                 AttackDamage=a.Input.Weapon.Hit.AttackDamage+(input.InterruptionTarget ? On(a,96).Sum(e=>e.Value*e.Stacks) : 0)
             };
-            var calculation=HitCalculator.Compare(h).Candidates.Single(p=>p.Policy==input.RoundingPolicy);
-            double damage=calculation.Damage;
+            var calculation=input.DamageLog?.CharacterId==a.Id
+                ? HitCalculator.Compare(h).Candidates.Single(p=>p.Policy==input.RoundingPolicy) : null;
+            double damage=calculation?.Damage ?? HitCalculator.Calculate(h,input.RoundingPolicy);
             a.Damage[effect]=a.Damage.GetValueOrDefault(effect)+damage;
             if (crit) a.Crits++;
             long ev=Log("damage",a.Id,"boss",effect,parent,value:damage,basis:h.AttackStatBasis,hit:h);
@@ -614,6 +631,7 @@ public static class SkillReplay
             long start=Log("battle_start","team"); Dispatch(0,null,start); Dispatch(1,null,start); RefreshConditions(start);
             for (frame=1; frame<=C.DurationFrames; frame++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 operations=0;
                 frameCasts.Clear();
                 // A HoT's last tick is delivered at its end before removing the effect (5 seconds = 5 ticks).
@@ -624,7 +642,7 @@ public static class SkillReplay
                 }
                 foreach (var e in effects.Where(e=>e.Expires<=frame).ToArray()) Remove(e,"buff_expired");
                 foreach (var p in modes.Where(p=>p.Value.Expires<=frame).ToArray())
-                { modes.Remove(p.Key); Log("weapon_restored",p.Key,p.Key,$"skill:{p.Value.SkillId}",p.Value.EventId); }
+                { modes.Remove(p.Key); Find(p.Key).GunDirty=true; Log("weapon_restored",p.Key,p.Key,$"skill:{p.Value.SkillId}",p.Value.EventId); }
                 foreach (var p in shields.Where(p=>p.Value.ExpiresAt<=frame).ToArray())
                 { shields.Remove(p.Key); Log("shield_expired",p.Key,"team",$"skill:{p.Value.SkillId}",p.Value.EventId); }
                 foreach (var o in input.HpObservations.Where(o=>o.Frame==frame))
