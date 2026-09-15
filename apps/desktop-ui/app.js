@@ -49,12 +49,30 @@ const statsView=createSingleDeckStatsView({api,getSnapshot:()=>snapshot,getMembe
     const order=(tactics?.burst3Rotation?.length?tactics.burst3Rotation:tactics?.priority?.stage3)??[];
     return order.map(id=>state.presentationByCharacter.get(id)?.displayName??id).join(' → ');
   },
+  // Contract v1 takes the full SkillReplayConditions; the saved burst tactic is applied by useSavedTactic.
   getConditions:()=>{
     const form=$('replay-form');
     if(!form)return{};
     const data=new FormData(form),seconds=Number(data.get('seconds')),defense=Number(data.get('defense'));
-    return {durationSeconds:Number.isFinite(seconds)&&seconds>0?Math.min(180,seconds):180,
-      enemyDefense:Number.isFinite(defense)?defense:null};
+    const durationSeconds=Number.isFinite(seconds)&&seconds>0?Math.min(180,seconds):180;
+    return {
+      roundingPolicy:data.get('rounding')??'legacy_term_floor',
+      casts:[],
+      combat:{
+        manualCharacterId:data.get('manualCharacter')??'',
+        manualStyle:data.get('manualStyle')??'full_charge',
+        durationFrames:durationSeconds*60,
+        ...(Number.isFinite(defense)?{enemyDefense:defense}:{}),
+        critMode:data.get('crit')??'off',
+        core:data.has('core'),
+        properDistance:data.has('distance'),
+        elementAdvantage:data.has('element'),
+        pelletCoefficientPolicy:data.get('pellet')??'per_trigger',
+        fullBurstWindows:[],
+        trace:false,
+        targetLabel:'single_deck_statistics'
+      }
+    };
   }});
 let statsMounted=false;
 connectRenderer({state,isSelecting:()=>selectedPage==='formation',isChosen:id=>formation.contains(id),selectCharacter:id=>formation.select(id),effectiveProfileValue:(field,id)=>({integerValue:build(id)?.[field==='limit_break'?'limitBreak':'core']}),

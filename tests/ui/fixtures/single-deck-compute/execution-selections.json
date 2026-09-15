@@ -1,52 +1,28 @@
 {
-  "_note": "Synthetic ExecutionSelection payloads. The effective backend is the truth; a CPU run is never labelled a GPU success.",
+  "_note": "Synthetic ExecutionSelection payloads in Backend contract v1 (f2327e5) shape. The effective backend is the truth; a CPU run is never labelled a GPU success.",
   "autoCpu": {
-    "requested": "auto",
-    "effectiveBackend": "cpu",
-    "deviceId": null,
-    "deviceLabel": null,
-    "workers": 6,
-    "chunkSize": 64,
-    "memoryLimitBytes": 4294967296,
-    "reason": "가용 병렬도 8 중 6 worker, 짧은 벤치마크에서 run/s 최대",
-    "fallbackReason": null,
-    "benchmarkVersion": "synthetic-bench-1",
-    "validationVersion": "synthetic-valid-1"
+    "requested": "auto", "backend": "cpu", "deviceId": "cpu", "workers": 6, "chunkSize": 64,
+    "memoryLimitBytes": 4294967296, "reason": "가용 병렬도 8 중 6 worker, 짧은 벤치마크에서 run/s 최대",
+    "validationVersion": "synthetic-valid-1", "benchmarkVersion": "synthetic-bench-1",
+    "fingerprint": "sel-fp-synthetic-cpu", "fallbackReason": null
   },
-  "gpuFallback": {
-    "requested": "gpu",
-    "effectiveBackend": "cpu",
-    "deviceId": null,
-    "deviceLabel": null,
-    "workers": 4,
-    "chunkSize": 32,
-    "memoryLimitBytes": 2147483648,
-    "reason": "GPU backend가 전체 전투 커널을 제공하지 않아 CPU로 실행",
-    "fallbackReason": "gpu_backend_not_implemented",
-    "benchmarkVersion": "synthetic-bench-1",
-    "validationVersion": "synthetic-valid-1"
+  "autoGpuFallback": {
+    "requested": "auto", "backend": "cpu", "deviceId": "cpu", "workers": 4, "chunkSize": 32,
+    "memoryLimitBytes": 2147483648, "reason": "GPU provider 미구현으로 CPU 실행",
+    "validationVersion": "synthetic-valid-1", "benchmarkVersion": "synthetic-bench-1",
+    "fingerprint": "sel-fp-synthetic-fallback", "fallbackReason": "gpu_not_implemented"
   },
-  "gpuVerified": {
-    "requested": "gpu",
-    "effectiveBackend": "gpu",
-    "deviceId": "gpu-verified-0",
-    "deviceLabel": "합성 GPU 검증본",
-    "workers": 2,
-    "chunkSize": 256,
-    "memoryLimitBytes": 6442450944,
-    "reason": "정확성·성능 검증을 통과한 장치",
-    "fallbackReason": null,
-    "benchmarkVersion": "synthetic-bench-1",
-    "validationVersion": "synthetic-valid-1"
+  "forcedGpuMismatch": {
+    "_case": "should not occur once Backend rejects forced gpu with 409; kept so the UI never calls it a GPU success",
+    "requested": "gpu", "backend": "cpu", "deviceId": "cpu", "workers": 4, "chunkSize": 32,
+    "memoryLimitBytes": 2147483648, "reason": "GPU 불가", "validationVersion": "synthetic-valid-1",
+    "benchmarkVersion": "synthetic-bench-1", "fingerprint": "sel-fp-synthetic-mismatch",
+    "fallbackReason": "gpu_unavailable"
   },
-  "unknownSelection": {
-    "requested": null,
-    "effectiveBackend": null,
-    "deviceId": null,
-    "workers": null,
-    "chunkSize": null,
-    "memoryLimitBytes": null,
-    "reason": null,
-    "fallbackReason": null
+  "gpuEligible": {
+    "requested": "gpu", "backend": "gpu", "deviceId": "gpu-synthetic-verified", "workers": 2, "chunkSize": 256,
+    "memoryLimitBytes": 6442450944, "reason": "정확성·성능 검증을 통과한 장치",
+    "validationVersion": "synthetic-valid-1", "benchmarkVersion": "synthetic-bench-1",
+    "fingerprint": "sel-fp-synthetic-gpu", "fallbackReason": null
   }
 }

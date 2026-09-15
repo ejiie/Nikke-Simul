@@ -1,32 +1,69 @@
 {
-  "_note": "Synthetic OL comparison payloads. Virtual candidate changes only; the account's real equipment is never modified.",
-  "mixedVerdicts": {
-    "baselineExperimentId": "exp-baseline-synthetic",
-    "candidateExperimentId": "exp-candidate-synthetic",
-    "virtualOnly": true,
-    "note": "탐색 표본과 독립 최종 표본을 분리했습니다.",
-    "candidates": [
-      {
-        "candidateId": "cand-1", "characterId": "5004", "displayName": "앨리스", "part": "머리", "line": 2,
-        "optionType": "StatAtk", "optionLabel": "공격력 증가", "value": 0.1111, "valueUnit": "ratio",
-        "teamMeanDelta": 2211903.4, "deltaConfidenceInterval": { "low": 1802110, "high": 2621696 }, "n": 4000, "stage": "final"
-      },
-      {
-        "candidateId": "cand-2", "characterId": "5044", "displayName": "모더니아", "part": "팔", "line": 1,
-        "optionType": "StatCriticalDamage", "optionLabel": "크리티컬 대미지 증가", "value": 0.1246, "valueUnit": "ratio",
-        "teamMeanDelta": 154220.6, "deltaConfidenceInterval": { "low": -201884, "high": 510325 }, "n": 4000, "stage": "final"
-      },
-      {
-        "candidateId": "cand-3", "characterId": "5011", "displayName": "리타", "part": "다리", "line": 3,
-        "optionType": "StatAmmoLoad", "optionLabel": "최대 장탄 수 증가", "value": 0.4517, "valueUnit": "ratio",
-        "teamMeanDelta": -880114.2, "deltaConfidenceInterval": { "low": -1244002, "high": -516226 }, "n": 4000, "stage": "final"
-      },
-      {
-        "candidateId": "cand-4", "characterId": "5009", "displayName": "누아르", "part": "몸통", "line": 2,
-        "optionType": "StatChargeTime", "optionLabel": "차지 속도 증가", "value": 0.0286, "valueUnit": "ratio",
-        "teamMeanDelta": null, "deltaConfidenceInterval": null, "n": 400, "stage": "screening"
-      }
-    ]
+  "_note": "Synthetic OlComparison payloads in Backend contract v1 (f2327e5) shape. Virtual changes only; the account's real equipment is never modified. value is the normalized ratio (10% = 0.1).",
+  "improved": {
+    "baselineExperimentId": "exp-synthetic-1",
+    "candidateExperimentId": "exp-synthetic-cand-1",
+    "changes": [
+      { "characterId": "5004", "slot": "head", "lineIndex": 2, "optionId": "StatAtk", "value": 0.1111 }
+    ],
+    "teamMeanDifference": 2211903.4,
+    "differenceCi": { "lower": 1802110, "upper": 2621696, "confidence": 0.95, "method": "welch" },
+    "verdict": "improve",
+    "phase": "final",
+    "methodVersion": "synthetic-stats-1",
+    "gameVerified": false
   },
-  "empty": { "baselineExperimentId": "exp-baseline-synthetic", "candidateExperimentId": null, "virtualOnly": true, "candidates": [] }
+  "undetermined": {
+    "baselineExperimentId": "exp-synthetic-1",
+    "candidateExperimentId": "exp-synthetic-cand-2",
+    "changes": [
+      { "characterId": "5044", "slot": "arm", "lineIndex": 1, "optionId": "StatCriticalDamage", "value": 0.1246 }
+    ],
+    "teamMeanDifference": 154220.6,
+    "differenceCi": { "lower": -201884, "upper": 510325, "confidence": 0.95, "method": "welch" },
+    "verdict": "undetermined",
+    "phase": "final",
+    "methodVersion": "synthetic-stats-1",
+    "gameVerified": false
+  },
+  "regressed": {
+    "baselineExperimentId": "exp-synthetic-1",
+    "candidateExperimentId": "exp-synthetic-cand-3",
+    "changes": [
+      { "characterId": "5011", "slot": "leg", "lineIndex": 3, "optionId": "StatAmmoLoad", "value": 0.4517 }
+    ],
+    "teamMeanDifference": -880114.2,
+    "differenceCi": { "lower": -1244002, "upper": -516226, "confidence": 0.95, "method": "welch" },
+    "verdict": "regress",
+    "phase": "final",
+    "methodVersion": "synthetic-stats-1",
+    "gameVerified": false
+  },
+  "conflictingVerdict": {
+    "_case": "payload claims a direction while the interval still contains 0; the UI must keep it undetermined",
+    "baselineExperimentId": "exp-synthetic-1",
+    "candidateExperimentId": "exp-synthetic-cand-4",
+    "changes": [
+      { "characterId": "5009", "slot": "torso", "lineIndex": 2, "optionId": "StatChargeTime", "value": 0.0286 }
+    ],
+    "teamMeanDifference": 90114.2,
+    "differenceCi": { "lower": -140220, "upper": 320449, "confidence": 0.95, "method": "welch" },
+    "verdict": "improve",
+    "phase": "exploration",
+    "methodVersion": "synthetic-stats-1",
+    "gameVerified": false
+  },
+  "missingInterval": {
+    "baselineExperimentId": "exp-synthetic-1",
+    "candidateExperimentId": "exp-synthetic-cand-5",
+    "changes": [
+      { "characterId": "5008", "slot": "head", "lineIndex": 1, "optionId": "StatAtk", "value": 0.0759 }
+    ],
+    "teamMeanDifference": null,
+    "differenceCi": null,
+    "verdict": "undetermined",
+    "phase": "exploration",
+    "methodVersion": "synthetic-stats-1",
+    "gameVerified": false
+  }
 }

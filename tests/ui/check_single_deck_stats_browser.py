@@ -1,12 +1,14 @@
 """Browser check for the single-deck statistics screen (apps/desktop-ui/single-deck-stats.js).
 
-Synthetic HTTP only: the compute routes are mocked from tests/ui/fixtures/single-deck-compute because
-Backend has not published docs/single-deck-compute-contract.ko.md yet. A mock pass is NOT an end-to-end
-API pass; the summary records evidenceKind=synthetic_http_fixture for exactly that reason.
+Routes follow Backend contract v1 (Backend commit f2327e5): /api/compute/hardware and
+/api/compute/experiments{,/{id},/cancel,/resume,/statistics,/comparison}. The responses here are
+synthetic fixtures, so this is a mock pass, not an end-to-end API pass; the summary records
+evidenceKind=synthetic_http_fixture for exactly that reason.
 
-States covered: detection failed, CPU-only, multi-GPU with unusable devices, run -> running -> completed,
-cancel -> partial, resume -> second attempt, restart recovery from stored batch id, statistics with
-unsupported metrics, OL comparison verdicts, and the responsive widths 1500/850/500.
+States covered: GPU present but not eligible (not_implemented / FP64 unsupported), CPU-only, probe
+failure, run -> running -> completed with statistics + comparison, cancel -> partial, resume -> second
+attempt, restart recovery from the stored experiment id, 409 analysis_not_integrated, forced-GPU
+409 gpu_unavailable, and the responsive widths 1500/850/500.
 
 Output: artifacts/ui/single-deck-stats/run-<id>/ (git-ignored). Exit code 1 means NOT accepted.
 """
@@ -61,88 +63,82 @@ def serve(directory):
 
 
 class ComputeMock:
-    """Scripted compute endpoints; each poll advances the batch exactly like a real lifecycle would."""
+    """Scripted compute endpoints in contract shape; each poll advances the batch lifecycle."""
 
     def __init__(self):
         self.hardware = load('hardware-profiles.json')
-        self.selections = load('execution-selections.json')
         self.batches = load('batches.json')
         self.statistics = load('statistics.json')
-        self.ol = load('ol-comparison.json')
-        self.profile_key = 'multiGpu'
-        self.selection_key = 'autoCpu'
+        self.comparisons = load('ol-comparison.json')
+        self.profile_key = 'gpuNotImplemented'
+        self.analysis_integrated = True
+        self.reject_forced_gpu = True
         self.state = None
-        self.poll_count = 0
+        self.polls = 0
         self.requests = []
-
-    def hardware_payload(self):
-        return {'hardware': self.hardware[self.profile_key], 'selection': self.selections[self.selection_key]}
 
     def start(self, body):
         self.requests.append(body)
-        self.state = 'queued'
-        self.poll_count = 0
-        return {'batch': self.batches['queued'], 'selection': self.selections[self.selection_key],
-                'experiment': {'snapshotId': body.get('snapshotId'), 'synchroLevel': body.get('synchroLevel'),
-                               'durationSeconds': body.get('durationSeconds'), 'requestedRuns': body.get('requestedRuns'),
-                               'rulesVersion': 'p04.team.2', 'fingerprint': 'fp-synthetic',
-                               'members': [{'characterId': i, 'displayName': n, 'burstStep': s}
-                                           for i, n, s in zip(IDS, NAMES, [1, 2, 3, 3, 3])]}}
+        requested = (body or {}).get('execution', {}).get('requested')
+        if requested == 'gpu' and self.reject_forced_gpu:
+            return 409, {'message': '요청 실패 (409): gpu_unavailable', 'errorCode': 'gpu_unavailable'}
+        self.state, self.polls = 'queued', 0
+        return 202, self.batches['queued']
 
     def poll(self):
-        self.poll_count += 1
-        if self.state in ('cancelled', 'failed'):
-            return {'batch': self.batches['cancelledPartial' if self.state == 'cancelled' else 'failed']}
-        if self.state == 'resumed':
-            return {'batch': self.batches['resumedAttempt']}
-        if self.poll_count >= 2:
+        self.polls += 1
+        if self.state in ('cancelled', 'resumed'):
+            return self.batches['cancelledPartial' if self.state == 'cancelled' else 'resumedAttempt']
+        if self.polls >= 2:
             self.state = 'completed'
-            return {'batch': self.batches['completed'], 'statistics': self.statistics['normal'],
-                    'olComparison': self.ol['mixedVerdicts']}
+            return self.batches['completed']
         self.state = 'running'
-        return {'batch': self.batches['running']}
+        return self.batches['running']
 
     def cancel(self):
         self.state = 'cancelled'
-        return {'batch': self.batches['cancelledPartial'], 'statistics': self.statistics['partialUnsupported']}
+        return self.batches['cancelledPartial']
 
     def resume(self):
-        self.state = 'resumed'
-        self.poll_count = 0
-        return {'batch': self.batches['resumedAttempt']}
+        self.state, self.polls = 'resumed', 0
+        return self.batches['resumedAttempt']
 
-    def results(self):
-        if self.state == 'cancelled':
-            return {'statistics': self.statistics['partialUnsupported'], 'olComparison': self.ol['empty']}
-        return {'statistics': self.statistics['normal'], 'olComparison': self.ol['mixedVerdicts']}
+    def analysis(self, kind):
+        if not self.analysis_integrated:
+            return 409, {'message': '요청 실패 (409): analysis_not_integrated', 'errorCode': 'analysis_not_integrated'}
+        if kind == 'statistics':
+            return 200, self.statistics['partialUnsupported' if self.state == 'cancelled' else 'normal']
+        return 200, self.comparisons['conflictingVerdict' if self.state == 'cancelled' else 'improved']
 
 
 async def route_api(page, mock):
-    async def fulfil(route, body):
-        await route.fulfill(json=body)
+    async def fulfil(route, body, status=200):
+        await route.fulfill(status=status, json=body)
 
     async def compute(route):
-        url = route.request.url
-        method = route.request.method
+        url, method = route.request.url, route.request.method
         if url.endswith('/api/compute/hardware'):
-            return await fulfil(route, mock.hardware_payload())
-        if url.endswith('/api/compute/batches') and method == 'POST':
-            return await fulfil(route, mock.start(route.request.post_data_json))
+            return await fulfil(route, mock.hardware[mock.profile_key])
+        if url.endswith('/api/compute/experiments') and method == 'POST':
+            status, body = mock.start(route.request.post_data_json)
+            return await fulfil(route, body, status)
         if url.endswith('/cancel'):
             return await fulfil(route, mock.cancel())
         if url.endswith('/resume'):
             return await fulfil(route, mock.resume())
-        if url.endswith('/results'):
-            return await fulfil(route, mock.results())
-        if url.endswith('/overload-comparison'):
-            return await fulfil(route, {'olComparison': mock.results()['olComparison']})
+        if '/statistics' in url:
+            status, body = mock.analysis('statistics')
+            return await fulfil(route, body, status)
+        if url.endswith('/comparison'):
+            status, body = mock.analysis('comparison')
+            return await fulfil(route, body, status)
         return await fulfil(route, mock.poll())
 
     await page.route('**/api/compute/**', compute)
     await page.route('**/api/bootstrap', lambda r: fulfil(r, {'token': 'stats-token', 'testMode': True, 'jobs': [],
         'connections': [{'id': 'c1', 'accountId': 'acc-stats', 'nickname': '검증용', 'status': 'ready',
                          'choices': [{'area': 1, 'label': 'synthetic'}]}]}))
-    await page.route('**/api/accounts/*/snapshot', lambda r: fulfil(r, {'id': 'snap-stats', 'accountId': 'acc-stats',
+    await page.route('**/api/accounts/*/snapshot', lambda r: fulfil(r, {'id': 'snap-synthetic', 'accountId': 'acc-stats',
         'synchroLevel': 137, 'observedAt': '2026-09-15T00:00:00Z',
         'characters': [{'characterId': i, 'name': n, 'level': 137, 'limitBreak': 3, 'core': 0} for i, n in zip(IDS, NAMES)]}))
     await page.route('**/api/presentation', lambda r: fulfil(r, {'characters': [
@@ -165,12 +161,17 @@ async def panel_text(page):
     return await page.locator('#stats-content').inner_text()
 
 
+async def device_options(page):
+    return await page.evaluate(
+        "() => [...document.querySelectorAll('#compute-device option')].map(o => o.textContent.trim())")
+
+
 async def run():
     output = ROOT / 'artifacts/ui/single-deck-stats' / f'run-{uuid.uuid4().hex[:12]}'
     output.mkdir(parents=True)
     server, base = serve(ROOT / 'apps/desktop-ui')
     summary = {'kind': 'single_deck_stats_browser', 'evidenceKind': 'synthetic_http_fixture',
-               'contract': 'provisional_pending_backend_contract',
+               'contract': 'backend-v1-f2327e5',
                'commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
                'dirty': bool(subprocess.check_output(['git', 'status', '--porcelain', 'apps/desktop-ui', 'tests/ui'], cwd=ROOT, text=True).strip()),
                'states': {}}
@@ -187,27 +188,43 @@ async def run():
                 await route_api(page, mock)
                 await open_stats(page, base)
 
-                # 1. Detected hardware: only the verified GPU may be offered.
-                text = await panel_text(page)
-                # The advanced controls sit in a collapsed <details>; read them without relying on visibility.
-                options = await page.evaluate(
-                    "() => [...document.querySelectorAll('#compute-device option')].map(o => o.textContent.trim())")
+                # 1. GPUs exist but none is eligible: no GPU option, reasons shown.
+                options = await device_options(page)
                 summary['states']['deviceOptions'] = options
-                if any('이름만' in o or '정확성 실패' in o for o in options):
-                    problems.append(f'unusable GPU offered: {options}')
-                if '사용 불가' not in text:
-                    problems.append('unusable device not marked')
-                if 'CPU' not in text:
-                    problems.append('effective backend missing')
+                if any(o.startswith('GPU') for o in options):
+                    problems.append(f'ineligible GPU offered: {options}')
+                text = await panel_text(page)
+                for needle in ['사용 불가', 'full battle GPU provider가 아직 구현되지 않았습니다.', 'FP64 미지원']:
+                    if needle not in text:
+                        problems.append(f'device panel missing {needle!r}')
 
-                # 2. Run -> running -> completed with statistics and OL comparison.
+                # 2. Forced GPU is rejected before execution (409 gpu_unavailable).
+                await page.evaluate("""() => {
+                    const select = document.querySelector('#compute-device');
+                    const option = document.createElement('option');
+                    option.value = 'gpu-forced'; option.textContent = 'GPU · forced';
+                    select.appendChild(option); select.value = 'gpu-forced';
+                    select.dispatchEvent(new Event('change'));
+                }""")
+                await page.locator('#compute-start').click()
+                await page.wait_for_function(
+                    "() => document.querySelector('#stats-content')?.textContent.includes('gpu_unavailable')", timeout=15000)
+                summary['states']['forcedGpuRejected'] = True
+                await page.evaluate("""() => {
+                    const select = document.querySelector('#compute-device');
+                    select.value = 'auto'; select.dispatchEvent(new Event('change'));
+                }""")
+
+                # 3. Run -> running -> completed with statistics and comparison.
                 await page.locator('#compute-runs').fill('1000')
                 await page.locator('#compute-start').click()
                 await page.wait_for_function(
                     "() => document.querySelector('#compute-batch-state')?.textContent.includes('완료')", timeout=20000)
+                await page.wait_for_function(
+                    "() => document.querySelector('#stats-content')?.textContent.includes('152,083,461.2')", timeout=20000)
                 completed = await panel_text(page)
                 summary['states']['completed'] = [l for l in completed.splitlines() if '표본' in l or '평균' in l][:6]
-                for needle in ['1,000', '152,083,461.2 ~ 152,681,125.6', '68.3%', '우열 미확정', '앨리스']:
+                for needle in ['1,000', '152,083,461.2 ~ 152,681,125.6', '68.3%', '앨리스', '개선']:
                     if needle not in completed:
                         problems.append(f'completed view missing {needle!r}')
                 shots = {}
@@ -231,33 +248,49 @@ async def run():
                 summary['states']['responsive'] = shots
                 await page.set_viewport_size({'width': 1500, 'height': 1000})
 
-                # 3. Cancel -> partial result with unsupported metrics stated.
+                # 3b. The accepted start request must carry the real combat conditions in contract shape.
+                accepted = [r for r in mock.requests if (r.get('execution') or {}).get('requested') != 'gpu']
+                if not accepted:
+                    problems.append('no accepted start request captured')
+                else:
+                    combat = (accepted[-1].get('conditions') or {}).get('combat') or {}
+                    summary['states']['startCombat'] = combat
+                    if combat.get('enemyDefense') not in (30925, 31784):
+                        problems.append(f"start request enemyDefense={combat.get('enemyDefense')!r}")
+                    if combat.get('durationFrames') != 10800:
+                        problems.append(f"start request durationFrames={combat.get('durationFrames')!r}")
+                    if 'targetDefense' in combat:
+                        problems.append('start request used the documented targetDefense typo')
+                    if not (accepted[-1].get('conditions') or {}).get('roundingPolicy'):
+                        problems.append('start request lost roundingPolicy')
+                    if accepted[-1].get('recordLevel') != 'summary' or accepted[-1].get('runs') != 1000:
+                        problems.append(f"start request recordLevel/runs: {accepted[-1].get('recordLevel')!r}/{accepted[-1].get('runs')!r}")
+
+                # 4. Cancel -> partial result, unsupported member metrics, undetermined comparison.
                 await page.locator('#compute-start').click()
                 await page.wait_for_selector('#compute-cancel:not([disabled])', timeout=15000)
                 await page.locator('#compute-cancel').click()
                 await page.wait_for_function(
                     "() => document.querySelector('#compute-batch-state')?.textContent.includes('취소')", timeout=20000)
+                await page.wait_for_function(
+                    "() => document.querySelector('#stats-content')?.textContent.includes('우열 미확정')", timeout=20000)
                 cancelled = await panel_text(page)
-                if '부분 결과' not in cancelled or '미지원' not in cancelled:
-                    problems.append('cancelled state missing partial/unsupported markers')
-                if '표본에서 제외' not in cancelled:
-                    problems.append('incomplete runs not excluded explicitly')
+                for needle in ['부분 결과', '미지원', '우열 미확정', '신뢰구간과 맞지 않아']:
+                    if needle not in cancelled:
+                        problems.append(f'cancelled view missing {needle!r}')
                 summary['states']['cancelled'] = [l for l in cancelled.splitlines() if '취소' in l or '부분' in l][:4]
 
-                # 4. Resume -> a new attempt, no duplicate aggregation claim.
+                # 5. Resume -> attempt 2.
                 await page.locator('#compute-resume').click()
                 await page.wait_for_function(
-                    "() => document.querySelector('#compute-batch-state')?.textContent.includes('실행 중')", timeout=20000)
-                resumed = await panel_text(page)
-                if '중복 집계하지 않습니다' not in resumed:
-                    problems.append('resume message missing')
-                summary['states']['resumed'] = True
+                    "() => document.querySelector('#stats-content')?.textContent.includes('attempt 2')", timeout=20000)
+                summary['states']['resumedAttempt'] = True
 
-                # 5. Restart recovery: reload keeps the stored batch id and re-reads its real state.
-                stored = await page.evaluate("() => localStorage.getItem('nikke-single-deck-batch')")
-                summary['states']['storedBatchId'] = stored
+                # 6. Restart recovery from the stored experiment id.
+                stored = await page.evaluate("() => localStorage.getItem('nikke-single-deck-experiment')")
+                summary['states']['storedExperimentId'] = stored
                 if not stored:
-                    problems.append('batch id not stored for restart recovery')
+                    problems.append('experiment id not stored for restart recovery')
                 await page.reload()
                 await page.wait_for_function("document.body.dataset.ready==='true'", timeout=60000)
                 await page.locator('[data-tab="stats"]').click()
@@ -266,25 +299,33 @@ async def run():
                     "() => document.querySelector('#stats-content')?.textContent.includes('재시작 복구')", timeout=15000)
                 summary['states']['recovered'] = True
 
-                # 6. Detection failure state.
-                mock.profile_key = 'detectionFailed'
-                mock.selection_key = 'gpuFallback'
+                # 7. Analysis not integrated -> explicit 409 state instead of empty numbers.
+                mock.analysis_integrated = False
+                mock.state = 'completed'
+                await page.evaluate("() => document.querySelector('#compute-remeasure').click()")
+                await page.locator('#compute-start').click()
+                await page.wait_for_function(
+                    "() => document.querySelector('#stats-content')?.textContent.includes('Analysis) 미연결')", timeout=25000)
+                analysis_text = await panel_text(page)
+                if '평균 CI는 평균의 불확실성' in analysis_text:
+                    problems.append('statistics claimed while analysis is not integrated')
+                await page.locator('#stats-content').screenshot(path=str(output / 'stats-analysis-not-integrated.png'))
+                summary['states']['analysisNotIntegrated'] = True
+
+                # 8. Probe failure state keeps CPU-only options.
+                mock.profile_key = 'probeFailed'
                 await page.evaluate("() => document.querySelector('#compute-remeasure').click()")
                 await page.wait_for_function(
-                    "() => document.querySelector('#stats-content')?.textContent.includes('탐지 실패')", timeout=15000)
+                    "() => document.querySelector('#stats-content')?.textContent.includes('탐지 일부 실패')", timeout=15000)
                 failed_text = await panel_text(page)
                 if 'probe timeout' not in failed_text:
-                    problems.append('detection failure reason missing')
-                if 'GPU 성공으로 표시하지 않습니다' not in failed_text:
-                    problems.append('gpu fallback not distinguished')
-                options_after = await page.evaluate(
-                    "() => [...document.querySelectorAll('#compute-device option')].map(o => o.textContent.trim())")
+                    problems.append('probe failure reason missing')
+                options_after = await device_options(page)
                 if any(o.startswith('GPU') for o in options_after):
-                    problems.append(f'GPU offered after detection failure: {options_after}')
-                await page.locator('#stats-content').screenshot(path=str(output / 'stats-detection-failed.png'))
-                summary['states']['detectionFailed'] = options_after
+                    problems.append(f'GPU offered after probe failure: {options_after}')
+                summary['states']['probeFailedOptions'] = options_after
 
-                # 7. Existing screens still work (level 400 raid form).
+                # 9. Existing screens still work (solo raid level 400).
                 await page.locator('[data-tab="raid"]').click()
                 await page.wait_for_selector('#replay-form', timeout=15000)
                 level_fields = await page.locator('#replay-form [name="level"]').count()
@@ -296,6 +337,7 @@ async def run():
                 await browser.close()
     finally:
         server.shutdown()
+    summary['startRequests'] = mock.requests
     summary['errors'] = errors
     summary['assetWarnings'] = asset_warnings
     summary['problems'] = problems + [f'JS {e}' for e in errors]

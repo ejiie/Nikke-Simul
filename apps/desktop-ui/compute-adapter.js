@@ -1,27 +1,29 @@
 /**
  * Single-deck compute presentation adapter (hardware, batch lifecycle, statistics, OL comparison).
  *
- * The wire format is owned by Backend (docs/single-deck-compute-contract.ko.md). That document does
- * not exist yet, so every field name and route used here is PROVISIONAL and kept in this one module:
- * when the contract lands only this file changes. The UI never invents numbers — anything the payload
- * does not prove is reported as 미확인 / 미지원 / 표본 없음, and a GPU is only called usable when the
- * payload says it passed the real self-test, accuracy and benchmark stages.
+ * Wire format: Backend contract v1, Backend commit f2327e5
+ * (docs/single-deck-compute-contract.ko.md, src/Nikke.Contracts/Compute.cs), JSON camelCase.
+ * Extra compatible fields are allowed by the contract; unknown values are reported rather than guessed.
+ *
+ * The UI never invents numbers: anything the payload does not prove reads 미확인 / 미지원 / 표본 없음.
+ * A GPU counts as usable only when the payload sets eligible=true, and the effective backend is the
+ * truth, so a CPU run is never presented as a GPU success.
  */
 
-export const COMPUTE_CONTRACT_STATUS = 'provisional_pending_backend_contract';
+export const COMPUTE_CONTRACT_VERSION = 'backend-v1-f2327e5';
 
-// Provisional endpoints; not called against a real server until the Backend contract is published.
 export const COMPUTE_ROUTES = {
   hardware: '/compute/hardware',
-  selection: '/compute/execution-selection',
-  batches: '/compute/batches',
-  batch: id => `/compute/batches/${id}`,
-  batchCancel: id => `/compute/batches/${id}/cancel`,
-  batchResume: id => `/compute/batches/${id}/resume`,
-  batchResults: id => `/compute/batches/${id}/results`,
-  olComparison: id => `/compute/batches/${id}/overload-comparison`
+  experiments: '/compute/experiments',
+  experiment: id => `/compute/experiments/${id}`,
+  cancel: id => `/compute/experiments/${id}/cancel`,
+  resume: id => `/compute/experiments/${id}/resume`,
+  results: (id, offset = 0, limit = 100) => `/compute/experiments/${id}/results?offset=${offset}&limit=${limit}`,
+  statistics: (id, cut = null) => `/compute/experiments/${id}/statistics${cut === null || cut === '' ? '' : `?cut=${encodeURIComponent(cut)}`}`,
+  comparison: id => `/compute/experiments/${id}/comparison`
 };
 
+export const RESULTS_PAGE_LIMIT = 100; // contract allows up to 1000
 export const UNKNOWN = '미확인';
 const NOT_SUPPORTED = '미지원';
 
@@ -49,111 +51,143 @@ export function formatSignedPercent(rate, digits = null) {
   return (rate > 0 ? '+' : '') + formatPercent(rate, digits);
 }
 
-/** Confidence intervals always print both bounds with their stated method. */
-export function formatInterval(interval, { percent = false, digits = null } = {}) {
-  const low = interval?.low ?? interval?.lower ?? null;
-  const high = interval?.high ?? interval?.upper ?? null;
-  if (!isFiniteNumber(low) || !isFiniteNumber(high)) return UNKNOWN;
+/** Contract Interval(lower, upper, confidence, method). Both bounds and the method are shown. */
+export function describeInterval(interval, { percent = false, digits = null } = {}) {
+  const lower = isFiniteNumber(interval?.lower) ? interval.lower : null;
+  const upper = isFiniteNumber(interval?.upper) ? interval.upper : null;
   const render = v => percent ? formatPercent(v, digits) : formatNumber(v, { digits });
-  return `${render(low)} ~ ${render(high)}`;
-}
-
-const DEVICE_STAGES = [
-  ['inventory', '이름만 탐지', false],
-  ['runtime', '런타임 확인', false],
-  ['self_test', '자체 검사 통과', false],
-  ['accuracy', '수치 정확성 통과', false],
-  ['benchmark', '성능 검증 통과 · 사용 가능', true],
-  ['eligible', '성능 검증 통과 · 사용 가능', true]
-];
-
-/**
- * Detection stage → label. Only the benchmark/eligible stages may be offered as a usable device;
- * a name that was merely discovered is never presented as GPU support.
- */
-export function describeDeviceStage(stage) {
-  const found = DEVICE_STAGES.find(([key]) => key === stage);
-  if (!found) return { stage: stage ?? null, label: stage ? `알 수 없는 단계 (${stage})` : '탐지 단계 미기록', usable: false, known: false };
-  return { stage: found[0], label: found[1], usable: found[2], known: true };
-}
-
-/** HardwareProfile → view model. Unknown counts stay null, failures keep their reason. */
-export function describeHardwareProfile(profile) {
-  if (!profile || typeof profile !== 'object') {
-    return { status: 'missing', statusLabel: '하드웨어 정보 없음', os: null, architecture: null, cpu: null,
-      memoryLimitBytes: null, devices: [], usableDevices: [], failures: [], detectedAt: null };
-  }
-  const status = text(profile.status) ?? (profile.failures?.length ? 'failed' : 'ok');
-  const cpuSource = profile.cpu ?? null;
-  const cpu = cpuSource ? {
-    model: text(cpuSource.model),
-    logicalProcessors: isFiniteNumber(cpuSource.logicalProcessors) ? cpuSource.logicalProcessors : null,
-    physicalCores: isFiniteNumber(cpuSource.physicalCores) ? cpuSource.physicalCores : null,
-    availableParallelism: isFiniteNumber(cpuSource.availableParallelism) ? cpuSource.availableParallelism : null
-  } : null;
-  const devices = (Array.isArray(profile.gpus) ? profile.gpus : []).map(device => {
-    const stage = describeDeviceStage(text(device?.stage));
-    const failure = text(device?.failureReason);
-    return {
-      id: text(device?.deviceId) ?? null,
-      vendor: text(device?.vendor),
-      name: text(device?.name),
-      backend: text(device?.backend),
-      driver: text(device?.driverVersion),
-      memoryBytes: isFiniteNumber(device?.memoryBytes) ? device.memoryBytes : null,
-      doublePrecision: triState(device?.doublePrecision),
-      stage: stage.stage,
-      stageLabel: stage.label,
-      stageKnown: stage.known,
-      usable: stage.usable && failure === null,
-      failureReason: failure
-    };
-  });
-  const failures = (Array.isArray(profile.failures) ? profile.failures : [])
-    .map(f => ({ scope: text(f?.scope) ?? '탐지', reason: text(f?.reason) ?? UNKNOWN }));
-  const statusLabel = status === 'ok' ? (devices.length ? '탐지 완료' : 'GPU 없음 · CPU만 탐지')
-    : status === 'failed' ? '탐지 실패'
-    : status === 'measuring' ? '측정 중'
-    : status === 'missing' ? '하드웨어 정보 없음' : `상태 ${status}`;
   return {
-    status, statusLabel,
-    os: text(profile.os), architecture: text(profile.architecture), cpu,
-    memoryLimitBytes: isFiniteNumber(profile.memoryLimitBytes) ? profile.memoryLimitBytes : null,
-    devices, usableDevices: devices.filter(d => d.usable), failures,
-    detectedAt: text(profile.detectedAt)
+    lower, upper,
+    confidence: isFiniteNumber(interval?.confidence) ? interval.confidence : null,
+    method: text(interval?.method),
+    text: lower === null || upper === null ? UNKNOWN : `${render(lower)} ~ ${render(upper)}`,
+    // Only an interval that excludes 0 supports a direction claim.
+    excludesZero: lower !== null && upper !== null && (lower > 0 || upper < 0)
   };
 }
 
+const STAGE_LABELS = {
+  passed: '통과', ok: '통과', supported: '지원',
+  failed: '실패', unsupported: '미지원', not_implemented: '미구현',
+  not_run: '미실행', pending: '대기', skipped: '건너뜀', unknown: UNKNOWN
+};
+
+const stageLabel = value => {
+  const key = text(value);
+  if (!key) return UNKNOWN;
+  return STAGE_LABELS[key] ?? `상태 ${key}`;
+};
+
 /**
- * ExecutionSelection → view model. The effective backend is the truth: a CPU run is never labelled
- * as a GPU success, and a forced GPU request that fell back is reported as a mismatch.
+ * HardwareProfile (contract): fingerprint, os, architecture, availableProcessors, physicalCores,
+ * memoryLimitBytes, remoteSession, gpus[GpuProfile], probeFailures[string].
+ * A discovered name is not usability: only eligible=true devices may be offered.
  */
+export function describeHardwareProfile(profile) {
+  if (!profile || typeof profile !== 'object') {
+    return { present: false, statusLabel: '하드웨어 정보 없음', fingerprint: null, os: null, architecture: null,
+      availableProcessors: null, physicalCores: null, memoryLimitBytes: null, remoteSession: null,
+      devices: [], usableDevices: [], probeFailures: [] };
+  }
+  const devices = (Array.isArray(profile.gpus) ? profile.gpus : []).map(gpu => {
+    const stages = [
+      { key: 'runtime', label: '런타임', status: text(gpu?.runtimeStatus) },
+      { key: 'selfTest', label: '자체 검사', status: text(gpu?.selfTestStatus) },
+      { key: 'correctness', label: '수치 정확성', status: text(gpu?.correctnessStatus) },
+      { key: 'benchmark', label: '성능 실측', status: text(gpu?.benchmarkStatus) }
+    ].map(stage => ({ ...stage, statusLabel: stageLabel(stage.status) }));
+    const eligible = gpu?.eligible === true;
+    const blocking = stages.find(s => s.status && !['passed', 'ok', 'supported'].includes(s.status));
+    return {
+      id: text(gpu?.deviceId),
+      name: text(gpu?.name),
+      vendor: text(gpu?.vendor),
+      driver: text(gpu?.driver),
+      backend: text(gpu?.backend),
+      memoryBytes: isFiniteNumber(gpu?.memoryBytes) ? gpu.memoryBytes : null,
+      supportsFp64: triState(gpu?.supportsFp64),
+      stages,
+      eligible,
+      usable: eligible,
+      stageLabel: eligible ? '전 단계 통과 · 사용 가능' : blocking ? `${blocking.label} ${blocking.statusLabel}` : '검증 단계 미기록',
+      reason: text(gpu?.reason)
+    };
+  });
+  const probeFailures = (Array.isArray(profile.probeFailures) ? profile.probeFailures : [])
+    .map(f => text(f)).filter(Boolean);
+  const statusLabel = probeFailures.length ? '탐지 일부 실패'
+    : devices.length === 0 ? 'GPU 없음 · CPU만 탐지'
+    : devices.some(d => d.usable) ? '탐지 완료' : '탐지 완료 · 사용 가능 GPU 없음';
+  return {
+    present: true,
+    statusLabel,
+    fingerprint: text(profile.fingerprint),
+    os: text(profile.os),
+    architecture: text(profile.architecture),
+    availableProcessors: isFiniteNumber(profile.availableProcessors) ? profile.availableProcessors : null,
+    physicalCores: isFiniteNumber(profile.physicalCores) ? profile.physicalCores : null,
+    memoryLimitBytes: isFiniteNumber(profile.memoryLimitBytes) ? profile.memoryLimitBytes : null,
+    remoteSession: triState(profile.remoteSession),
+    devices,
+    usableDevices: devices.filter(d => d.usable),
+    probeFailures
+  };
+}
+
+/** ExecutionSelection (contract): requested, backend, deviceId, workers, chunkSize, memoryLimitBytes, … */
 export function describeExecutionSelection(selection) {
   if (!selection || typeof selection !== 'object') {
-    return { requested: null, requestedLabel: UNKNOWN, effectiveBackend: null, effectiveLabel: UNKNOWN,
-      deviceId: null, workers: null, chunkSize: null, memoryLimitBytes: null, reason: null,
-      fallbackReason: null, fellBack: null, mismatch: false, benchmarkVersion: null, validationVersion: null };
+    return { present: false, requested: null, requestedLabel: UNKNOWN, backend: null, backendLabel: UNKNOWN,
+      deviceId: null, workers: null, chunkSize: null, memoryLimitBytes: null, reason: null, fallbackReason: null,
+      fellBack: false, mismatch: false, validationVersion: null, benchmarkVersion: null, fingerprint: null };
   }
   const requested = text(selection.requested);
-  const effectiveBackend = text(selection.effectiveBackend ?? selection.backend);
-  const label = backend => backend === 'cpu' ? 'CPU' : backend === 'gpu' ? 'GPU' : backend ? `기타 (${backend})` : UNKNOWN;
+  const backend = text(selection.backend);
+  const label = value => value === 'cpu' ? 'CPU' : value === 'gpu' ? 'GPU' : value ? `기타 (${value})` : UNKNOWN;
   const fallbackReason = text(selection.fallbackReason);
   return {
+    present: true,
     requested,
-    requestedLabel: requested === 'auto' ? '자동 선택' : requested ? label(requested) + ' 지정' : UNKNOWN,
-    effectiveBackend,
-    effectiveLabel: label(effectiveBackend),
+    requestedLabel: requested === 'auto' ? '자동 선택' : requested ? `${label(requested)} 지정` : UNKNOWN,
+    backend,
+    backendLabel: label(backend),
     deviceId: text(selection.deviceId),
-    deviceLabel: text(selection.deviceLabel) ?? text(selection.deviceId),
     workers: isFiniteNumber(selection.workers) ? selection.workers : null,
     chunkSize: isFiniteNumber(selection.chunkSize) ? selection.chunkSize : null,
     memoryLimitBytes: isFiniteNumber(selection.memoryLimitBytes) ? selection.memoryLimitBytes : null,
     reason: text(selection.reason),
     fallbackReason,
-    fellBack: fallbackReason !== null || (requested === 'gpu' && effectiveBackend === 'cpu'),
-    mismatch: requested === 'gpu' && effectiveBackend !== null && effectiveBackend !== 'gpu',
+    fellBack: fallbackReason !== null || (requested === 'gpu' && backend === 'cpu'),
+    mismatch: requested === 'gpu' && backend !== null && backend !== 'gpu',
+    validationVersion: text(selection.validationVersion),
     benchmarkVersion: text(selection.benchmarkVersion),
-    validationVersion: text(selection.validationVersion)
+    fingerprint: text(selection.fingerprint)
+  };
+}
+
+/** ExperimentInput (contract): fixed synchro/duration/phase/defPolicy and the input fingerprint. */
+export function describeExperimentInput(input) {
+  if (!input || typeof input !== 'object') {
+    return { present: false, fingerprint: null, snapshotId: null, characterIds: [], synchroLevel: null,
+      durationFrames: null, durationSecondsText: UNKNOWN, phase: null, recordLevel: null, defPolicy: null,
+      engineVersion: null, rulesVersion: null, dataVersion: null, gameVerified: null };
+  }
+  const durationFrames = isFiniteNumber(input.durationFrames) ? input.durationFrames : null;
+  return {
+    present: true,
+    fingerprint: text(input.fingerprint),
+    snapshotId: text(input.snapshotId),
+    characterIds: (Array.isArray(input.characterIds) ? input.characterIds : []).map(id => text(id)).filter(Boolean),
+    synchroLevel: isFiniteNumber(input.synchroLevel) ? input.synchroLevel : null,
+    durationFrames,
+    durationSecondsText: durationFrames === null ? UNKNOWN : `${formatNumber(durationFrames / 60)}초`,
+    phase: text(input.phase),
+    recordLevel: text(input.recordLevel),
+    defPolicy: text(input.defPolicy),
+    engineVersion: text(input.engineVersion),
+    rulesVersion: text(input.rulesVersion),
+    dataVersion: text(input.dataVersion),
+    gameVerified: triState(input.gameVerified)
   };
 }
 
@@ -162,146 +196,204 @@ const BATCH_STATES = {
   completed: '완료', failed: '실패'
 };
 
-/** Batch lifecycle → view model with the counts kept separate (requested/valid/failed/cancelled). */
+/**
+ * BatchStatus (contract): id, state, attempt, requested/valid/failed/cancelled counts, partial,
+ * input, execution, errorCode. valid/failed are current-index counts; cancelled is unfinished indexes.
+ */
 export function describeBatch(batch) {
   if (!batch || typeof batch !== 'object') {
-    return { id: null, state: null, stateLabel: '배치 없음', counts: { requested: null, valid: null, failed: null, cancelled: null },
-      progress: null, partial: false, canStart: true, canCancel: false, canResume: false, attempt: null, message: null, incompleteExcluded: null };
+    return { present: false, id: null, state: null, stateLabel: '배치 없음',
+      counts: { requested: null, valid: null, failed: null, cancelled: null }, progress: null, partial: false,
+      canStart: true, canCancel: false, canResume: false, attempt: null, errorCode: null, errorLabel: null,
+      input: describeExperimentInput(null), execution: describeExecutionSelection(null) };
   }
   const state = text(batch.state);
   const counts = {
-    requested: isFiniteNumber(batch.requestedRuns) ? batch.requestedRuns : null,
-    valid: isFiniteNumber(batch.validRuns) ? batch.validRuns : null,
-    failed: isFiniteNumber(batch.failedRuns) ? batch.failedRuns : null,
-    cancelled: isFiniteNumber(batch.cancelledRuns) ? batch.cancelledRuns : null
+    requested: isFiniteNumber(batch.requested) ? batch.requested : null,
+    valid: isFiniteNumber(batch.valid) ? batch.valid : null,
+    failed: isFiniteNumber(batch.failed) ? batch.failed : null,
+    cancelled: isFiniteNumber(batch.cancelled) ? batch.cancelled : null
   };
-  const progress = counts.requested && counts.requested > 0 && isFiniteNumber(counts.valid)
-    ? Math.min(1, counts.valid / counts.requested) : null;
   const terminal = state === 'completed' || state === 'failed' || state === 'cancelled';
+  const errorCode = text(batch.errorCode);
   return {
-    id: text(batch.batchId ?? batch.id),
+    present: true,
+    id: text(batch.id),
     state,
     stateLabel: BATCH_STATES[state] ?? (state ? `상태 ${state}` : UNKNOWN),
     counts,
-    progress,
-    partial: batch.partial === true || (state === 'cancelled' && (counts.valid ?? 0) > 0),
+    progress: counts.requested && counts.requested > 0 && isFiniteNumber(counts.valid)
+      ? Math.min(1, counts.valid / counts.requested) : null,
+    partial: batch.partial === true,
     canStart: state === null || terminal,
     canCancel: state === 'queued' || state === 'running',
     canResume: state === 'cancelled' || state === 'failed',
     attempt: isFiniteNumber(batch.attempt) ? batch.attempt : null,
-    message: text(batch.message),
-    // Interrupted runs are not samples; the payload reports them separately from valid ones.
-    incompleteExcluded: isFiniteNumber(batch.incompleteExcluded) ? batch.incompleteExcluded : null
+    errorCode,
+    errorLabel: describeComputeError(errorCode),
+    input: describeExperimentInput(batch.input),
+    execution: describeExecutionSelection(batch.execution)
   };
 }
 
-function metric(value, { digits = null, percent = false } = {}) {
-  return { value: isFiniteNumber(value) ? value : null, text: percent ? formatPercent(value, digits) : formatNumber(value, { digits }) };
+/** Contract error codes surfaced to the user without inventing a cause. */
+export function describeComputeError(code) {
+  const key = text(code);
+  if (!key) return null;
+  const known = {
+    analysis_not_integrated: '통계 모듈(Analysis) 미연결 · 집계를 제공할 수 없습니다.',
+    gpu_unavailable: 'GPU 사용 불가 · 강제 GPU 요청은 실행 전에 거부됩니다.',
+    stale_tactic: '저장된 버스트 전술이 현재 스냅샷·편성과 달라 거부되었습니다.'
+  };
+  return known[key] ?? `오류 코드 ${key}`;
+}
+
+function metricValue(value, { percent = false, digits = null, unsupported = false } = {}) {
+  if (unsupported) return { value: null, text: NOT_SUPPORTED, unsupported: true };
+  return {
+    value: isFiniteNumber(value) ? value : null,
+    text: percent ? formatPercent(value, digits) : formatNumber(value, { digits }),
+    unsupported: false
+  };
 }
 
 /**
- * Statistics → view model. Mean CI and quantiles stay separate, n=0/1 report their own limits,
- * and a metric the payload marks unsupported is never rendered as a number.
+ * MetricStatistics (contract): n, mean, sampleSd, meanCi, median, p5, p95, cut, cutSuccess, cutCi,
+ * quantileMethod, unit, unsupportedReason. n=0/1 unknowns are null by contract and stay explicit here.
  */
-export function describeStatistics(stats) {
-  const unsupported = new Set(Array.isArray(stats?.unsupported) ? stats.unsupported.filter(v => typeof v === 'string') : []);
-  const n = isFiniteNumber(stats?.n) ? stats.n : null;
-  const pick = (key, value, options) => unsupported.has(key)
-    ? { value: null, text: NOT_SUPPORTED, unsupported: true }
-    : { ...metric(value, options), unsupported: false };
-  const sampleNote = n === 0 ? '표본 없음' : n === 1 ? '표본 1건 · 산포/신뢰구간 없음' : null;
-  const interval = (key, value, options) => unsupported.has(key)
-    ? { text: NOT_SUPPORTED, unsupported: true, low: null, high: null }
-    : {
-      text: sampleNote && key === 'meanCi' ? sampleNote : formatInterval(value, options),
-      unsupported: false,
-      low: isFiniteNumber(value?.low ?? value?.lower) ? (value.low ?? value.lower) : null,
-      high: isFiniteNumber(value?.high ?? value?.upper) ? (value.high ?? value.upper) : null
-    };
+export function describeMetricStatistics(metrics, { label = null } = {}) {
+  const unsupportedReason = text(metrics?.unsupportedReason);
+  const n = isFiniteNumber(metrics?.n) ? metrics.n : null;
+  const sampleNote = unsupportedReason ? null : n === 0 ? '표본 없음' : n === 1 ? '표본 1건 · 산포/신뢰구간 없음' : null;
+  const unsupported = Boolean(unsupportedReason);
+  const meanCi = describeInterval(metrics?.meanCi);
+  const cutCi = describeInterval(metrics?.cutCi, { percent: true });
   return {
+    label,
+    present: Boolean(metrics && typeof metrics === 'object'),
     n,
     nText: n === null ? UNKNOWN : formatNumber(n),
     sampleNote,
-    mean: pick('mean', stats?.mean),
-    sd: pick('sd', stats?.sampleStandardDeviation ?? stats?.sd),
-    meanCi: interval('meanCi', stats?.meanConfidenceInterval ?? stats?.meanCi),
-    median: pick('median', stats?.median),
-    p5: pick('p5', stats?.p5),
-    p95: pick('p95', stats?.p95),
-    quantileMethod: text(stats?.quantileMethod),
-    ciMethod: text(stats?.confidenceIntervalMethod ?? stats?.ciMethod),
-    unit: text(stats?.unit),
-    cut: stats?.cut && typeof stats.cut === 'object' ? {
-      threshold: metric(stats.cut.threshold),
-      successRate: pick('cutSuccessRate', stats.cut.successRate, { percent: true }),
-      ci: interval('cutSuccessCi', stats.cut.confidenceInterval ?? stats.cut.ci, { percent: true })
-    } : null,
-    perMember: (Array.isArray(stats?.perMember) ? stats.perMember : []).map(member => ({
-      characterId: text(member?.characterId),
-      displayName: text(member?.displayName) ?? text(member?.characterId) ?? UNKNOWN,
-      mean: metric(member?.mean),
-      meanCi: { text: formatInterval(member?.meanConfidenceInterval ?? member?.meanCi) },
-      share: metric(member?.share, { percent: true })
-    })),
-    unsupportedKeys: [...unsupported]
+    unsupportedReason,
+    mean: metricValue(metrics?.mean, { unsupported }),
+    sampleSd: metricValue(metrics?.sampleSd, { unsupported }),
+    meanCi: { ...meanCi, text: unsupported ? NOT_SUPPORTED : sampleNote && meanCi.lower === null ? sampleNote : meanCi.text },
+    median: metricValue(metrics?.median, { unsupported }),
+    p5: metricValue(metrics?.p5, { unsupported }),
+    p95: metricValue(metrics?.p95, { unsupported }),
+    cut: metricValue(metrics?.cut, { unsupported }),
+    cutSuccess: metricValue(metrics?.cutSuccess, { percent: true, unsupported }),
+    cutCi: { ...cutCi, text: unsupported ? NOT_SUPPORTED : cutCi.text },
+    quantileMethod: text(metrics?.quantileMethod),
+    unit: text(metrics?.unit)
   };
 }
 
 /**
- * OL comparison → view model. A candidate is only called better or worse when its difference
- * interval excludes 0; otherwise it stays 우열 미확정. Module cost/보유량 is not modelled here.
+ * StatisticsResult (contract): experimentId, partial, team, members{characterId: MetricStatistics},
+ * methodVersion, gameVerified. Member order follows the batch input when available.
  */
-export function describeOlComparison(comparison) {
-  const candidates = (Array.isArray(comparison?.candidates) ? comparison.candidates : []).map(candidate => {
-    const delta = isFiniteNumber(candidate?.teamMeanDelta) ? candidate.teamMeanDelta : null;
-    const ciSource = candidate?.deltaConfidenceInterval ?? candidate?.deltaCi ?? null;
-    const low = isFiniteNumber(ciSource?.low ?? ciSource?.lower) ? (ciSource.low ?? ciSource.lower) : null;
-    const high = isFiniteNumber(ciSource?.high ?? ciSource?.upper) ? (ciSource.high ?? ciSource.upper) : null;
-    const decided = low !== null && high !== null && (low > 0 || high < 0);
-    return {
-      candidateId: text(candidate?.candidateId),
-      characterId: text(candidate?.characterId),
-      displayName: text(candidate?.displayName) ?? text(candidate?.characterId) ?? UNKNOWN,
-      part: text(candidate?.part),
-      line: isFiniteNumber(candidate?.line) ? candidate.line : null,
-      optionType: text(candidate?.optionType),
-      optionLabel: text(candidate?.optionLabel) ?? text(candidate?.optionType) ?? UNKNOWN,
-      value: candidate?.value ?? null,
-      valueText: isFiniteNumber(candidate?.value)
-        ? (candidate?.valueUnit === 'ratio' ? formatSignedPercent(candidate.value) : formatNumber(candidate.value)) : UNKNOWN,
-      delta, deltaText: formatNumber(delta),
-      deltaCiText: low === null || high === null ? UNKNOWN : formatInterval({ low, high }),
-      verdict: !decided ? 'undetermined' : low > 0 ? 'improve' : 'regress',
-      verdictLabel: !decided ? '우열 미확정' : low > 0 ? '개선' : '악화',
-      sampleSize: isFiniteNumber(candidate?.n) ? candidate.n : null,
-      stage: text(candidate?.stage)
-    };
-  });
+export function describeStatistics(result, { memberOrder = [], displayNames = null } = {}) {
+  if (!result || typeof result !== 'object') {
+    return { present: false, experimentId: null, partial: false, methodVersion: null, gameVerified: null,
+      team: describeMetricStatistics(null, { label: '팀' }), members: [] };
+  }
+  const membersSource = result.members && typeof result.members === 'object' ? result.members : {};
+  const keys = memberOrder.length
+    ? [...memberOrder.filter(id => id in membersSource), ...Object.keys(membersSource).filter(id => !memberOrder.includes(id))]
+    : Object.keys(membersSource);
+  const name = id => displayNames?.get?.(id) ?? id;
   return {
-    baselineExperimentId: text(comparison?.baselineExperimentId),
-    candidateExperimentId: text(comparison?.candidateExperimentId),
-    virtualOnly: comparison?.virtualOnly !== false,
-    candidates,
-    undeterminedCount: candidates.filter(c => c.verdict === 'undetermined').length,
-    note: text(comparison?.note)
+    present: true,
+    experimentId: text(result.experimentId),
+    partial: result.partial === true,
+    methodVersion: text(result.methodVersion),
+    gameVerified: triState(result.gameVerified),
+    team: describeMetricStatistics(result.team, { label: '팀' }),
+    members: keys.map(id => ({ characterId: id, displayName: name(id), ...describeMetricStatistics(membersSource[id], { label: name(id) }) }))
   };
 }
 
-/** ExperimentInput summary: fixed synchro 400, duration, fingerprints; nothing is defaulted silently. */
-export function describeExperimentInput(input) {
+/** OlChange (contract): characterId, slot, lineIndex, optionId, value (normalized ratio). */
+export function describeOlChange(change, { displayNames = null } = {}) {
+  const characterId = text(change?.characterId);
+  const value = typeof change?.value === 'number' ? change.value : Number(change?.value);
   return {
-    snapshotId: text(input?.snapshotId),
-    engineVersion: text(input?.engineVersion),
-    rulesVersion: text(input?.rulesVersion),
-    fingerprint: text(input?.fingerprint),
-    synchroLevel: isFiniteNumber(input?.synchroLevel) ? input.synchroLevel : null,
-    durationSeconds: isFiniteNumber(input?.durationSeconds) ? input.durationSeconds : null,
-    enemyDefense: isFiniteNumber(input?.enemyDefense) ? input.enemyDefense : null,
-    requestedRuns: isFiniteNumber(input?.requestedRuns) ? input.requestedRuns : null,
-    recordLevel: text(input?.recordLevel),
-    members: (Array.isArray(input?.members) ? input.members : []).map(m => ({
-      characterId: text(m?.characterId), displayName: text(m?.displayName) ?? text(m?.characterId) ?? UNKNOWN,
-      burstStep: isFiniteNumber(m?.burstStep) ? m.burstStep : null
-    }))
+    characterId,
+    displayName: displayNames?.get?.(characterId) ?? characterId ?? UNKNOWN,
+    slot: text(change?.slot),
+    lineIndex: isFiniteNumber(change?.lineIndex) ? change.lineIndex : null,
+    optionId: text(change?.optionId),
+    value: isFiniteNumber(value) ? value : null,
+    valueText: isFiniteNumber(value) ? formatSignedPercent(value) : UNKNOWN
   };
+}
+
+/**
+ * OlComparison (contract): baselineExperimentId, candidateExperimentId, changes, teamMeanDifference,
+ * differenceCi, verdict, phase, methodVersion. The payload's verdict is only shown as a decided
+ * direction when the difference interval actually excludes 0.
+ */
+export function describeOlComparison(comparison, { displayNames = null } = {}) {
+  if (!comparison || typeof comparison !== 'object') {
+    return { present: false, baselineExperimentId: null, candidateExperimentId: null, changes: [],
+      difference: { value: null, text: UNKNOWN }, differenceCi: describeInterval(null),
+      verdict: 'undetermined', verdictLabel: '우열 미확정', reportedVerdict: null, phase: null,
+      methodVersion: null, gameVerified: null, hasMemberEffects: false };
+  }
+  const differenceCi = describeInterval(comparison.differenceCi);
+  const difference = isFiniteNumber(comparison.teamMeanDifference) ? comparison.teamMeanDifference : null;
+  const reportedVerdict = text(comparison.verdict);
+  const decided = differenceCi.excludesZero && difference !== null;
+  const verdict = !decided ? 'undetermined' : difference > 0 ? 'improve' : 'regress';
+  return {
+    present: true,
+    baselineExperimentId: text(comparison.baselineExperimentId),
+    candidateExperimentId: text(comparison.candidateExperimentId),
+    changes: (Array.isArray(comparison.changes) ? comparison.changes : []).map(change => describeOlChange(change, { displayNames })),
+    difference: { value: difference, text: formatNumber(difference) },
+    differenceCi,
+    verdict,
+    verdictLabel: verdict === 'improve' ? '개선' : verdict === 'regress' ? '악화' : '우열 미확정',
+    reportedVerdict,
+    // A decided payload verdict without a zero-excluding interval is reported, not trusted.
+    verdictConflict: reportedVerdict !== null && reportedVerdict !== 'undetermined' && !decided,
+    phase: text(comparison.phase),
+    methodVersion: text(comparison.methodVersion),
+    gameVerified: triState(comparison.gameVerified),
+    hasMemberEffects: Boolean(comparison.memberAndCycleEffects)
+  };
+}
+
+/**
+ * Builds the contract ExperimentRequest body. Combat conditions keep the engine's own field names —
+ * the defense field is `enemyDefense` (the contract example's targetDefense is a documentation typo
+ * Backend is correcting), duration is in frames, synchro stays 400 and recordLevel stays summary.
+ */
+export function buildExperimentRequest({ snapshotId, characterIds, conditions = {}, runs = 1000, phase = 'final',
+  execution = {}, olChanges = null, baselineExperimentId = null, useSavedTactic = true } = {}) {
+  const combat = { ...(conditions.combat ?? {}) };
+  if (combat.targetDefense !== undefined) { // never send the documented typo
+    if (combat.enemyDefense === undefined) combat.enemyDefense = combat.targetDefense;
+    delete combat.targetDefense;
+  }
+  const request = {
+    snapshotId: snapshotId ?? null,
+    characterIds: Array.isArray(characterIds) ? characterIds : [],
+    conditions: { ...conditions, combat },
+    runs: isFiniteNumber(runs) && runs > 0 ? Math.floor(runs) : 1000,
+    phase,
+    recordLevel: 'summary',
+    execution: {
+      requested: text(execution.requested) ?? 'auto',
+      maxWorkers: isFiniteNumber(execution.maxWorkers) ? execution.maxWorkers : null,
+      memoryLimitBytes: isFiniteNumber(execution.memoryLimitBytes) ? execution.memoryLimitBytes : null,
+      deviceId: text(execution.deviceId),
+      retune: execution.retune === true
+    },
+    useSavedTactic: useSavedTactic !== false
+  };
+  if (olChanges?.length) request.olChanges = olChanges;
+  if (baselineExperimentId) request.baselineExperimentId = baselineExperimentId;
+  return request;
 }
