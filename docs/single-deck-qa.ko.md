@@ -1,4 +1,96 @@
-# Q-CPU/GPU 독립 검수 준비 — 2026-09-15
+# Q-CPU/GPU 독립 소규모 수용 — 2026-09-16
+
+**판정: 지정 소규모 CPU/API·통계·명시 OL 비교·저장 복구 및 fallback 안전성 통과. 자동 최적 동시성 수용은 보류. GPU 전체 전투와 GPU 실패 후 CPU retry는 미구현 상태 유지.** 실제 사용자 덱·게임 정확도·대량 성능·배포 수용은 아니다.
+
+## 이번 확정 기준과 실제 실행
+
+제품 `48c11d8654fc7a9be32cfd2ae1f5f2bc66475887`을 기존 QA `4564408754d89b91964ef06033d717812bd89c52`와 충돌 없는 일반 merge로 통합했다. 검증 HEAD는 `380a444e51e38860b3ca6bad8d8a808a4b95c58a`다. E 0d23366, S 480cf8a/b9ce963, hit/crit 979325c, signed OL 81be5d0을 포함한다. `181b0a5`의 최종 Backend 보고서·계약을 git show로 끝까지 읽고 현재 지침/엔진/통계 보고서를 대조했다. 문서 커밋을 제품 커밋으로 혼동하지 않았다.
+
+제품 파일을 수정하지 않았으며 제품 SHA 대비 src/apps/tools/data-pipeline/scripts 차이가 없다. 기존 package-lock SHA-256 `2ef4178aa07ddd9ac2e4d47422038d02d8adaadfb15586cee6a2f1995253c767` 보존. 원본 계정DB/세션·presentation 캐시·EXE·5180/5181에는 이번 후속 검수에서 접근/갱신/종료하지 않았다. 허용된 공개 game-catalog, calculation current/hash manifest의 파일, runtime current/catalog **12개만** 읽고 새 artifacts로 복사했다. 실행 전후 12개 SHA-256 변경 0. 원본 계정 전체 hash 검사로 확대 주장하지 않는다.
+
+Backend `check_compute_api.py`의 공개 파일 allowlist와 새 합성 계정 준비 부분만 `public_fixture.py`에 출처를 명시해 재사용했다. 수용 검사는 별도로 작성했다. 합성 계정의 5인 순서는 리타 5011·블랑 5008·앨리스 5004·누아르 5009·모더니아 5044, 400, 180초, fixed DEF30925, crit sample, 저장된 합성 택틱이다. 원본 사용자 스펙/현재 사용자 덱을 검증한 것이 아니다. CPU 생산 경로에 seed를 넣지 않았다.
+
+| 검사 | 새 실제 근거와 판정 |
+|---|---|
+| API Release 빌드 | 경고 0 / 오류 0. `artifacts/single-deck-qa/build-8cfd21fc0b354443ae8298f2878064fe/build.log` |
+| 실제 CPU/API 주 실행 | `small-a6f3938d1793/`: 13항목 중 직접 12 통과, QA 기본값 기대 차이 1건은 실제 저장 증거 재분석 통과. 최종 유효 전투는 5실험 총 15회(3+2+2+6+2) |
+| 정상 0·캐시·warmup 제외·취소 edge API | `edges-873f8312e1c1/summary.json` passed. 새 1프레임 5인 fixture의 4실험 각 2회, 이후 180초 요청의 pre-running 취소 |
+| 실제 BatchStore/Analysis/ExecutionPolicy probe | `probe-3c75a53fc91b4a009c54d46de351e967/storage-summary.json`: 7항목 통과. 합성 RunSummary로 실제 제품 저장소·분석·정책을 호출 |
+| 실제 준비 입력 튜닝 관측 | 같은 probe의 `tuning-observation.json`: 동일 공개 5인 180초 준비 입력, 두 10초 진단 및 후속 캐시 조회. 최적화 수용 미달을 재현 |
+| QA 자체 회귀 | `oracle-9c3644eaa7b54641b68f7a8886bd8643/`: 최신 계약/독립 적분 포함 42 통과. 이 수를 제품 API 수용으로 대체하지 않음 |
+
+위 경로는 모두 본인 `artifacts/single-deck-qa/` 아래 상대 경로다. API는 OS가 배정한 5180/5181 이외 포트만 사용하고 finally에서 본인이 시작한 PID만 종료했다. 타 worktree 편집/배포/push/새 worker·Run·Dispatch/lifecycle 작업 없음.
+
+## 기능별 수용 근거
+
+### summary.1과 입력 고정
+
+실제 API 입력/결과/자기 격리 DB의 prepared payload를 대조했다. `engineVersion=cpu-summary.1`, 400, 5인 순서, `fixed:30925`, 10800프레임, 저장 택틱과 입력 fingerprint 일치. 결과는 실제 PreparedCompute → PreparedSkillReplay.Run 경로이며 각 실행의 신규 runId·members·fullBursts·양수 피해를 확인했다. baseline/양수 OL/음수 OL의 물리 입력 fingerprint가 서로 다르고 동일 baseline을 resume할 때 유지됐다.
+
+택틱 검사 최초 실패는 제품 오류가 아니었다. QA 요청 기대값에 없던 `firstBurst3CharacterId:null`을 DTO가 정상 기본값으로 저장했다. 기대 fixture에 명시하고 저장된 요청/준비 입력 모두 정확 비교했다. 원래 `summary.json`의 실패를 삭제하지 않았고 `baseline-reanalysis.json` 및 `final-audit.json`에 교정 이유와 판정을 남겼다. 전체 전투를 재실행한 것처럼 표시하지 않는다.
+
+### 통계·카운터·컷
+
+limit=1로 전체 유효 페이지를 읽고 최신 Backend adapter로 runId/index/attempt/편성/합계를 확인했다. 해당 전체 배열의 팀 및 5인 평균·표본 SD·median/P5/P95를 별도 Fraction 산술/HF7로 검산했다. Student-t 및 Welch CI는 제품의 incomplete-beta 역산과 별개로 `x=sqrt(df)*tan(theta)` 치환 밀도를 Simpson 적분/역산하여 비교했다. df1/df2 폐쇄형 기대값 회귀도 통과했다. 작은 표본의 CI는 게임 정확도를 보장하지 않는다.
+
+실제 baseline 컷은 첫 표본 피해 **855055161**로 지정했다. 성공은 엄격한 `damage > cut`, n=3에서 1/3이며 Wilson 문구도 `strict damage > cut`이다. 1프레임 API 전투에서는 피해 0인 두 표본이 valid=2/mean=0이고 cut=0 성공은 0이다. n=0의 null 통계와 partial=true, 완료 n=2/partial=false, 2.2초 뒤 조회의 일치를 확인했다. 동일 완료 통계 재조회도 일치했다. 캐시는 계약상 최대 2초의 같은 시점 snapshot이며 최신 status와 항상 같은 순간의 n이라고 확대하지 않는다.
+
+준비 당시 잘못 넣었던 `CriticalHits <= Hits` 제약을 QA에서 제거했다. 실제 제품 Store/Analysis에 Hits=0/CriticalHits=3을 전달해 정상 수용, shots/hits/crits/reloads/burstCasts 각각 음수를 넣으면 거부함을 확인했다. 평타 Hits와 전체 피해 CriticalHits는 서로 다른 계수다. 크리를 잘라내거나 표본을 삭제하지 않는다.
+
+### 취소·재시작·resume·저장
+
+180초 6회 배치가 일부 완료됐을 때 취소했다. 정상 결과 **2개**를 보존하고 재시작/resume attempt2로 남은 4개를 완료했다. 최종 attempt 배열은 `[1,1,2,2,2,2]`, 유효 n=6/partial=false이며 이전 결과 JSON이 그대로다. 별도 2회 배치를 프로세스 강제 종료한 뒤 재시작했을 때 `cancelled/process_interrupted`, valid=0/cancelled=2였고 resume attempt2 후 정상 2개가 됐다.
+
+실제 BatchStore probe는 정상 0과 실패 payload=null 분리, 중복·충돌의 first-write-wins(기존 정상 결과 불변), 잘못된 chunk 전체 rollback, 재구성에 따른 crash 복구, 이전 attempt의 늦은 Write 무시, 정상 old index 보존을 검증했다. 실패 전투 주입은 합성 RunSummary/RunWrite를 실제 저장 경계에 전달한 검사이며, 자연적으로 엔진이 실패한 실제 사용자 전투를 관측한 것은 아니다.
+
+주 실행의 취소→종료 관측은 약 **190ms**, 상태 API 546회 p95 약 **175ms**/최대 약691ms다. 작은 edge 요청의 pre-running 취소 응답 약58ms/종료 약70ms다. 이는 API 관측 지연이며 UI 응답 시간이나 다른 장치/전후 처리량 비교가 아니다. edge 산출물의 과거 키 `cancelDuringTuning`만으로 내부 warmup 진입을 입증할 수 없다. API queued는 탐지/튜닝을 함께 포함하므로 도구의 최종 명칭은 `cancelBeforeRunning`으로 정정했다. 실제 warmup 중 취소는 아래 probe의 OperationCanceledException 기록으로 구분한다.
+
+### OL 명시 비교
+
+실제 공개 catalogVersion에 따른 후보 89개를 확인했다. 합성 계정의 실제 present T10 앨리스 head/1만 대상이며 같은 옵션·같은 값은 제외됐다. StatAtk 양수 tier 전체(현값 제외), StatChargeTime 음수 tier 전체가 이산 원천 목록과 일치한다. 방어/명중원·비상성 원소 피해 등 무효과 후보가 없다. 양수 차지값·동일 줄 중복 요청·absent 줄은 각각 400과 해당 안전한 오류 코드를 반환했다.
+
+StatAtk **+0.0547**, StatChargeTime **-0.0609**를 각각 새로운 실험으로 180초 전투 2회 전체 재실행하고 팀 평균 차이·독립 Welch CI를 검산했다. baseline run을 재사용하지 않았으며 합성 원본 snapshot은 최종까지 불변이다. 비교 verdict는 두 건 모두 **unverified_design_or_input_difference**, gameVerified=false다. holdout orchestration이 미연결된 상태를 개선 확정·게임 추천·비용 효율로 승격하지 않는다.
+
+## 자동튜닝 미완료 조사와 수정 담당
+
+**안전 fallback은 통과했지만 자동 최적화는 수용하지 않는다.** 최초 실제 API baseline은 worker1/chunk1/benchmark_budget_cpu_fallback/not_measured였다. 후속 baseline resume에는 실제 측정 캐시의 worker2/measured_cache가 사용됐다(`selection-audit.json`). 추가 1프레임 실제 API는 캐시 재사용 및 DEF30925→30926이라는 통제된 입력 변경 시 입력/실행 fingerprint 변경과 재측정을 확인했다. 이 단일 프레임 변경은 캐시 키 검사이며 자동 DEF 전환 구현이나 게임 현상 재검증이 아니다. 합성 정책 probe에서는 장치/driver/runtime hash, engine/rules/workload/자원 상한 차이의 키 무효화를 따로 검사했다. 다른 실제 PC/드라이버 변경 실측은 아니다.
+
+원인 분리:
+
+1. `ExecutionPolicy.Select`는 준비 완료 후 **전체 10초** token을 시작하고 full 180초 warmup 1회를 먼저 수행한다. 준비 복원 자체는 밖에 있다. probe에서 Prepare 복원 약5258ms는 튜닝 예산과 별도 관측이다.
+2. 두 독립 Select 호출 모두 warmup만 실행하다 취소됐다. 각 warmup은 약10083ms/10257ms 뒤 OperationCanceledException, 완료=false. worker1/2 후보 호출 수는 **0**이었다. 선택은 worker1/not_measured이고 불완전 warmup은 정상 표본/측정 캐시로 저장되지 않았다. 근거는 wrapper가 실제 PreparedCompute.Run의 phase/index/완료/예외/token을 기록한 것이다.
+3. 코드상 warmup을 통과해도 후보는 worker1→2→4… 순서이며 각각 workers×2 전투 **묶음 전체 완료** 후에만 측정으로 인정된다. 후보별 예약 예산이나 최소 측정 기회가 없고, 남은 시간이 부족하면 완료된 일부 호출도 해당 후보 측정으로 인정되지 않는다. 이번 두 관측의 직접 중단 원인은 후보 배정 이전 warmup 예산 소진이다.
+4. JIT/tiering은 warmup 안에서 발생할 수 있지만 JIT event trace를 수집하지 않았으므로 원인을 JIT 하나로 확정하지 않는다. 같은 두 구간의 프로세스 CPU 시간은 약3141ms/2844ms로 벽시계 10초와 달랐다. 이는 시간 예산이 계산량만의 함수가 아님을 보여주며 OS 스케줄링/전력/공유 호스트 영향의 세부 비율은 미확정이다. 다른 benchmark 프로세스는 실행 전 조회에서 발견되지 않았지만 계속된 독점 상태를 보장하지 않으며, 사전 단독 측정 합의가 없으므로 속도 개선율·최적 worker 비교를 하지 않는다.
+
+**Q-TUNE-1 / 담당 B-CPU(필요 시 E-CPU 협업):** 10초 안에 warmup이 끝나지 않는 공개 5인 입력에서 선택 후보를 한 번도 평가하지 못한다. 최소 재현은 아래 Probe를 별도 프로세스에서 실제 prepared-synthetic.json/hardware.json과 함께 실행하는 것이다. 제품 변경은 하지 않았다.
+
+수정 수용 조건: 워밍업/후보별 단계·완료 수·예산 소진 사유를 관측 가능하게 하고, 준비/JIT와 후보 비교의 예산 정책을 분리하거나 측정 가능한 제한적 정책을 명시한다. 후보별 측정 기회를 보장하지 못하면 최적화 성공으로 표시하지 않는다. 전체 상한·취소·메모리 보호, incomplete 제외, fallback 사유·not_measured 유지, 버전/입력/장치 변경 캐시 무효화가 유지돼야 한다. 단독 측정 구간에서 대표 입력의 **완료 표본으로 실제 선택과 캐시 재사용**을 입증한 뒤 자동 최적화 수용을 재판정한다. 단순히 예산 숫자를 늘렸다는 이유로 수용하지 않는다.
+
+## GPU·미완료·후속 조건
+
+실제 hardware API는 inventory와 GPU 실행을 분리했고 모든 발견 GPU는 eligible=false/runtimeStatus=not_implemented였다. auto의 실제 결과 backend=cpu/fallbackReason=gpu_unavailable, 강제 GPU는 실행 전 409였다. full-battle GPU와 GPU 실행 실패 후 CPU retry는 미구현·미검증으로 유지한다. CPU 성공을 GPU 성공으로 표현하지 않는다.
+
+1천/1만/5만, 장시간/전후 속도 비교, 다른 PC·외장 GPU 실측, 실제 사용자 덱, 브라우저 UI, 자동 holdout 추천, 게임 영점/자동 DEF 전환, 배포는 이번 미실행이다. 대량 측정은 Director가 타 담당과 단독 시간대를 확정하고, 튜닝 단계 관측/버전·입력·자원 상한을 고정한 후 별도 후속 지시에서만 착수한다.
+
+## 재현 명령·실패 이력
+
+```powershell
+& '<python>' tests/single_deck_compute_qa/run_small.py --source-data '<공개 dataRoot>' --dotnet '<dotnet>'
+& '<python>' tests/single_deck_compute_qa/run_edges.py --source-data '<공개 dataRoot>' --dotnet '<dotnet>'
+& '<dotnet>' build tests/single_deck_compute_qa/Probe/Probe.csproj -c Release -p:RestoreConfigFile=nuget.config -p:NuGetAudit=false
+& '<dotnet>' tests/single_deck_compute_qa/Probe/bin/Release/net10.0/Probe.dll '<새 자기 artifacts>' '<새 합성 prepared-synthetic.json>' '<그 실행 hardware.json>'
+& '<python>' tests/single_deck_compute_qa/test_oracle.py
+```
+
+Python은 기존 codex runtime Python, dotnet은 기존 원본 `.tools/dotnet/dotnet.exe`를 실행했다. SDK 실행은 원본 사용자 EXE 실행이 아니다. DOTNET_CLI_HOME은 검수 `.tools/dotnet-home`, NuGet은 기존 package 캐시다. Probe 빌드도 경고0/오류0 (`probe-build-b7a38f1825124f0e8872cb9e6b3005cd/build.log`).
+
+첫 `small-45af2400a025`는 날짜가 바뀐 실행 중단 구간에 상태 조회 RemoteDisconnected로 중단됐다. 서버 로그에 원인을 확정할 추가 오류가 없어 제품 결함으로 단정하지 않는다. 원본 공개12개 hash 불변, 자기 서버 정리 후 새 경로로 실행했다. 이 최초 summary의 running은 중단 시점 기록이며 통과가 아니다. 러너는 이제 중단 시 aborted를 기록한다. 두 번째 실행의 QA null 기본값 문제도 위처럼 원본 실패 기록과 재분석을 함께 보존했다.
+
+이번 확정 QA 커밋은 이 기록과 QA 소유 도구만 포함한다. Director에게 범위별 판정·자동튜닝 Q-TUNE-1·결과 커밋·보고서를 기존 일반 터미널로 한 번 전달한다. 입력 접수는 통합·배포 승인 또는 제품 전체 완료가 아니다.
+
+---
+
+# 이전 준비 기록 — 2026-09-15 (아래 대기 상태는 역사 기록)
 
 **독립 수용 도구·fixture 준비 완료, 제품 수용 미판정.** CPU/GPU/배치/Analysis의 확정 구현 커밋은 아직 전달되지 않았다. 준비 중 Backend 계약 커밋 `f2327e5a99e9a6ce23e5377a53842fba63274331`이 생성되어 문서·DTO를 읽고 BatchResults 검사 adapter를 연결했다. 새 제품의 실제 CPU 배치, GPU kernel, OL 추천, 1천/1만/5만회 성능 실행을 완료했다고 보고하지 않는다.
 

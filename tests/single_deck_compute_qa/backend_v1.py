@@ -1,4 +1,4 @@
-"""Read-only adapter for committed Backend f2327e5 Compute.cs camelCase DTOs.
+"""Read-only adapter for committed Backend 48c11d8 Compute.cs camelCase DTOs.
 
 Consumes a COMPLETE frozen set of BatchResults pages. It does not reconstruct
 failed attempts that the results API does not expose. No product code imports.
@@ -6,7 +6,7 @@ failed attempts that the results API does not expose. No product code imports.
 from fractions import Fraction
 from oracle import count, number, require
 
-CONTRACT_COMMIT='f2327e5a99e9a6ce23e5377a53842fba63274331'
+CONTRACT_COMMIT='48c11d8654fc7a9be32cfd2ae1f5f2bc66475887'
 ROUTES={
     'hardware':'/api/compute/hardware',
     'create':'/api/compute/experiments',
@@ -61,7 +61,7 @@ def results(pages):
         for member in row['members']:
             require(number(member['damage'])>=0, 'invalid_member_damage')
             for field in ('shots','hits','criticalHits','reloads','burstCasts'): count(member[field])
-            require(member['criticalHits']<=member['hits'], 'critical_count_exceeds_hits')
+            # Hits counts normal hits, CriticalHits includes skill damage; no ordering constraint.
         require(Fraction(row['teamDamage'])==sum(Fraction(m['damage']) for m in row['members']), 'team_member_damage_disagrees')
         count(row['fullBursts']);require(number(row['elapsedMilliseconds'])>=0, 'invalid_elapsed_time')
     return dict(contractCommit=CONTRACT_COMMIT, validRuns=len(rows), phase=experiment['phase'],

@@ -19,6 +19,12 @@ def pages():
 
 
 class BackendV1Tests(unittest.TestCase):
+    def test_all_damage_crits_may_exceed_normal_hits_but_negative_is_invalid(self):
+        x=pages();x[0]['runs'][0]['members'][0].update(hits=0,criticalHits=3)
+        self.assertEqual(results(x)['validRuns'],2)
+        for field in ('shots','hits','criticalHits','reloads','burstCasts'):
+            bad=deepcopy(x);bad[0]['runs'][0]['members'][0][field]=-1
+            with self.assertRaises(ValueError): results(bad)
     def test_resume_retains_earlier_valid_index(self):
         self.assertEqual(results(pages())['validRuns'],2)
 

@@ -1,9 +1,9 @@
 {
   "schema": "qa-plan-v1",
   "productBase": "a5ccba6663241e61783b509fc69098ad3c9ecef2",
-  "backendContract": "f2327e5a99e9a6ce23e5377a53842fba63274331",
-  "implementationCommits": null,
-  "productAcceptance": "not_evaluated",
+  "backendContract": "48c11d8654fc7a9be32cfd2ae1f5f2bc66475887",
+  "implementationCommits": ["48c11d8654fc7a9be32cfd2ae1f5f2bc66475887"],
+  "productAcceptance": "small_actual_CPU_API_checks_only_see_report",
   "hardwareCases": ["cpu_only", "unknown_topology", "memory_limit", "invalid_memory", "Intel_synthetic", "AMD_synthetic", "NVIDIA_synthetic", "multi_gpu", "disconnected_external_gpu", "remote_session", "permission_denied", "driver_missing", "runtime_unsupported", "fp64_missing", "probe_timeout", "probe_exception", "kernel_numeric_failure", "distribution_failure", "end_to_end_failure", "stale_machine_driver_runtime_engine_kernel_workload_policy", "forced_gpu_preflight_error", "gpu_failed_attempt_discard_then_cpu_retry"],
   "engineCases": ["exact_fixed_nonrandom_boundaries", "damage_rounding_floor_round_double", "same_frame_order", "full_charge_196000", "trace_on_off_rng_consumption", "parallel_vs_sequential_independent_rng", "input_immutable", "run_state_isolation", "pool_reset_if_used", "independent_sample_equivalence"],
   "batchCases": ["queued_running_cancelling_cancelled_completed_failed", "cancel_during_chunk", "resume_attempt_increment", "duplicate_run_attempt", "conflicting_same_key", "late_old_attempt", "crash_restart_writer_recovery", "bounded_backpressure", "incomplete_not_zero", "partial_counts", "no_mixed_backend_semantics", "snapshot_tactic_build_fingerprint"],

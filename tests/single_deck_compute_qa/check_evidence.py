@@ -29,7 +29,7 @@ def main():
         document=json.loads(raw.decode('utf-8-sig'))
         if args.kind=='backend-results-v1':
             report.update(backend_results(document))
-            report['adapter']='Backend_Compute.cs_f2327e5'
+            report['adapter']='Backend_Compute.cs_48c11d8'
         elif args.kind=='batch':
             rows=batch(document)
             report['validRuns']=len(rows)

@@ -278,7 +278,8 @@ if __name__ == '__main__':
     run.mkdir(parents=True)
     output=io.StringIO()
     suite=unittest.TestSuite([unittest.defaultTestLoader.loadTestsFromModule(__import__(__name__)),
-                              unittest.defaultTestLoader.loadTestsFromModule(__import__('test_backend_v1'))])
+                              unittest.defaultTestLoader.loadTestsFromModule(__import__('test_backend_v1')),
+                              unittest.defaultTestLoader.loadTestsFromModule(__import__('test_actual_statistics'))])
     result=unittest.TextTestRunner(stream=output,verbosity=2).run(suite)
     (run/'tests.log').write_text(output.getvalue(),encoding='utf-8')
     report=dict(evidence='synthetic_QA_oracle_self_tests',productAcceptance='not_evaluated',
