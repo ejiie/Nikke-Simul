@@ -1,5 +1,16 @@
 # Q-TUNE-1 후속 수정과 수용 경계
 
+## 현재 판정: 기능상 종결
+
+QA 확정 `606b5685c237446616efd909339c58b28508182e`의 후속 보고서와 새 artifacts의 튜닝/API/저장 summary를 Director가 읽고 대조했다. 제품40078d0/보고서d8be9d3 및 기존QA12d767e는 QA merge `59ad23c`로 보존 통합됐으며, d8be9d3 대비 QA 확정의 src/apps/scripts/tools/data-pipeline 변경은 없다. **Q-TUNE-1은 제한 후보 튜닝 기능 문제로서 수용 통과·종결한다.** 이번 수용 범위의 보고된 차단 결함은 없다. Director가 테스트를 재실행한 결과는 아니며 독립 QA 근거를 검토한 수용 결정이다.
+
+- 독립 튜닝11/11(합성9 + 실제 공개입력 자연/11초 지연 주입2), 실제 API6/6, 저장 경계7/7 통과. Backend 자체34/API4 및 과거 판정 수를 합산하지 않는다.
+- QA worktree의 `artifacts/single-deck-qa/tune-probe-14d1980b0b2e48f4b4abf0c3d84cadcf/summary.json`, `tune-api-621ea4771669/summary.json`, `tune-storage-0a3ca63006544683ab56b14262b2b1b0/storage-summary.json`에서 전 항목 passed를 확인했다. API 근거는 product40078d0, performanceAcceptance=false, sourceChanges=[]다.
+- warmup timeout 후 완전 후보 실행, 부분 후보 제외/캐시 금지, fallback/취소/메모리, 캐시 변경 무효화·실패 retune, 튜닝 표본 통계 제외, 저장/재시작/resume를 수용한다. 실제 사용자 계정 덱/게임 정확도 검수가 아니라 새 합성 계정과 공개5인180초/400/고정DEF30925 입력의 기능 검수다.
+- cpu-policy-3은 worker1/2 제한 탐색이다. 최적 worker·성능 순위·개선율·다른PC·단독 지속부하·1천/1만/5만은 미판정이다. 26/50초는 cooperative deadline이지 엄격한 벽시계 SLA가 아니다. 11초 주입을 자연 JIT 실패로 해석하지 않는다.
+
+다음 단계는 단독 측정 시간과 입력/정책/자원/전원·런타임 조건을 확보한 뒤 별도 지시로 1천→1만→5만 순차 검증하는 것이다. 이번 수신 처리에서는 새 작업 배정·대량 실행·제품 병합·원본 배포·원격 업로드를 하지 않았다. 아래 인계 시점의 미완료 표현은 역사 기록이며 이 절이 Q-TUNE-1 최신 상태다.
+
 ## 확인한 결과
 
 QA 확정 `12d767e7ad11ba22e66bd7f6b48b377ab56076ef`의 `docs/single-deck-qa.ko.md` 전체와 제품 `48c11d8:src/Nikke.Compute/ExecutionPolicy.cs`를 대조했다. CPU summary/400/5인/고정 DEF30925/저장 택틱, 소규모 실제 통계·signed OL 명시 비교·취소/재개/저장복구·CPU fallback 안전성은 QA 수용 통과다. 실제 사용자 계정 덱·대량 처리량·브라우저·GPU·자동 OL 추천·배포 수용은 아니다.
