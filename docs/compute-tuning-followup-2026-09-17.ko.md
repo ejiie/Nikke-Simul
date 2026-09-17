@@ -21,6 +21,22 @@ Q-TUNE-1: 실제 180초 준비 입력의 두 진단에서 전체 10초 예산이
 
 전달 확인: Orca runtime `0baeeac8-72a2-40f0-aabd-9882916a8a93`, 기존 worktree `07c470de-0a43-4d90-9eb6-240a5de9258c::C:/Users/user/orca/workspaces/Nikke-Simul/Backend`, handle `term_6c0c321c-15a9-4f93-8784-5a88b484ee45`. 요청 `fa17a1da-8546-4882-8aa2-78fcafc9b75b`는 accepted=true/input_accepted/turn_started. 담당자가 새 지시서·QA 확인 및 재현 후 수정 착수를 응답했다. 수정 완료·독립 재검수 통과는 아직 아니다.
 
+## Q-TUNE-1 독립 재검수 인계
+
+Backend 제품 `40078d06a3d236ec7de5987d6be3c96d2a34ec86`, 보고서 `d8be9d3490cc95c4d389247eb4007c3c7de69441`를 수신했다. Director가 보고서와 ExecutionPolicy/TuningBudget을 읽었다. cpu-policy-3은 준비 별도, warmup2초/후보별24초, worker1/2 각각 완전전투2회, 전체26/50초 cooperative deadline이다. 자연 구정책 진단은 성공했고 11초 warmup 지연 주입에서만 이전 실패를 통제 재현했다. Backend 자체34회귀/API4검사 통과 보고는 독립 QA 수용과 구분한다. 제한 후보 선택·캐시 기능 근거이며 최적 worker/성능 순위 근거가 아니다.
+
+기존 검수 worktree/터미널에 다음 후속을 맡긴다. 제품 수정이나 대량 부하가 아니라 독립 소규모 재수용이다.
+
+1. 자기 QA `12d767e`와 기존 변경을 보존하고 제품40078d0 및 보고서d8be9d3을 일반 merge로 통합한다. 충돌 시 임의 덮어쓰기 없이 보고한다. 자기 QA 파일·새 artifacts·보고서만 소유하며 제품 수정은 Backend에 결함 인계한다.
+2. 이전 QA 실패를 보존한다. 기존 Q-TUNE-1 재현/수용 조건과 새 계약을 대조하고 Backend 테스트 통과를 독립 판정으로 대신하지 않는다. 자연 실행과 지연 주입 재현을 구분한다.
+3. 같은 공개5인180초/400/DEF30925 입력으로 준비·warmup·후보별 완료/중단/시간/원인과 cache 출처를 독립 대조한다. warmup timeout 후 후보 예약, 동일 완전전투2회 처리량, worker1/2 제한 범위 표시, 전체 cooperative deadline 및 중단 후 작업 중첩 여부를 확인한다. 성능 순위·최적성 수용은 하지 않는다.
+4. 느린 후보/일부 완료/외부 취소/메모리 보호에서 불완전 후보 제외, 유효 후보만 선택, 부분 집합 캐시 금지, 0후보 not_measured fallback을 검사한다. 구버전·오염·입력/엔진/규칙/하드웨어·자원 변경 무효화와 실패한 retune 이후 구 캐시 부활 금지를 확인한다.
+5. 실제 격리 API에서 단계 관측, warmup 취소 valid0, 정상 결과 통계에서 튜닝 제외, measured_cache 재조회 Run0 및 저장/재시작 호환을 대조한다. 필요한 기존 소규모 회귀를 실행하되 합성/실제/재실행 개수를 구분한다.
+6. 새 합성 계정 및 허용 공개 입력만 사용한다. 원본 계정DB/세션/캐시/EXE/5180/5181·타worktree·package-lock 보존. 자기 서버만 정리한다. 1천/1만/5만, GPU/OL 새 구현, 배포/push, 새worker/Run/Dispatch/lifecycle는 이번 지시에서 제외한다.
+7. 확정 QA 커밋·보고서·독립 근거·통과/차단결함/미판정 범위를 기존 Director에 한 번 인계한다. 기능상 Q-TUNE-1 종결 여부와 지속 부하/단독 성능 측정 미수용을 별도로 판정한다.
+
+전달 확인: 기존 worktree `07c470de-0a43-4d90-9eb6-240a5de9258c::C:/Users/user/orca/workspaces/Nikke-Simul/검수`, handle `term_30f7a75f-412b-4f2f-9bd3-863c417a5e7e`, runtime `0baeeac8-72a2-40f0-aabd-9882916a8a93`를 재확인했다. 요청 `e7a5fef0-d63a-4277-996f-da7540de46cd`는 accepted=true/input_accepted/turn_started다. 독립 재검수 착수이며 완료·수용 통과·Director 제품 통합 또는 배포를 의미하지 않는다.
+
 ## 이후 순서와 사용자 원격 업로드 지시
 
 튜닝 수정 확정 → QA 재수용 → 단독 측정 조건·입력 고정 후 1천/1만/5만 순차 검증. UI 및 자동 OL 최종 평가 연결, 실제 GPU 전투 backend는 각 기존 담당 범위에서 미완료로 유지한다. 현재 Director에는 제품 커밋을 병합/배포하지 않았다.
