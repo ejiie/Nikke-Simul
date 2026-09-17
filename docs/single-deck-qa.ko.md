@@ -1,4 +1,67 @@
-# Q-CPU/GPU 독립 소규모 수용 — 2026-09-16
+# Q-TUNE-1 독립 소규모 재수용 — 2026-09-17
+
+**판정: cpu-policy-3의 제한 후보 튜닝 기능은 독립 수용 통과. 기능상 Q-TUNE-1 종결 가능. 최적 worker·성능 순위·개선율·지속 부하 수용은 별도로 미판정이다.** 이번 범위의 차단 결함은 발견하지 않았다. 아래 2026-09-16 기록과 구정책 실패는 삭제하지 않고 역사 근거로 보존한다.
+
+## 통합·독립성·보존
+
+Director `compute-tuning-followup-2026-09-17.ko.md` 전체 및 Q 인계 7항, AGENTS.md, 확정 Backend 보고서/compute 계약 전체를 읽었다. QA `12d767e7ad11ba22e66bd7f6b48b377ab56076ef`에서 제품 `40078d06a3d236ec7de5987d6be3c96d2a34ec86`과 보고서 `d8be9d3490cc95c4d389247eb4007c3c7de69441`를 일반 merge **59ad23ca598107f7b41bce30217ce0057956e878**로 통합했다. 세 커밋의 ancestor 검사 모두 성공. 충돌 없음. Backend34/API4 결과를 아래 독립 통과 수에 넣지 않았다.
+
+새 QA 실행기 `tests/single_deck_compute_qa/TuningProbe`와 `run_tuning.py`를 작성했다. 실제 입력 준비만 기존 QA 공개 allowlist fixture를 재사용하고, 정책/API 수용 assertion은 독립 작성했다. 합성 fault 검사는 QA 실행기에서 reflection으로 내부 예산 150ms/450ms 및 메모리 공급 함수를 주입한다. 제품 파일을 바꾸거나 Backend 테스트 assembly를 가장하지 않는다. 실제 전투 진단은 공개 constructor의 **기본 2000/24000ms 정책**을 사용한다.
+
+제품 src/apps/scripts/data-pipeline은 d8be9d3 대비 차이 없음. 기존 untracked package-lock SHA-256 `2ef4178aa07ddd9ac2e4d47422038d02d8adaadfb15586cee6a2f1995253c767` 보존·커밋 제외. 원본 data/local의 공개 game-catalog/calculation/runtime allowlist **12개**만 읽어 새 외부 dataRoot로 복사하고 전후 hash 변경0을 확인했다. 원본 계정DB/세션/presentation 캐시/EXE/5180/5181 접근·복제·수정·종료 없음. 다른 worktree는 지시서 읽기 외 편집 없음. API 포트 **57653**, 새 합성 계정만 사용했고 생성한 서버 PID만 정리했다. 이 검사는 실제 사용자 덱 검수가 아니다.
+
+## 이번 새 근거
+
+아래 경로는 모두 본인 `artifacts/single-deck-qa/` 아래다.
+
+| 실행 | 결과 및 근거 |
+|---|---|
+| 자체 API/TuningProbe Release 빌드 | 각각 경고0/오류0. `tune-build-c0d9038e920c4f15a47668a62491054e/{api,probe}.log` |
+| 독립 튜닝 probe | **11/11 통과**: 합성 fault/cache 9그룹 + 실제 준비 입력 자연/11초 주입 2그룹. `tune-probe-14d1980b0b2e48f4b4abf0c3d84cadcf/summary.json` |
+| 실제 API | **6/6 통과**. `tune-api-621ea4771669/summary.json`, `observations.json`, `baseline-pages.json`, `baseline-statistics.json`, `source-hashes.json` |
+| 기존 QA 저장 경계 재실행 | **7/7 통과**. `tune-storage-0a3ca63006544683ab56b14262b2b1b0/storage-summary.json`; 해당 probe도 경고0/오류0 재빌드 |
+
+API 정상 결과는 baseline2 + 캐시배치2 + crash-resume2 = **6회** 실제 180초 전투다. warmup 취소 실험은 정상0. 실제 probe는 별도로 두 진단의 후보4회씩 **8회**를 측정했다. API 내부 후보와 warmup은 정상 결과 수에 합산하지 않았다. 준비 판정기39/42 또는 Backend34를 제품 통과 수로 재사용하지 않았다.
+
+## 실제 단계·예약·캐시
+
+동일 합성 공개5인 리타/블랑/앨리스/누아르/모더니아, 400, 10800프레임, DEF30925, 저장 택틱, cpu-summary.1을 사용했다. 실제 API의 저장 request/prepared와 입력을 대조했으며 물리 fingerprint는 구 QA와 같은 `f9cfbd31c4e250690a804b7fac2a7f1ab71d30c3c9bb0324fab74b2c1c57a70e`다. 준비 복원 시간은 Select 이전에 따로 잰다.
+
+다음 시간은 단계 기능 관측(ms)이며 성능 전후 비교가 아니다.
+
+| 현재 정책 실행 | 준비 | warmup 완료/중단·시간 | worker1 완전전투2회 | worker2 완전전투2회 | 전체·재조회 |
+|---|---:|---|---:|---:|---|
+| 실제 API baseline | 121.72 | 0/1, 2001.67 | 2416.55 | 710.97 | 5132.00, 후속 배치 cache_reused |
+| 독립 실제 자연 probe | 918.27 | 0/1, 1999.68 | 2187.34 | 519.82 | 4707.16, measured_cache·Run0 |
+| 독립 실제 warmup11초 지연 주입 probe | 49.32 | 0/1, 2010.65 | 895.99 | 481.60 | 3388.37, measured_cache·Run0 |
+
+각 후보는 독립24초 예약, requested=started=completed=2/interrupted=0이었다. 두 실제 probe 모두 선택 worker2, status=measured, plannedWorkers=[1,2], scope=bounded_candidates_not_global_optimum. 이를 worker2의 전역 최적성이나 공정한 성능 순위로 승격하지 않는다. 캐시 재조회는 wrapper Run 호출 **0**으로 직접 확인했다. API의 짧은 응답 시간만 보고 Run0을 추정하지 않았다.
+
+실제 wrapper의 동시 활성 호출 최대2, 단계 간 겹침 false, Select 반환 시 활성 호출0. 코드도 각 Parallel.ForEachAsync와 memory monitor 종료를 await한 뒤 다음 단계로 진행한다. 전체26/50초는 cooperative deadline으로 엄격한 wall-clock SLA가 아니다. 축소예산 합성 검사에서 전체1050ms에 대해1056.55ms 후 total_budget_exhausted로 종료했고 미종료 작업은 없었다. 지연 때문에 앞 단계가 예약을 초과하면 뒤 후보의 실사용 시간은 전체 deadline에 제한될 수 있다. 이것을 무제한 실행이나 모든 호스트에서 후보 완료 보장으로 설명하지 않는다.
+
+구정책에 대한 Backend의 자연 진단 성공과 warmup11초 **주입** 시 후보0 재현은 담당 보고서 근거이며 이번 QA에서 구 DLL을 다시 실행한 결과가 아니다. 이번 자체 자연 실행도 새 정책 warmup을 끝내지 못했지만 두 후보는 완료했다. 별도11초 주입은 wrapper의 취소 가능한 대기이며 자연 JIT/PC 지연으로 표현하지 않는다. 과거 QA의 두 10초 실패는 유지하고 JIT·스케줄링·다른 호스트 부하의 기여율은 여전히 미확정이다.
+
+## 합성 경계와 실제 API 수용
+
+- 느린 warmup 후 두 후보 예약 유지. worker1 일부1회만 완료한 묶음은 rate=null로 제외하고 완료한 worker2만 partial 선택; 캐시 파일0. 모든 후보 미완료이면 worker1/not_measured이며 캐시0.
+- warmup/후보 외부 취소 각각 OperationCanceledException, 최종 cancelled/external_cancelled, 잔여 Run0. 시작 전 및 도중 관리 메모리 초과는 memory_limit/not_measured로 중단. 메모리 한도가 worker1 계획을 강제함을 확인했다. 관리 heap 감시를 OS RSS 하드 상한으로 확대하지 않는다.
+- 정상 캐시 Run0 재사용 및 새 preparationMilliseconds 반영. cpu-policy-2/partial/증거없음/GPU오표기/처리량오염/깨진JSON은 재측정. workload/engine/rules/hardware-driver-runtime fingerprint 및 worker 자원 한도 변경은 캐시 재사용하지 않았다. 실패한 retune은 이전 파일을 제거하고 다음 Select에서도 부활하지 않았다. 장치 fingerprint 변경은 합성 계약 검사이며 다른 PC/실제 driver 교체 실험은 아니다.
+- API GET에서 queued의 tuning.status=warmup을 **직접 관측 후** 취소했다. 정상valid0, 통계n0/partial=true, final tuning.stopReason=external_cancelled. 취소 응답53.52ms, 통계 조회까지 포함한 후속 관측439.22ms로 기록했으며 UI/SLA 지표가 아니다.
+- 실제 완전 배치의 limit1 두 페이지 모두를 읽어 독립 평균/SD/HF7/Student/Wilson 및 5인 통계를 검산했다. 정상 n=2/partial=false로 튜닝4회와 불완전 warmup을 포함하지 않는다. 컷은 첫 표본 피해와 같게 지정해 **엄격한 초과(>)**를 확인했다.
+- API 재시작 뒤 완료 status/최종 tuning/결과 기반 통계가 동일했다. warmup 중 본인 서버 종료→재시작은 cancelled/process_interrupted/valid0, resume attempt2에서2회 정상 완료. 중간 tuning 진단의 프로세스 재시작 후 소실은 계약상 허용되며 정상 selection 영속 복구와 구분한다.
+- 별도 기존 QA probe를 새 DLL로 재실행해 정상0/실패 분리, Hits0·CriticalHits3 허용, 모든 음수 카운터 거부, 중복 first-write-wins, chunk rollback, 이전 attempt 유효 index 보존, late writer 거부, crash 복구를 다시 확인했다. 합성 RunSummary를 실제 Store/Analysis에 전달한 검사다.
+
+## 남은 범위와 인계
+
+독립 정책 기능 수용 조건은 충족했다. 새 차단 결함·직접 제품 수정은 없다. 기존 Q-TUNE-1은 **제한 후보 측정/부분측정/안전 fallback/취소/캐시/영속복구의 기능 문제로서 종결 가능**하다. 자동 최적 worker 수용은 계속 미판정이다. 실행 전 읽기 전용 process 목록에 여러 dotnet 프로세스가 있었고 단독 benchmark 합의/지속 독점 확인은 없었다. 자체 API→probe→저장 회귀는 순차 실행했다. 위 시간으로 순위·개선율 비교를 하지 않는다.
+
+후속 대량 검증은 Director가 단독 측정 구간과 입력/정책/자원 한도/전원·런타임 조건을 고정하고 새 지시한 뒤 진행해야 한다. 이번에는 1천/1만/5만·GPU·추가 OL·브라우저·실제 사용자 덱·다른 PC·배포를 실행하지 않았다. full-battle GPU와 GPU 실패 후 CPU retry는 미구현 상태 유지, holdout 미연결 추천 확정도 수용하지 않는다. 새 worker/Run/Dispatch/lifecycle, 원격 생성/push 없음.
+
+재현: 위 API/QA probe를 Release 빌드한 뒤 `run_tuning.py --source-data <허용 공개 dataRoot> --dotnet <dotnet>`을 실행한다. 이어 `TuningProbe.dll <새 자기 출력 경로> <새 API 출력/prepared-synthetic.json> <새 API 출력/hardware.json>`을 순차 실행한다. 저장 회귀는 기존 `Probe.dll <또 다른 새 자기 출력 경로>`로 실제 prepared 인자 없이 실행한다. 결과 커밋·본 보고서·새 독립 근거와 기능/성능 판정 경계를 기존 Director `term_f54735fc-6293-41b3-ae3a-984fd0d5b42a`에 일반 터미널로 한 번 전달한다. 입력 접수는 Director 통합·배포 완료와 별개다.
+
+---
+
+# Q-CPU/GPU 독립 소규모 수용 — 2026-09-16 (이전 기록)
 
 **판정: 지정 소규모 CPU/API·통계·명시 OL 비교·저장 복구 및 fallback 안전성 통과. 자동 최적 동시성 수용은 보류. GPU 전체 전투와 GPU 실패 후 CPU retry는 미구현 상태 유지.** 실제 사용자 덱·게임 정확도·대량 성능·배포 수용은 아니다.
 
