@@ -30,10 +30,11 @@ public static class ComputeEndpoints
             if(request.BaselineExperimentId is {} baseline) {
                 var existing=store.Read(baseline);if(existing.Status.Input.SnapshotId!=request.SnapshotId || !existing.Status.Input.CharacterIds.SequenceEqual(request.CharacterIds)
                     || Wire.Canonical(existing.Request.Conditions)!=Wire.Canonical(conditions) || existing.Request.Phase!=request.Phase)throw new ArgumentException("baseline_input_mismatch");}
-            var prepared=runtime.Value.PrepareCompute(snapshot,game,request,calculation.Value);
-            var batch=await jobs.Create(prepared,request,ct);return Results.Accepted($"/api/compute/experiments/{batch.Id}",batch);
+            ct.ThrowIfCancellationRequested();var preparation=System.Diagnostics.Stopwatch.StartNew();
+            var prepared=runtime.Value.PrepareCompute(snapshot,game,request,calculation.Value);preparation.Stop();ct.ThrowIfCancellationRequested();
+            var batch=await jobs.Create(prepared,request,ct,preparation.Elapsed.TotalMilliseconds);return Results.Accepted($"/api/compute/experiments/{batch.Id}",batch);
         });
-        app.MapGet("/api/compute/experiments/{id}",(string id)=>store.Read(id).Status);
+        app.MapGet("/api/compute/experiments/{id}",(string id)=>jobs.Status(id));
         app.MapGet("/api/compute/experiments/{id}/ol-candidates",(string id)=> {
             var experiment=store.Read(id);var snapshot=snapshots.Snapshot(experiment.Request.SnapshotId)??throw new KeyNotFoundException();
             var space=runtime.Value.ComputeCandidates(snapshot,game,experiment.Request);
@@ -42,7 +43,10 @@ public static class ComputeEndpoints
                 new(c.After.CharacterId,c.After.Slot,c.After.Line,c.After.Option,(decimal)c.After.Value),c.ThresholdSensitive)).ToArray(),space.Exclusions);
         });
         app.MapPost("/api/compute/experiments/{id}/cancel",(string id)=>jobs.Cancel(id));
-        app.MapPost("/api/compute/experiments/{id}/resume",(string id)=>jobs.Resume(id,PreparedCompute.Restore(store.Read(id).Prepared)));
+        app.MapPost("/api/compute/experiments/{id}/resume",(string id,CancellationToken ct)=> {
+            ct.ThrowIfCancellationRequested();var preparation=System.Diagnostics.Stopwatch.StartNew();var prepared=PreparedCompute.Restore(store.Read(id).Prepared);
+            preparation.Stop();ct.ThrowIfCancellationRequested();return jobs.Resume(id,prepared,preparation.Elapsed.TotalMilliseconds);
+        });
         app.MapGet("/api/compute/experiments/{id}/results",(string id,int? offset,int? limit)=>new BatchResults(store.Read(id).Status,offset??0,limit??100,store.Results(id,offset??0,limit??100)));
         app.MapGet("/api/compute/experiments/{id}/statistics",(string id,double? cut)=> {
             var analysis=app.Services.GetService<IComputeAnalysis>()??throw new InvalidOperationException("analysis_not_integrated");

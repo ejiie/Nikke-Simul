@@ -12,7 +12,13 @@ public record ComputeOptions(string Requested = "auto", int? MaxWorkers = null, 
     string? DeviceId = null, bool Retune = false);
 public record ExecutionSelection(string Requested, string Backend, string DeviceId, int Workers, int ChunkSize,
     long MemoryLimitBytes, string Reason, string ValidationVersion, string BenchmarkVersion,
-    string Fingerprint, string? FallbackReason);
+    string Fingerprint, string? FallbackReason, TuningDiagnostics? Tuning = null);
+public record TuningStage(string Name, int Workers, int Requested, int Started, int Completed, int Interrupted,
+    double BudgetMilliseconds, double ElapsedMilliseconds, string Status, string? StopReason, double? RunsPerSecond);
+public record TuningDiagnostics(string PolicyVersion, string Status, string CacheSource, double? PreparationMilliseconds,
+    double TotalBudgetMilliseconds, double ElapsedMilliseconds, IReadOnlyList<int> PlannedWorkers,
+    int ResourceWorkerLimit, IReadOnlyList<TuningStage> Stages, string? StopReason,
+    string Scope = "bounded_candidates_not_global_optimum");
 public record OlChange(string CharacterId, string Slot, int LineIndex, string OptionId, decimal Value);
 public record OlCandidate(string Id, OlChange Before, OlChange After, bool ThresholdSensitive);
 public record OlCandidateCatalog(string CatalogVersion, IReadOnlyList<OlCandidate> Candidates,
