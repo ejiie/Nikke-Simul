@@ -66,3 +66,70 @@ Data의 ComputeOverloadCatalog는 pinned GameSnapshot.OptionSteps와 실제 T10 
 최종 정책의 실제 API 재검증 `artifacts/single-deck-backend/70ef351ac0f54a61b742d33cf215ba50/summary.json`도 **7/7 passed**, 격리 포트52994, 공개 원본12개 변경0, 합성 snapshot 변경0. baseline/양수 OL/음수 OL/취소 후 재개가 각각 최종 유효4회이며 전체 전투·통계·미확정 비교가 연결됐다. 첫4회 wall41.158초, 개별1908.72~4466.84ms, fullBursts각11. 이 실행에서도 10초 튜닝 안에 측정 후보를 끝내지 못해 worker1/benchmark_not_measured fallback을 반환했다. 따라서 실제 장치의 최적 동시성·처리량을 수용했다고 주장하지 않는다. 측정/캐시 선택과 변경 무효화는 합성 workload 회귀 통과이며, 실제 정책 최적성은 QA 순차 부하 검증에 남긴다. 변동 원인을 분리한 성능 비교는 미실행이다.
 
 Backend 자체 최종 검증은 전용18 + 기존Sync81 = **99개 테스트 통과**와 실제 API7개 검사 통과다. 재실행 횟수를 합쳐 테스트 수를 부풀리지 않는다. 모든 API 테스트 프로세스는 도구 종료 시 본인 생성 PID만 종료했고, 원본 계정/세션/캐시는 열거나 복제하지 않았다. 원본5180/5181/EXE/다른 작업공간/원격 push에 대한 변경 없음.
+
+## 최종 커밋과 인계
+
+확정 제품·통합 검증 커밋은 **48c11d8654fc7a9be32cfd2ae1f5f2bc66475887**이다. 이 커밋은 e7980ef 및 확정 E/S 의존 커밋을 모두 포함한다. 본 문서와 `docs/single-deck-compute-contract.ko.md`가 인계 보고서/계약이며 portable 검증 명령은 위 절에 있다. 최종 git status는 보존한 untracked package-lock.json만 남았다.
+
+반환 대상은 기존 Director `term_f54735fc-6293-41b3-ae3a-984fd0d5b42a`이며 CLI list/read로 실행 중인 기존 세션을 확인했다. 제품/보고서 커밋과 실제99 tests/API7 checks, GPU 전체 전투·자동 holdout orchestration·실제 최적 병렬도/대량 부하·브라우저/배포 미수용을 한 번 전달한다. 입력 접수는 Director 통합 또는 QA 통과를 뜻하지 않는다.
+
+## B-TUNE-1 / Q-TUNE-1 후속 — 2026-09-17
+
+이 절은 위 cpu-policy-2 기록의 후속이다. 시작 HEAD181b0a5, 제품48c11d8 및 기존 이력 보존, untracked package-lock.json만 존재했다. Director의 `compute-tuning-followup-2026-09-17.ko.md` 전체와 QA `12d767e7ad11ba22e66bd7f6b48b377ab56076ef:docs/single-deck-qa.ko.md` 전체를 읽었다. QA Probe 소유 코드는 git show로 참고만 했으며 병합·수정하지 않았다. Compute/최소Contracts/Jobs/API 및 Backend 전용tests/문서만 수정한다. Data/Engine/Analysis/UI/QA/다른 worktree 변경 없음.
+
+### 재현과 원인
+
+별도 Backend `tests/Nikke.Tuning.Probe`는 공개 game-catalog/calculation/runtime allowlist12개만 새 artifacts에 복사하고 SHA-256 전후 검사한다. C# Data adapter로 새 합성 5인·400·180초·DEF30925·crit sample·택틱·앨리스 T10 head/1을 준비한다. 원본 계정/세션/캐시/EXE를 읽거나 복제하지 않는다. 생산 고정seed 없음. 준비·복원 비용과 튜닝 Run 호출을 따로 측정한다.
+
+- 자연 실행 `artifacts/tuning-followup/before-3d7eefa9e91e48ed96b43fc6a00b3a79/observation.json`: cpu-policy-2, 준비1630.4391ms, Select4499.9418ms, warmup2115.4851ms 완료, 후보 호출6개 완료. 오늘의 자연 실행에서는 QA의 warmup 소진이 발생하지 않았다. QA의 실패 기록을 부정하거나 항상 실패라고 일반화하지 않는다.
+- 통제 재현 `before-slow-fade6d31ac7243f9adfd4616294d85a0/observation.json`: 동일 실제 prepared 입력 wrapper의 warmup에만 취소 가능한11초 대기를 주입했다. 준비368.9337ms, Select10038.3317ms, warmup10030.3642ms 후 OperationCanceledException, 후보0, worker1/not_measured. 이 지연은 합성 주입이며 자연 JIT/PC 성능 실측으로 표시하지 않는다.
+- 직접 원인은 warmup과 모든 후보가 단일10초 token을 공유하고, warmup 취소 예외가 후보 루프 전체를 빠져나가는 제어 흐름이다. JIT/스케줄링/호스트 부하의 기여율은 이 작업에서 확정하지 않는다.
+
+### 수정 정책과 관측 경계
+
+cpu-policy-3: 입력 준비 시간은 API create/resume에서 별도로 측정하며 Data 동기식 계약에 따라 전후 취소 검사만 한다. warmup2초와 각 후보24초 예약을 분리한다. 자원 상한 내 `[1]` 또는 `[1,2]`라는 사전 고정 제한 탐색이며 후보마다 동일한 완전 전투2회만 비교한다. 4/8/...은 이번 짧은 탐색 밖으로 명시한다. 전체 튜닝 deadline은26/50초, 프레임 취소 종료를 기다리고 다음 후보를 시작한다. timeout 작업을 background에 버려 중첩하지 않는다. 이는 timeout 숫자만 늘린 수정이 아니라 warmup 실패 격리·동일 완료 작업량·후보 예약·부분 측정 구분·캐시 증거 검증 변경이다.
+
+status의 execution.tuning에 단계별 예약/벽시계/started/completed/interrupted/stopReason/처리량, 계획worker와 자원상한, 준비시간, 캐시출처를 반환한다. 종료상태는 not_measured/partial/measured/cache_reused이며 measured는 제한 후보 전부 완료를 뜻한다. 일부 호출만 완료한 후보는 처리량 비교에서 통째로 제외한다. 부분 후보 집합은 이 attempt에서만 선택하고 캐시에 저장하지 않는다. 외부 취소는 호출자에게 OperationCanceledException으로 전달하고 마지막 관측은 cancelled다. 관리 heap을20ms 간격으로 확인해 단계 도중에도 메모리 초과를 중단한다. 이는 OS RSS의 엄격한 물리메모리 상한이 아니다.
+
+새 캐시는 정책버전/장치·driver·runtime/engine/rules/input/자원 키와 모든 후보의 완전한 횟수·시간·계산 처리량·선택 worker/chunk를 재검증한다. 구버전·부분·오염·증거 없는 캐시는 거부한다. retune 실패 시 이전 파일이 되살아나지 않도록 시작 전에 제거한다. warmup/튜닝 전투는 정상 run DB에 쓰지 않는다. 종료된 최근64 attempt의 중간/취소 관측은 메모리에만 유지되고 재시작하면 소실되며, 정상 최종 선택 관측은 기존 selection JSON으로 저장한다.
+
+### 독립 회귀
+
+기존18 + 신규16 = **34/34 통과, 실패0/skip0**. 신규 항목은 느린warmup→후보예약/캐시, 느린후보·일부호출완료/부분후보, warmup/후보 외부취소, 시작전/진행중 메모리초과, 메모리상한의1worker계획, 구버전/부분/증거없음/처리량오염/GPU오염/잘못된JSON, retune실패의구캐시제거, 입력·engine·rules·하드웨어/자원 fingerprint 변경이다.
+
+최종 근거 `artifacts/tuning-followup/unit-final/user_BOOK-UB6JGJ0BM4_2026-09-17_22_12_20_net10.0.trx`, 테스트6초. 진단 도구 Release15.26초 및 API Release31.30초, 각각 경고0/오류0. 이전 동일34개 실행 `unit-v3/...22_09_12...trx`도9초 통과했으며 최종 개수에 중복 합산하지 않는다.
+
+### 재현 명령과 미수용 범위
+
+```powershell
+$env:DOTNET_CLI_HOME = Join-Path $PWD '.tools/dotnet-home'
+$env:NUGET_PACKAGES = '<기존 로컬 패키지 캐시>'
+& '<dotnet>' restore tests/Nikke.Tuning.Probe/Nikke.Tuning.Probe.csproj --configfile nuget.config --source $env:NUGET_PACKAGES -p:NuGetAudit=false
+& '<dotnet>' build tests/Nikke.Tuning.Probe/Nikke.Tuning.Probe.csproj -c Release --no-restore
+& '<dotnet>' tests/Nikke.Tuning.Probe/bin/Release/net10.0/Nikke.Tuning.Probe.dll '<공개 dataRoot>' '<새 자기 artifacts>'
+# warmup 제어 흐름 진단만 합성 지연을 주입한다. 전투 입력/엔진은 동일하다.
+& '<dotnet>' tests/Nikke.Tuning.Probe/bin/Release/net10.0/Nikke.Tuning.Probe.dll '<공개 dataRoot>' '<다른 새 artifacts>' --slow-warmup
+& '<python>' tests/Nikke.Compute.Tests/check_tuning_api.py --fixture '<위 새 probe artifacts>' --dotnet '<dotnet>'
+& '<dotnet>' test tests/Nikke.Compute.Tests/Nikke.Compute.Tests.csproj -c Release --no-restore --logger trx --results-directory '<새 결과 경로>'
+```
+
+구정책 비교는 당시 구DLL을 대상으로 --baseline 옵션을 사용해 캐시 재조회 없이1번만 진단했다. 현재 코드에서 --baseline을 쓴다고 구정책이 되는 것은 아니다. 재현 도구는 args로 경로를 받아 제품에 개발PC 경로를 넣지 않는다. API검사는 새 합성 DB/동적 포트 및 본인 PID 정리만 사용한다.
+
+dotnet/Python process 이름·PID·시작시각 조회는 sandbox 거부 후 도구 승인 경계로 다시 읽었다. 여러 dotnet 프로세스가 존재했고 사전 단독 측정 합의/지속 독점 확인은 없었다. 이 작업의 실제 선택·캐시 결과는 기능 증거이며 성능 순위·최적worker·속도 개선율을 수용하지 않는다. 1천/1만/5만 부하, GPU/OL 추가개발, 실제 사용자계정/브라우저/게임영점/배포는 미실행이다. Q-TUNE-1 종결은 QA 독립 재수용 이후의 판단이며 Backend 자체 테스트로 선언하지 않는다.
+
+### 수정 후 실제 결과
+
+아래 실행은 서로 겹치지 않게 순차 실행했다. 두 probe와 수정 전 재현 모두 물리 입력 fingerprint `3e3a780cc11264d7613cf8b69b17d0f7f5592951a55fb3214b6eebe5fe789b58`로 동일하다. 시간은 ms이며 준비는 튜닝 밖이다. 지연 주입은 warmup에만 적용했고 후보는 실제180초 전투 전체다.
+
+| 새 근거 (artifacts/tuning-followup 아래) | 준비 | warmup 완료/중단·벽시계 | worker1 후보 | worker2 후보 | 최종/재조회 |
+|---|---:|---|---|---|---|
+| after-10d6425d5dcd4501903ea11535bfd495/observation.json | 1531.4398 | 0/1, 2025.0091 | 2/2완료, 2254.9938 | 2/2완료, 527.0355 | measured, worker2, 총4822.5097; measured_cache, Run호출0 |
+| after-slow-9e31141a9de74b1380c5bb90bed19246/observation.json | 910.2464 | 0/1, 2020.1953 (합성지연) | 2/2완료, 2753.9051 | 2/2완료, 646.5898 | measured, worker2, 총5429.7482; measured_cache, Run호출0 |
+
+후보 중단0, 각각 독립24초 예약 내 완료. 두 실행 모두 warmup의 미완료 전투는 피해 표본이나 처리량에 포함하지 않았다. worker2는 이 제한 표본에서 정책이 선택한 값이며 단독 측정에 따른 성능 순위 수용이 아니다. 초기 cold/tiering 영향의 제거·원인 비율을 입증한 것도 아니다.
+
+실제 API `after-slow-9e31141a9de74b1380c5bb90bed19246/tuning-api-summary.json`: **4/4 checks passed**, 격리 포트61369. queued의 tuning.status=warmup을 실제 관측하고 취소했다. warmup98.0035ms 후 external_cancelled, 튜닝전체103.0734ms, 정상valid0. 이는 API 응답 SLA가 아닌 내부 단계 관측이다. 다음 시도는 준비190.214ms, warmup2003.4167ms 중단, worker1의2회2894.6682ms/worker2의2회669.3803ms 모두 완료, 제한선택5570.7212ms 후 정상배치2회 완료. 다음 새 배치는 measured_cache/cache_reused로 정상2회 완료했다. 결과와 통계n=2를 대조해 warmup/튜닝 제외를 확인했고 합성 snapshot도 동일했다. 본인이 시작한 API PID만 종료했다.
+
+수정 전 자연/지연 및 수정 후 자연/지연의 각 `source-hashes.json`에서 공개12개 원본 변경0. 원본 계정/세션/캐시/EXE/5180/5181/타worktree 접근·갱신·종료 없음. package-lock SHA-256 `2ef4178aa07ddd9ac2e4d47422038d02d8adaadfb15586cee6a2f1995253c767` 보존·커밋제외. push/배포/새worker/Run/Dispatch/lifecycle 없음. 이번 확정 검증은 **Backend34 tests + 실제 API4 checks + 동일 입력의 선택/캐시2진단**이며 중복 재실행이나 구 QA 수를 합산하지 않는다.
+
+B-TUNE-1 확정 제품 커밋: **40078d0** (`fix(compute): reserve tuning stages and validate complete measurement caches`). 앞선181b0a5/48c11d8을 보존한 후속이며 최종 status는 기존 untracked package-lock.json뿐이다. 기존 Director 터미널 list/read 확인(현재 runtime0baeeac8-72a2-40f0-aabd-9882916a8a93, handle term_f54735fc-6293-41b3-ae3a-984fd0d5b42a) 후 이 커밋과 보고서·위 실제/합성 구분·34회귀/API4/캐시 근거 및 QA/독점측정 미수용을 한 번 인계한다. 최초 제한 실행의 CLI 경로 인식 실패는 같은 실행 파일로 권한 절차를 거쳐 재조회 성공했으며 다른 실행 파일로 전환하지 않았다.
