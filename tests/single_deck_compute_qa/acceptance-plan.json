@@ -9,7 +9,7 @@
   "batchCases": ["queued_running_cancelling_cancelled_completed_failed", "cancel_during_chunk", "resume_attempt_increment", "duplicate_run_attempt", "conflicting_same_key", "late_old_attempt", "crash_restart_writer_recovery", "bounded_backpressure", "incomplete_not_zero", "partial_counts", "no_mixed_backend_semantics", "snapshot_tactic_build_fingerprint"],
   "statisticsCases": ["n0", "n1", "normal_zero", "large_damage_variance", "sample_sd", "HF7_quantiles_or_explicit_Analysis_method", "mean_CI_pending_Analysis_method", "Wilson_cut_probability", "team_quantile_not_sum", "independent_OL_difference_CI", "pilot_search_holdout_disjoint", "OL_slot_line_option_bounds", "full_combat_candidate_rerun", "no_unverified_cost_policy"],
   "scales": [
-    {"requestedRuns": 1000, "phase": "pilot", "status": "not_run"},
+    {"requestedRuns": 1000, "phase": "pilot", "status": "battery_window_completed_1000_independent_statistics_passed", "product": "40078d06a3d236ec7de5987d6be3c96d2a34ec86", "qaBase": "606b5685c237446616efd909339c58b28508182e", "evidence": "artifacts/single-deck-qa/load1000-3db71912a601/final-audit.json", "report": "docs/single-deck-load-1000.ko.md", "distributionEquivalence": "not_evaluated_no_preregistered_bounds_margins"},
     {"requestedRuns": 10000, "phase": "final", "status": "not_run"},
     {"requestedRuns": 50000, "phase": "sustained", "status": "not_run"}
   ],
