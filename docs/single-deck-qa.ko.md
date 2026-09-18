@@ -1,3 +1,9 @@
+# Q-CPU-10K 후속 — 2026-09-18
+
+**worker4/8/15 calibration각128회 검산 통과, 본각10000은 시간·배터리 admission 불충족으로 미시작(본n0/30000).** 보수예상34분2.49초 > 잔여29분10.30초, 배터리55%→예상19.12% < 요구35%. 현재 calibration 소모표시0이어도 이전5%p/284.6초 소모율을 적용했다. 상세 [cpu-worker-10000.ko.md](cpu-worker-10000.ko.md), 새 근거 `artifacts/single-deck-qa/worker-10k-1c1c2c5f7312/final-audit.json`. 본순위/통계/지속부하 미수용이며 이전 기록을 덮어쓰지 않는다.
+
+---
+
 # Q-CPU-SCALE 후속 — 2026-09-18
 
 **QA 실제 엔진 harness의2→4→8→8→4→2 각1000회, 총6000회 및 제외 warmup192회 검산 통과. 성능 우열은 미확정.** worker2=62.153/56.134초,4=40.489/35.540초,8=33.874/37.563초. 실제 maxActive2/4/8 확인. 순서별 최저8→4 변경 및 반복편차10% 초과로 사전 규칙에 따라 최적성을 수용하지 않는다. 제품 Plan1/2·캐시·전투 규칙은 그대로다. 상세 [cpu-worker-scaling.ko.md](cpu-worker-scaling.ko.md), 근거 `artifacts/single-deck-qa/worker-scale-ad693bd7caef/final-audit.json`. 기존 API61.975초와 직접 비교하지 않는다.
