@@ -1,3 +1,9 @@
+# Q-CPU-SCALE 후속 — 2026-09-18
+
+**QA 실제 엔진 harness의2→4→8→8→4→2 각1000회, 총6000회 및 제외 warmup192회 검산 통과. 성능 우열은 미확정.** worker2=62.153/56.134초,4=40.489/35.540초,8=33.874/37.563초. 실제 maxActive2/4/8 확인. 순서별 최저8→4 변경 및 반복편차10% 초과로 사전 규칙에 따라 최적성을 수용하지 않는다. 제품 Plan1/2·캐시·전투 규칙은 그대로다. 상세 [cpu-worker-scaling.ko.md](cpu-worker-scaling.ko.md), 근거 `artifacts/single-deck-qa/worker-scale-ad693bd7caef/final-audit.json`. 기존 API61.975초와 직접 비교하지 않는다.
+
+---
+
 # Q-LOAD-1000 후속 — 2026-09-18
 
 **배터리 전원 승인 구간에서 새 calibration20 및 별도 pilot1000/1000 완료, 전체 저장·독립 통계 검산 통과.** 제품40078d0/QA606b568 기준. pilot 요청부터 완료 관측까지61.975초, 16.135 run/s; 측정 시작89%→종료88%, Offline/SAMSUNG MODE 유지. 분포동등성·최적 worker·AC 성능·1만/5만 수용은 아니다. 상세 보고서는 [single-deck-load-1000.ko.md](single-deck-load-1000.ko.md), 새 근거는 `artifacts/single-deck-qa/load1000-3db71912a601/final-audit.json`이다. 아래 이전 기록은 당시 범위/미실행 상태를 그대로 보존한다.
