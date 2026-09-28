@@ -90,3 +90,8 @@
 - 실제 API 종단(단계 B), EXE 빌드·배포, 원본 실행 경로 확인은 하지 않았다. 현재 사용자 실행 경로 `C:/Users/user/Documents/GitHub/Nikke-Simul/artifacts/desktop/win-x64/Nikke Simul.exe`에는 이 변경이 반영되지 않았다.
 - mock 값은 UI 표시 검증용이며 엔진 출력과의 일치는 단계 B 실제 API로 확인한다. 테스트 통과는 실게임 정확성 수용이 아니다.
 - Backend 전체 빌드·테스트는 이번 범위에서 돌리지 않았다(merge로 Backend 코드는 `f4ab2fc`와 동일).
+
+## 9. 확정 커밋·인계
+
+- `96faf5d` Backend `f4ab2fc` merge, `548a6b4` 단계 A 구현·테스트·보고서. 이 절 기록 커밋이 뒤따른다. 미추적 `package-lock.json`만 남는다.
+- Director 터미널을 `terminal list`로 재확인한 뒤 커밋·보고서 경로·검증·미완료를 한 번 전달한다. 전달 접수는 Director 검토·단계 B 착수의 근거가 아니다.
