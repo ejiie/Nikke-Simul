@@ -37,6 +37,11 @@
   2. `baseline_required` 같은 계약 응답(비교 대상 없음)을 transport 장애와 분리해 "비교 기준 없음"으로 표시하고 endpoint 상태를 바꾸지 않는다. 다른 4xx 계약 코드도 같은 기준으로 점검한다.
   3. 실제 격리 API·브라우저로 두 시나리오와 기존 회귀를 재확인하고, 확정 커밋을 Director에 한 번 인계한다. 이후 Director가 Q-F32에 B2 재수용(두 결함 + 회귀)을 통지한다.
   - 전달: `term_c322a450…` 요청 `3aa5365e-2134-4c66-8777-e3fc77639206`, accepted=true, `input_accepted`·`turn_started`. 검수 담당은 수정 통지 대기.
+- **U-FIX-1: 완료, Director 검토 수용.** UI `0e83328`(`343877e` 후속 단일 커밋), 보고서 11절. 변경은 `apps/desktop-ui`(app.js·compute-adapter.js·single-deck-stats.js)·UI tests·UI 문서뿐이며 QA `c1cf869`와 충돌 없이 merge된다.
+  - B2-STAT-1: 지표 필드별 지원 분리 — API가 준 평균·중앙값·P5·P95·cut은 항상 표시, 사유는 해당 범위의 null 필드만 설명(`mean_ci_requires_n_at_least_2` → sampleSd·meanCi). Director 확인: `src/Nikke.Analysis/ComputeAnalysis.cs`가 N<2에서 사유와 함께 Mean·Median·P5·P95를 채우므로 사유가 "지표 전체 미지원"을 뜻하지 않는다. 계약 충돌 없음.
+  - B2-STAT-2: `api()`가 HTTP status를 오류에 부착, 4xx는 도달한 API의 계약 응답(연결 유지), 5xx·transport는 장애. `baseline_required`는 OL 섹션 "비교 기준 없음"으로 표시.
+  - UI 보고 검증(실제 격리 API + Chromium): n=1 API 26,392,278 = 화면 평균·중앙값·P5·P95와 니케별 5행 일치, SD·평균 CI만 미지원 표시; 실제 400 `baseline_required`에도 연결 유지·오류 0; runs 2에서 평균 CI·SD 표시; compute route 차단 시 "미연결". 기존 회귀 통과. 한계: n=0은 실제 API로 만들 수 없어 단위 테스트만.
+- **Q-F32 B2 재수용 통지(2026-09-28):** UI `0e83328` 기준으로 두 결함 재검 + B2 회귀.
 
 ## 승인과 근거
 
