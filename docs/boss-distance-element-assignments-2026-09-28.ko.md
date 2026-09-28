@@ -40,7 +40,7 @@
   - F-COND-Q-1 해소: 필드 누락·null·잘못된 타입·범위·미지원 속성·ID 불일치 16종 × 두 GET·replay·compute = 64응답 모두 409 `combat_profile_invalid`, characterId/field/reason 정확, 0 채움·500 없음, 실패 시 파일·실험 불변. 정상 SG/RL min 0·SR 예외·구 bool 정확 재현 유지.
   - 브라우저: 32px 아이콘·두 팝업·약점 경고·5속성 이미지·멤버 미리보기, 새/null 요청에 구 bool 없음, 저장 모드·구 bool 표시, replay·통계 값, 손상 데이터 한국어 진단 4화면·연결 유지, 키보드/ESC/포커스 복귀, 1500/850/500 통과. QA 예비 실행의 팝업 멈춤은 QA 선택자 오류로 확인되어 제품 결함으로 세지 않았다.
   - 미판정: 실게임 가설(양끝 포함·RL 0–0), 실사용자 덱, 성능, RL 멤버 전체 전투 UI, reason 8종 전체 문구, weapon replay 손상 endpoint. Q-CPU-10K 보류.
-- **Director 통합(2026-09-29): 완료.** QA `d71c7a2`를 `--no-ff` merge(`52ff31f`, 충돌 없음, `src`·`tests`·`apps`·`tools` 트리가 `d71c7a2`와 동일). 원본 배포는 사용자 확인 후 별도 — 배포 시 원본 `data/local/runtime`에 `prepare_combat_conditions.py` 실행이 필요하다(기존 runtime 보존, 새 runtime 추가).
+- **Director 통합(2026-09-29): 완료.** QA `d71c7a2`를 `--no-ff` merge(`52ff31f`, 충돌 없음, `src`·`tests`·`apps`·`tools` 트리가 `d71c7a2`와 동일). Director에서 locked restore → Release build(경고 0·오류 0) → test **408/408**(Analysis 41, Core 174, Sync 148, Compute 45). 원본 배포는 사용자 확인 후 별도 — 배포 시 원본 `data/local/runtime`에 `prepare_combat_conditions.py` 실행이 필요하다(기존 runtime 보존, 새 runtime 추가).
 
 ### F-COND-Q — 독립 QA (검수 담당)
 
