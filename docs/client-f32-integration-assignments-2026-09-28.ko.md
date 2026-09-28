@@ -26,7 +26,7 @@
   - 연결: 솔로레이드·통계·web 기본 `client_f32`(과거 3개 비교 후보), web 요청 schema 3 + roundingPolicy + 두 rate, 수동 버프 `rawRate10000` 문자열(0.01%보다 정밀하면 브라우저에서 거부), `candidates`/`selectedCandidate` 표시, 계산 불가 후보는 0이 아닌 이유 표시, exact 문자열 우선, 선택 audit 표, v2 conversion·400 오류 한국어, 통계 화면 schema/policy/summaryVersion 카드와 409 설명, 긴 fingerprint 카드 넘침(기존 결함) 수정.
   - 실제 격리 API(UI worktree Release, 새 dataRoot·합성 계정): web client 118,985 vs 과거 79,323/79,324/79,323(`statDamageRatio` 2, `defenceRatioRate` 0.25 — Director 산술 확인 79,323 × 2 × 0.75 ≈ 118,984.5), desktop replay 로그 전 항목 `client_f32`, 타격 #946 최종 1,711,007 = 저장값, 통계 batch schema 3·`cpu-summary.2-client-f32`·n=1, 1500/850/500px 넘침 0·JS 오류 0. mock·기존 회귀 통과.
   - 미실행: EXE 빌드·배포, Backend 전체 테스트 재실행, `hitOverrides` UI 입력(이번 범위 아님), 큰 정수·계산 불가 후보의 실제 브라우저 렌더(mock 단위만).
-- **Q-F32 B2 통지(2026-09-28):** UI `343877e` 기준 브라우저·UI 종단 수용 시작.
+- **Q-F32 B2 통지(2026-09-28):** UI `343877e` 기준 브라우저·UI 종단 수용 시작. 전달 `term_234e279b…` 요청 `04c61b1a-358e-4d74-903a-0483b85e8593`, accepted=true, `input_accepted`·`turn_started`. UI의 `check_client_f32_live.py`·mock을 판정 근거로 재사용하지 말고, UI가 mock으로만 본 큰 정수·계산 불가 후보 렌더를 실제 브라우저로 확인하라고 지시했다.
 
 ## 승인과 근거
 
