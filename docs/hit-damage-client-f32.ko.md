@@ -109,4 +109,6 @@ dotnet test tests/Nikke.Core.Tests/Nikke.Core.Tests.csproj -c Release --no-resto
 
 ## 확정 커밋·인계
 
-코드/검증 커밋 해시는 확정 후 아래에 기록한다. Director 터미널은 지시서대로 기존 목록을 재조회하고 확정 커밋·이 보고서 절대 경로·검증·미완료를 한 번만 전달한다.
+구현/테스트/보고서 커밋 **`53b3d10`** (`feat(engine): use checked attack integers and client float32 damage`). 출발 `87099e1`의 후속이며 이전 완료 커밋을 보존한다. 코드 커밋 뒤 tracked 변경은 없고 기존 untracked package-lock.json만 남았다.
+
+`terminal list --worktree path:C:/Users/user/orca/workspaces/Nikke-Simul/Director --json`으로 인계 대상을 재확인했다. 지정된 `term_73afed41-4bf2-4551-8ed4-01c8a64e47bc`는 Director의 연결된 Claude 세션이며, 별도 PowerShell 터미널과 구분했다. 이 기록 커밋까지 확정한 뒤 `--enter --wait-submit 10 --json`으로 커밋/보고서/147개 통과/미완료·질문을 한 번 전달한다. 전달 접수는 Director 검토·통합·배포 완료의 근거가 아니다.
