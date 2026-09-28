@@ -15,7 +15,7 @@
   - 데이터: 공개 roster(SHA `8568963a…`) 192명에서 사거리 집계, 하란(5042) SR 예외 25–45·RL 0–0 원천 그대로.
   - Backend 보고 검증: Release 경고 0/오류 0, .NET 372(Backend 157, Core 174, Analysis 41), Python 10. 격리 API: 192명·6무기군·예외, 기존 bool replay 1,586,529·멤버 결과 전환 전 정확 재현, 거리 35/Fire 멤버별 hit flag, null 모드 저장, 잘못된 입력 8종 400, 120프레임 batch 세 조건 fingerprint·캐시·통계 분리, Fire 속성 OL 후보는 앨리스·모더니아만.
   - **배포 의존(중요):** Git 제외 runtime에 `combatProfiles`를 준비해야 한다 — `tools/data-pipeline/prepare_combat_conditions.py --runtime-root <대상>/runtime --source-roster <고정 blabla_roledata.json>`. 기존 graph·구 catalog 보존, 새 runtime ID `9c98c91c…`. 원본 `data/local`에는 아직 실행하지 않았다(배포 단계에서 사용자 확인 후 실행).
-- **통지(2026-09-28):** F-COND-U 실제 연결(단계 B), F-COND-Q 독립 수용 단계 1(API) 배정.
+- **통지(2026-09-28):** F-COND-U 실제 연결(단계 B), F-COND-Q 독립 수용 단계 1(API) 배정. 전달: UI `term_c322a450…` 요청 `c9f7cb76-696a-414e-9316-54b2e5aec021`, QA `term_234e279b…` 요청 `9f839749-74ae-4ac4-a096-dd566524cfaa`. 둘 다 accepted=true, `input_accepted`·`turn_started`. 둘 다 격리 dataRoot에서만 runtime을 준비하고 원본 `data/local`에는 실행하지 말라고 지시했다.
 
 ### F-COND-Q — 독립 QA (검수 담당)
 
