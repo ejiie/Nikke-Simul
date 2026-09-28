@@ -83,7 +83,8 @@ async function api(path,method='GET',body){
   const response=await fetch('/api'+path,{method,headers:{'Content-Type':'application/json','X-Nikke-Token':boot.token},...(body===undefined?{}:{body:JSON.stringify(body)})});
   if(response.status===204)return null;
   const data=await response.json().catch(()=>({}));
-  if(!response.ok)throw new Error(data.message??`요청 실패 (${response.status})`);
+  // status marks an HTTP answer; a rejected fetch (transport failure) carries none.
+  if(!response.ok)throw Object.assign(new Error(data.message??`요청 실패 (${response.status})`),{status:response.status});
   return data;
 }
 Object.defineProperty(api,'token',{get:()=>boot.token,configurable:true});

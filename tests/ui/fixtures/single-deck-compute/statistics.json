@@ -95,5 +95,25 @@
         "cut": null, "cutSuccess": null, "cutCi": null, "quantileMethod": "type7", "unit": "member_damage",
         "unsupportedReason": "부분 결과에서 니케별 집계를 제공하지 않습니다." }
     }
+  },
+  "singleAnalysis": {
+    "_note": "Mirrors the Nikke.Analysis ComputeAnalysis n<2 shape: point estimates supplied for n=1, only sampleSd/meanCi null. Synthetic values.",
+    "experimentId": "exp-synthetic-n1", "partial": false, "methodVersion": "single-deck.analysis.1", "gameVerified": false,
+    "team": { "n": 1, "mean": 48120007, "sampleSd": null, "meanCi": null, "median": 48120007, "p5": 48120007, "p95": 48120007,
+        "cut": 0, "cutSuccess": 1, "cutCi": { "lower": 0.2065493143772374, "upper": 1, "confidence": 0.95, "method": "Wilson score; strict damage > cut" }, "quantileMethod": "Hyndman-Fan type 7", "unit": "damage",
+        "unsupportedReason": "mean_ci_requires_n_at_least_2" },
+    "members": {
+      "5004": { "n": 1, "mean": 17000011, "sampleSd": null, "meanCi": null, "median": 17000011, "p5": 17000011, "p95": 17000011,
+        "cut": null, "cutSuccess": null, "cutCi": null, "quantileMethod": "Hyndman-Fan type 7", "unit": "damage",
+        "unsupportedReason": "mean_ci_requires_n_at_least_2" }
+    }
+  },
+  "emptyAnalysis": {
+    "_note": "n=0 in the same shape: every value null; nothing may be invented.",
+    "experimentId": "exp-synthetic-n0", "partial": false, "methodVersion": "single-deck.analysis.1", "gameVerified": false,
+    "team": { "n": 0, "mean": null, "sampleSd": null, "meanCi": null, "median": null, "p5": null, "p95": null,
+        "cut": null, "cutSuccess": null, "cutCi": null, "quantileMethod": "Hyndman-Fan type 7", "unit": "damage",
+        "unsupportedReason": "mean_ci_requires_n_at_least_2" },
+    "members": {}
   }
 }

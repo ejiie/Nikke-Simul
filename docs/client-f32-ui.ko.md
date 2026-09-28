@@ -1,6 +1,6 @@
 # client_f32 UI 연결 (I-UI) — 단계 A·B
 
-2026-09-28. **단계 A 완료**(Backend `f4ab2fc` merge, 사용처 목록화, mock 화면 준비). **단계 B 완료**(Backend 확정 `74ca24f` merge, schema 3 wire 연결, 실제 격리 API·브라우저 검증 — 10절). 이 문서는 UI 구현·검증 보고이며 독립 QA(Q-F32 단계 B) 수용·실게임 정확성 수용·원본 배포 보고가 아니다. 1~9절은 단계 A 당시 기록이며, 단계 B에서 바뀐 내용은 10절이 우선한다.
+2026-09-28. **U-FIX-1 완료**(Q-F32 B2 통계 결함 2건 수정, 11절). **단계 A 완료**(Backend `f4ab2fc` merge, 사용처 목록화, mock 화면 준비). **단계 B 완료**(Backend 확정 `74ca24f` merge, schema 3 wire 연결, 실제 격리 API·브라우저 검증 — 10절). 이 문서는 UI 구현·검증 보고이며 독립 QA(Q-F32 단계 B) 수용·실게임 정확성 수용·원본 배포 보고가 아니다. 1~9절은 단계 A 당시 기록이며, 단계 B에서 바뀐 내용은 10절이 우선한다.
 
 배정: [I-BE·I-UI·Q-F32 지시서](C:/Users/user/orca/workspaces/Nikke-Simul/Director/docs/client-f32-integration-assignments-2026-09-28.ko.md)의 공통 절·I-UI 절. 먼저 읽은 문서: [H-F32·H-SRC 배정](C:/Users/user/orca/workspaces/Nikke-Simul/Director/docs/hit-damage-assignments-2026-09-28.ko.md), [클라이언트 공식·사용자 결정](C:/Users/user/orca/workspaces/Nikke-Simul/Director/docs/hit-damage-client-formula.ko.md), 엔진 보고서 `C:/Users/user/orca/workspaces/Nikke-Simul/시뮬레이션-엔진-담당/docs/hit-damage-client-f32.ko.md`(특히 "후속 연결·미실행·질문"), H-SRC 보고서 `C:/Users/user/orca/workspaces/Nikke-Simul/Backend/docs/hit-damage-source-investigation.ko.md`. Director 문서는 읽기만 했다.
 
@@ -152,3 +152,29 @@ Director 통지(2026-09-28): Backend 확정 `74ca24fc9b242b6268856f82a4c722f2e57
 
 - `ab40dd1` Backend `74ca24f` merge, `0278286` 단계 B 연결·실제 API 검증 스크립트·문서. 이 절 기록 커밋이 뒤따른다. 미추적 `package-lock.json`(SHA-256 `2ef4178a…c767`)만 남는다.
 - Director 터미널을 `terminal list`로 재확인한 뒤 한 번 전달한다. 전달 접수는 Q-F32 단계 B 수용·원본 배포 완료가 아니다.
+
+## 11. U-FIX-1 — Q-F32 B2 통계 화면 결함 2건 수정
+
+배정: Director 지시서 `Q-F32 B2`·`U-FIX-1` 항목, 근거 검수 보고서 `C:/Users/user/orca/workspaces/Nikke-Simul/검수/docs/client-f32-qa.ko.md` 최신 B2 절(검수 `c1cf869`, 근거 `검수/artifacts/single-deck-qa/f32-b2-02a9eb8a5f02/`, 읽기만 함). 두 결함 모두 `abcd5b5`(통계 화면 최초 구현)부터 있던 UI 코드이며 client_f32 산술과 무관하다. Analysis·Backend 코드는 수정하지 않았다.
+
+### 11.1 B2-STAT-1 — n=1에서 제공된 점 추정값을 숨김
+
+- 원인: `compute-adapter.js` `describeMetricStatistics`가 `unsupported = Boolean(unsupportedReason)`로 사유가 있으면 모든 지표를 `미지원`으로 바꿨다. 기존 합성 fixture의 n=1 예시는 `unsupportedReason`이 없어 이 경로가 드러나지 않았다.
+- 계약 근거(재해석 아님): 계약 문서 `docs/single-deck-compute-contract.ko.md` Analysis 절 "평균 CI와 P5/P95를 구별하고 **n=0/1의 불명값은 null**" — 지원 여부는 필드별 null로 표현된다. Analysis `src/Nikke.Analysis/ComputeAnalysis.cs`는 `N < 2`이면 `mean_ci_requires_n_at_least_2`를 넣으면서 Mean·Median·P5·P95를 그대로 채운다(실제 API n=1 응답도 같음). 사유 이름 자체가 평균 CI를 가리키므로 "지표 전체 미지원"이라는 의미 근거가 없다. Director 보고가 필요한 계약 충돌은 없다.
+- 수정: 지표별로 판단한다. API가 값을 준 필드는 항상 표시하고, 사유는 **null 필드 중 그 사유의 범위에 든 필드**만 `미지원`으로 설명한다. `mean_ci_requires_n_at_least_2`의 범위는 `sampleSd`·`meanCi`. 모르는 사유 코드는 모든 null 필드를 설명한다(기존 부분 결과 fixture 동작 유지). 경고 문구는 `평균 CI·표본 표준편차는 표본 2건 이상 필요 (평균·분위수는 제공값 표시) · mean_ci_requires_n_at_least_2`. 값을 계산하거나 채우지 않는다.
+
+### 11.2 B2-STAT-2 — 계약 응답을 API 미연결로 표시
+
+- 원인: 통계 조회 뒤 comparison을 항상 요청하는데 baseline 없는 실험은 `400 baseline_required`를 받는다. `call()`이 알려진 코드 목록 밖의 모든 오류를 `endpointStatus='unavailable'`로 처리했다.
+- 수정: 판정 기준을 코드 목록이 아닌 **HTTP 응답 여부**로 바꿨다. `app.js` `api()`가 HTTP 오류에 `status`를 붙이고(메시지 불변), `classifyApiFailure`가 4xx는 도달한 API의 계약 응답(`connected` 유지), 5xx와 status 없는 transport 실패는 장애(`unavailable`)로 분류한다. `baseline_required`는 오류 목록에 넣지 않고 OL 비교 섹션에 `비교 기준 없음 · 이 실험은 baselineExperimentId 없이 실행되어 OL 비교 대상이 아닙니다.`로 표시한다. 다른 4xx 계약 코드(`invalid_experiment_input`, `baseline_input_mismatch`, `saved_tactic_stale`, `gpu_unavailable`, `analysis_not_integrated`, `warmup_excluded_from_statistics`, `engine_or_rules_version_changed`, `prepared_input_fingerprint_mismatch`, 없는 실험 404)도 같은 기준으로 연결 상태를 바꾸지 않고 오류 문구만 남긴다.
+
+### 11.3 검증
+
+| 명령 | 증거 종류 | 결과 |
+|---|---|---|
+| `python tests/ui/check_client_f32_live.py --dotnet … --source-data …` | **실제 격리 API + Chromium**(10.3과 같은 격리 조건, 포트 53925, 원천 해시 불변) | 통과 `artifacts/ui/client-f32-live/run-7aea77b577e7`. n=1 batch: API 평균·중앙값·P5·P95 = 26,392,278, 화면 카드 4개와 니케별 5행(평균·중앙값·P5·P95) 모두 API 값과 일치, 표본 표준편차·평균 CI만 `미지원`, 사유 코드 표시. comparison 실제 응답 `400 {"message":"baseline_required"}` 2회에도 상단 `실제 API 응답`, `비교 기준 없음` 상태, 오류 목록 0건. runs 2 batch: API `meanCi` Student t 제공 → 화면 평균 CI·표본 표준편차 표시(합성 조건이 결정적이라 두 판 동일, SD 0). compute route를 abort(합성 transport 장애)하고 새로고침 → `compute API 미연결`. 기존 10.3 항목(web·피해 로그·정책) 동시 통과 |
+| `node tests/ui/single_deck_stats.test.mjs` | 합성 fixture 단위 | 17/17. 신규 4건: Analysis 형태 n=1(점 추정 표시·사유 범위·Wilson cut CI 유지), n=0(값 미생성), n≥2 CI, 실패 분류(400/409 도달, 500·transport 장애), no-baseline 컨트롤러(연결 유지·오류 0)와 transport 장애 컨트롤러(미연결). 409 스텁은 실제 `api()`처럼 `status`를 가진다 |
+| `node tests/ui/client_f32_mock.test.mjs`, `damage_audit.test.mjs <Director 저장 replay>`, vitest+tsc | mock·기존 회귀 | 13/13, 19/19, 13/13·tsc 0 |
+| `check_client_f32_mock_browser.py`, `check_solo_raid_level.py`, `check_single_deck_stats_browser.py`, `check_damage_audit_browser.py --real-replay` | mock·합성 HTTP 브라우저 회귀 | 모두 통과(`single-deck-stats/run-6d7710a67e17`, `damage-audit/run-69db9908ba50`), 저장 replay 해시 불변 |
+
+한계: n=0 완료 batch는 실제 API로 만들지 않았다(합성 fixture 단위만). 실제 통계 값은 합성 계정 20초 조건이며 성능·실게임 근거가 아니다. EXE·원본 경로·5180/5181은 건드리지 않았다. 검수 담당에게 직접 전달하지 않는다.

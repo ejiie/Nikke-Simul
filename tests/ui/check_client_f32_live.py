@@ -9,6 +9,9 @@ Evidence type: real_local_api_synthetic_account.
   is limited to two presentation routes: /api/bootstrap gets a synthetic ready connection appended (no game login),
   and /api/snapshots/*/combat-powers answers {} (synthetic snapshot has no raw manifest; badge only).
   Snapshot, stats, hit, formation, replay and compute calls all go to the real API.
+U-FIX-1 (Q-F32 B2-STAT-1/2): the n=1 statistics screen must show the API's mean/median/P5/P95 and mark only
+SD/mean CI unsupported; n=2 shows the CI; a 400 baseline_required comparison keeps the API "connected" with a
+"비교 기준 없음" state, while aborted compute routes (synthetic transport failure) still show "compute API 미연결".
 Output: artifacts/ui/client-f32-live/run-<id>/ (git-ignored). Exit code 1 means NOT accepted.
 Usage: python tests/ui/check_client_f32_live.py --dotnet <dotnet.exe> --source-data <public data dir>
 """
@@ -308,6 +311,12 @@ async def desktop_checks(browser, base, api, out, problems):
     await page.set_viewport_size({'width': 1500, 'height': 1100})
 
     # Statistics screen: one tiny batch with the client default, then its recorded policy metadata.
+    comparison_answers = []
+
+    async def on_response(response):
+        if response.url.split('?')[0].endswith('/comparison'):
+            comparison_answers.append({'status': response.status, 'body': (await response.text())[:300]})
+    page.on('response', on_response)
     await page.locator('[data-tab="stats"]').click()
     await page.wait_for_selector('#compute-start', timeout=30000)
     await page.locator('#compute-runs').fill('1')
@@ -349,11 +358,103 @@ async def desktop_checks(browser, base, api, out, problems):
             if overflow > 0:
                 problems.append(f'desktop stats @{width}: horizontal overflow {overflow}')
             await page.locator('#stats-content').screenshot(path=str(out / f'desktop-stats-{width}.png'))
+        await page.set_viewport_size({'width': 1500, 'height': 1100})
+        await stats_fix_checks(page, base, api, out, problems, result, created['id'], comparison_answers)
     result['pageErrors'] = errors
     if errors:
         problems.append(f'desktop page errors {errors}')
     await page.close()
     return result
+
+
+STATS_PROBE = """() => { const root = document.querySelector('#stats-content');
+  const cards = Object.fromEntries([...root.querySelectorAll('.metric-card')].map(c => [c.querySelector('span')?.textContent.trim(), c.querySelector('strong')?.textContent.trim()]));
+  const members = [...root.querySelectorAll('.compute-member-table tbody tr')].map(r => [...r.cells].map(c => c.textContent.trim()));
+  return { text: root.innerText, cards, members,
+    pill: document.querySelector('#stats-content .section-heading .status-pill')?.textContent.trim() ?? null,
+    noBaseline: Boolean(root.querySelector('[data-comparison-state="no_baseline"]')),
+    errors: [...root.querySelectorAll('.compute-errors li')].map(li => li.textContent.trim()) }; }"""
+
+
+def fmt_int(value):
+    return f'{int(value):,}' if value is not None and float(value).is_integer() else None
+
+
+async def stats_fix_checks(page, base, api, out, problems, result, experiment_id, comparison_answers):
+    """U-FIX-1: B2-STAT-1 (n=1 point estimates shown, n>=2 CI) and B2-STAT-2 (no baseline is not an outage)."""
+    fix = result.setdefault('uFix1', {})
+    _, stat = api.call(f'compute/experiments/{experiment_id}/statistics')
+    probe = await page.evaluate(STATS_PROBE)
+    (out / 'desktop-stats-n1-probe.json').write_text(json.dumps({'api': stat, 'dom': probe}, ensure_ascii=False, indent=2), encoding='utf-8')
+    team = stat['team']
+    fix['n1'] = {'api': {k: team.get(k) for k in ('n', 'mean', 'median', 'p5', 'p95', 'sampleSd', 'meanCi', 'unsupportedReason')},
+                 'cards': {k: probe['cards'].get(k) for k in ('표본 수 n', '평균 팀 피해', '중앙값', 'P5', 'P95', '표본 표준편차', '평균 CI')},
+                 'pill': probe['pill'], 'noBaseline': probe['noBaseline'], 'errors': probe['errors'],
+                 'comparisonAnswers': comparison_answers}
+    if team['n'] != 1 or team['unsupportedReason'] != 'mean_ci_requires_n_at_least_2':
+        problems.append(f'U-FIX-1 n1: unexpected API shape {fix["n1"]["api"]}')
+    for label, key in (('평균 팀 피해', 'mean'), ('중앙값', 'median'), ('P5', 'p5'), ('P95', 'p95')):
+        if team[key] is None or probe['cards'].get(label) != fmt_int(team[key]):
+            problems.append(f'U-FIX-1 n1: {label} shows {probe["cards"].get(label)!r}, API {team[key]}')
+    for label in ('표본 표준편차', '평균 CI'):
+        if probe['cards'].get(label) != '미지원':
+            problems.append(f'U-FIX-1 n1: {label} shows {probe["cards"].get(label)!r} for a null API value')
+    if 'mean_ci_requires_n_at_least_2' not in probe['text']:
+        problems.append('U-FIX-1 n1: scoped reason not shown')
+    _, batch = api.call('compute/experiments/' + experiment_id)
+    order = batch['input']['characterIds']
+    if len(probe['members']) != len(order):
+        problems.append(f'U-FIX-1 n1: member rows {len(probe["members"])} vs {len(order)}')
+    for cid, row in zip(order, probe['members']):
+        metrics = stat['members'][cid]
+        values = [fmt_int(metrics[k]) for k in ('mean', 'median', 'p5', 'p95')]
+        if [row[2], row[4], row[5], row[6]] != values or row[3] != '미지원':
+            problems.append(f'U-FIX-1 n1: member {cid} row {row} vs API {values}')
+    # B2-STAT-2
+    if [a['status'] for a in comparison_answers] != [400] * len(comparison_answers) or not comparison_answers \
+            or any('baseline_required' not in a['body'] for a in comparison_answers):
+        problems.append(f'U-FIX-1 no-baseline: comparison answers {comparison_answers}')
+    if probe['pill'] != '실제 API 응답' or '미연결' in probe['text'] or not probe['noBaseline'] or probe['errors']:
+        problems.append(f'U-FIX-1 no-baseline: pill={probe["pill"]!r} noBaseline={probe["noBaseline"]} errors={probe["errors"]}')
+    await page.locator('#stats-content').screenshot(path=str(out / 'desktop-stats-n1-fixed.png'))
+
+    # n>=2: the interval is supplied and shown.
+    await page.locator('#compute-runs').fill('2')
+    async with page.expect_response(lambda r: r.request.method == 'POST' and r.url.endswith('/api/compute/experiments'), timeout=240000) as pending:
+        await page.locator('#compute-start').click()
+    created = await (await pending.value).json()
+    for _ in range(900):
+        _, status = api.call('compute/experiments/' + created['id'])
+        if status['state'] in ('completed', 'failed', 'cancelled'):
+            break
+        time.sleep(.2)
+    _, stat2 = api.call(f'compute/experiments/{created["id"]}/statistics')
+    try:
+        await page.wait_for_function("() => [...document.querySelectorAll('#stats-content .metric-card')].some(c => c.querySelector('span')?.textContent.trim() === '표본 수 n' && c.querySelector('strong')?.textContent.trim() === '2')", timeout=90000)
+    except Exception:
+        problems.append('U-FIX-1 n2: statistics with n=2 not rendered')
+    probe2 = await page.evaluate(STATS_PROBE)
+    fix['n2'] = {'state': status['state'], 'api': {k: stat2['team'].get(k) for k in ('n', 'meanCi', 'sampleSd', 'unsupportedReason')},
+                 'cards': {k: probe2['cards'].get(k) for k in ('표본 수 n', '평균 CI', '표본 표준편차')}}
+    if stat2['team']['n'] != 2 or stat2['team']['meanCi'] is None or stat2['team'].get('unsupportedReason'):
+        problems.append(f'U-FIX-1 n2: API {fix["n2"]["api"]}')
+    elif probe2['cards'].get('평균 CI') in (None, '미지원', '미확인') or probe2['cards'].get('표본 표준편차') in (None, '미지원', '미확인'):
+        problems.append(f'U-FIX-1 n2: CI/SD not shown {fix["n2"]["cards"]}')
+    await page.locator('#stats-content').screenshot(path=str(out / 'desktop-stats-n2.png'))
+
+    # Transport failure is still an outage: compute routes are aborted (synthetic network failure), then reload.
+    await page.route(base + '/api/compute/**', lambda route: route.abort())
+    await page.reload()
+    await page.wait_for_function("document.body.dataset.ready==='true'", timeout=90000)
+    await page.locator('[data-tab="stats"]').click()
+    try:
+        await page.wait_for_function("document.querySelector('#stats-content')?.innerText.includes('compute API 미연결')", timeout=30000)
+        fix['transportOutage'] = 'compute API 미연결'
+    except Exception:
+        fix['transportOutage'] = None
+        problems.append('U-FIX-1 transport: aborted compute routes not shown as 미연결')
+    await page.locator('#stats-content').screenshot(path=str(out / 'desktop-stats-transport-outage.png'))
+    await page.unroute(base + '/api/compute/**')
 
 
 def api_checks(api, problems):
