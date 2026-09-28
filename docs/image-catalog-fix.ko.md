@@ -73,4 +73,12 @@ C# Sync 회귀: **81 통과, 실패/skip 0**. 근거 `artifacts/image-catalog-fi
 
 변경 소유 파일: PresentationService.cs, Program.cs의 서비스 생성 1곳, presentation/account/spec Python 3개, prepare-presentation.ps1의 최소 CLI 전달, Backend 전용 Python 단위·CLI/API 테스트 2개, 본 문서. UI·전투 엔진·QA 독립 검사기·README 수정 없음. README 안내 변경이 필요하면 Director가 통합 시 결정한다.
 
-확정 커밋/보고서를 기존 Director와 검수 agent 터미널에 각각 한 번 전달하고 Q-IMG 수용 조건에 따른 독립 검수를 요청한다. 입력 accepted는 검수 통과가 아니다. 브라우저 수용은 Q-IMG 담당이며 이번 Backend 검증에는 포함하지 않는다. EXE 재배포·사용자 서버 갱신은 미수행이고 이 배정의 범위 밖이다.
+제품·테스트·최초 보고서 확정 커밋: **`104646006318f252f01b8d39b3424316e0a262ba`** (`fix: propagate presentation data root and classify catalog failures`). 이 절의 전달 영수증 추가는 문서만 바꾸는 후속 커밋이며 제품 검수 대상은 위 SHA다.
+
+2026-09-14 각 수신 worktree의 terminal list/read로 기존 codex agent를 확인한 뒤 위 확정 커밋과 본 보고서 절대 경로를 **각각 한 번** 전달했다. 검수 메시지에는 “Q-IMG 수용 조건으로 이 커밋을 독립 검증”을 명시했다.
+
+- Director `term_f54735fc-6293-41b3-ae3a-984fd0d5b42a`: 요청 `af215c79-b80f-48a9-a425-e126c08cc639`, accepted=true, input_accepted/turn_started.
+- 검수 `term_30f7a75f-412b-4f2f-9bd3-863c417a5e7e`: 요청 `b26dca93-754e-4e4c-91aa-5acd5abff3b4`, accepted=true, input_accepted/turn_started.
+- 원문 영수증: Backend `artifacts/image-catalog-fix/delivery-1046460/director.json`, `qa.json`. 재전송·신규 워커·Run/Dispatch 생성 없음.
+
+**미완료 의존성: Q-IMG 독립 검수 및 격리 브라우저 수용 판정 대기.** 입력 accepted는 검수 통과가 아니다. 브라우저 수용은 Q-IMG 담당이며 이번 Backend 검증에는 포함하지 않는다. 실제 CDN 전체 가용성은 미검증이다. EXE 재배포·사용자 서버 갱신은 미수행이고 이 배정의 범위 밖이다. 제품 커밋 후 작업 상태는 기존 untracked package-lock.json만 남았다.

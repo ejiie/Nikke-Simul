@@ -54,6 +54,45 @@ public static class HitCalculator
 {
     public const string Version = "p02.3";
     public const int InputSchemaVersion = 2;
+    // Single selected policy, without reflection, candidate arrays or audit term allocation.
+    // Compare remains the independent audit path for parity tests and detailed damage logs.
+    public static double Calculate(HitContext c, string policy)
+    {
+        ArgumentNullException.ThrowIfNull(c);
+        if (policy is not ("legacy_term_floor" or "final_round_even" or "nested_floor"))
+            throw new ArgumentException("Unknown rounding policy.", nameof(policy));
+        ReadOnlySpan<double> values = [c.StatAttack,c.Defense,c.Coefficient,c.ChargeBase,c.ChargeMultiplierBonus,c.ChargeAdd,
+            c.DistanceBonus,c.BurstBonus,c.CritBonus,c.CoreBonus,c.AttackDamage,c.PierceDamage,c.PartsDamage,c.DotDamage,
+            c.SequentialDamage,c.TrueDamage,c.DamageTaken,c.DistributionDamage,c.ElementBase,c.ElementBonus];
+        foreach (var value in values)
+            if (!double.IsFinite(value) || Math.Abs(value)>1e12) throw new ArgumentException("Invalid hit numeric input.");
+        if (c.StatAttack<0 || c.Defense<0 || c.Coefficient<=0
+            || c.DamageType is not ("normal" or "skill" or "dot" or "sequential" or "distribution" or "true")
+            || c.Crit && !c.CanCrit || c.Core && !c.CanCore || c.FullCharge && !c.ChargeApplicable)
+            throw new ArgumentException("Invalid hit context.");
+        double charge=c.FullCharge ? c.ChargeBase*(1+c.ChargeMultiplierBonus)+c.ChargeAdd : 1;
+        double b3=1+c.AttackDamage+(c.Pierce?c.PierceDamage:0)+(c.Parts?c.PartsDamage:0)
+            +(c.DamageType=="dot"?c.DotDamage:0)+(c.DamageType=="sequential"?c.SequentialDamage:0)
+            +(c.DamageType=="true"?c.TrueDamage:0);
+        double b4=1+c.DamageTaken+(c.DamageType=="distribution"?c.DistributionDamage:0);
+        double b5=c.ElementAdvantage ? 1+c.ElementBase+c.ElementBonus : 1;
+        double distance=c.ProperDistance?c.DistanceBonus:0, burst=c.FullBurst?c.BurstBonus:0,
+            critical=c.Crit?c.CritBonus:0, core=c.Core?c.CoreBonus:0;
+        double bonus=distance+burst+critical+core;
+        if (charge<=0 || b3<0 || b4<0 || b5<0 || 1+bonus<0) throw new ArgumentException("Invalid hit multiplier.");
+        double attack=StatBuffCalculator.AddFlat(StatBuffCalculator.Apply(c.StatAttack,c.AttackBuffs,c.RuntimeAttackBuffs),c.AttackFlatBuffs);
+        double defense=c.DamageType=="true"?0:c.Defense;
+        if(defense>=attack) return 1;
+        double p=(attack-defense)*c.Coefficient*charge;
+        double value2=policy=="final_round_even" ? p*(1+bonus)
+            : Math.Floor(p)+Math.Floor(p*distance)+Math.Floor(p*burst)+Math.Floor(p*critical)+Math.Floor(p*core);
+        value2*=b3; if(policy=="nested_floor") value2=Math.Floor(value2);
+        value2*=b4; if(policy=="nested_floor") value2=Math.Floor(value2);
+        value2*=b5; if(policy=="nested_floor") value2=Math.Floor(value2);
+        double damage=policy=="final_round_even" ? Math.Max(1,Math.Round(value2,MidpointRounding.ToEven)) : Math.Floor(value2);
+        if(!double.IsFinite(damage) || Math.Abs(damage)>9e15) throw new ArgumentException("Damage exceeds precision limit.");
+        return damage;
+    }
     public static HitComparison Compare(HitContext c, double? observed = null)
     {
         ArgumentNullException.ThrowIfNull(c);
