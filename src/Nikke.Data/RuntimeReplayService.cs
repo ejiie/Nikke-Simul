@@ -48,6 +48,7 @@ public sealed partial class RuntimeReplayService
         if (request.SnapshotId != snapshot.Id || request.CharacterIds is null || request.CharacterIds.Count is < 1 or > 5
             || request.CharacterIds.Distinct().Count() != request.CharacterIds.Count)
             throw new ArgumentException("저장 스냅샷과 중복 없는 1~5명 편성을 지정하세요.");
+        var profiles=ProfilesForConditions(request.Conditions);
         var reports = new List<StatReport>(); var members = new List<WeaponReplayMember>();
         foreach (var characterId in request.CharacterIds)
         {
@@ -57,7 +58,7 @@ public sealed partial class RuntimeReplayService
             if (report.Status == "incomplete" || report.BasicHit is null)
                 throw new ArgumentException($"{report.Name}: 스탯 입력을 먼저 보완하세요.");
             var weapon = source["weapon"]!.Deserialize<WeaponDto>(Wire.Json)!;
-            reports.Add(report); members.Add(WithCombatProfile(new(characterId, weapon, report.BasicHit, report.PermanentBuffs),request.Conditions));
+            reports.Add(report); members.Add(WithCombatProfile(new(characterId, weapon, report.BasicHit, report.PermanentBuffs),profiles));
         }
         var result = WeaponReplay.Run(members, request.Conditions);
         var saved = new SavedWeaponReplay(Guid.NewGuid().ToString("N"), "weapon_reference_replay", DateTimeOffset.UtcNow,

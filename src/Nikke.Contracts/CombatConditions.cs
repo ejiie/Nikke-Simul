@@ -1,6 +1,8 @@
 namespace Nikke.Contracts;
 
 public record CombatProfileSource(string Path, string Sha256, string Version, string Origin, string Locale);
+public record CombatProfileError(string Code, string Message, string? CharacterId, string Field, string Reason);
+// Validated output only: catalog readers must check required JSON fields before constructing this record.
 public record CombatMemberProfile(string CharacterId, string Name, string WeaponType,
     int BonusRangeMin, int BonusRangeMax, string Element)
 {

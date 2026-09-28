@@ -178,3 +178,23 @@ members/예외 profile은 `characterId,name,weaponType,bonusRangeMin,bonusRangeM
 준비 members에는 `weapon.bonusRangeMin/bonusRangeMax/element`가 채워진다. 전체 member metadata/조건/원천 runtime ID/compatibility mode가 fingerprint에 포함되고 `boss-distance-element.1-inclusive`, skills/team4, summary3가 rules/cache를 구분한다. old 버전 결과는 조회 가능하고 resume은 기존 버전 불일치409를 유지한다. 과거 bool을 명시한 새 실행은 가능하다. IncElementDmg OL 후보도 새 모드의 멤버별 약점 일치에 따라 생성하고, 과거 bool에서는 기존 전역 적용을 유지한다.
 
 Git 제외 runtime 확장을 준비한 뒤 해당 dataRoot의 새 API 프로세스가 읽어야 한다. 이 작업은 원본 카탈로그·배포/서버를 변경하지 않았다. 배포 시 Director가 profile 준비와 코드 일치를 확인해야 한다.
+
+### B-FIX-2 — 불명 profile 오류 wire
+
+runtime `combatProfiles`의 필수 JSON 키는 DTO 생성 전에 검사한다. 사거리 min/max는 JSON 정수0–100, min≤max이어야 하고 문자열 숫자·null·누락을 0으로 바꾸지 않는다. element는 정확한 5종 문자열이다. 명시 min0(SG/RL), RL0–0, SR 캐릭터별 예외는 유효하다.
+
+카탈로그의 필수 키 누락·null·잘못된 타입/값은 **HTTP409**와 아래 JSON으로 반환한다. 두 combat-conditions 조회와 skill/weapon replay 생성, compute 실험 생성에 공통 적용한다. 잘못된 profile은 스탯·전투 계산 및 replay/실험 저장 전에 거부한다. 필드 단위 fallback은 없다.
+
+```json
+{
+  "code": "combat_profile_invalid",
+  "message": "combat_profile_invalid: combatProfiles.characters.5004.bonusRangeMin: missing",
+  "characterId": "5004",
+  "field": "combatProfiles.characters.5004.bonusRangeMin",
+  "reason": "missing"
+}
+```
+
+`reason`: `missing`(키 없음), `null`(명시 null), `wrong_type`(정수/문자열/객체 타입 불일치), `out_of_range`(사거리 범위·순서), `unsupported_value`(속성/무기/스키마 등), `id_mismatch`, `weapon_mismatch`, `hash_mismatch`(출처 sha256/version 불일치). `field`는 combatProfiles부터 시작하는 JSON 경로이고, 카탈로그·출처 수준 오류는 `characterId:null`이다. 성공 응답과 요청 조건 필드는 바뀌지 않는다. UI는 기존 `message`로 오류를 표시할 수 있고 세부 분류에는 code/field/reason을 사용한다.
+
+profile 멤버 전체 누락은 기존 HTTP400 `{message:"combat_member_profile_missing:<id>"}`, 전체 combatProfiles가 없는 옛 catalog의 자료 요구는 기존409 `combat_profile_catalog_missing`를 유지한다. 자료가 전혀 없는 옛 catalog의 metadata 불필요 bool 경로와 기존 기록 읽기는 유지한다. 반면 combatProfiles가 있는 catalog의 필드 손상은 과거 bool 요청이어도 묵인하지 않는다. 이 수정은 정상 계산값·fingerprint·엔진 버전을 바꾸지 않는다.

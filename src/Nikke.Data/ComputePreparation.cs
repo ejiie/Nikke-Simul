@@ -49,6 +49,7 @@ public sealed partial class RuntimeReplayService
         try {conditions=request.Conditions.Deserialize<SkillReplayConditions>(Wire.Json)??throw new ArgumentException("missing_conditions");}
         catch(JsonException ex){throw new ArgumentException("invalid_compute_conditions",ex);}
         if(conditions.Combat is null)throw new ArgumentException("missing_combat");
+        var profiles=ProfilesForConditions(conditions.Combat);
         conditions=conditions with {Combat=conditions.Combat with {Trace=false},DamageLog=null};
         var members=new List<SkillReplayMember>();var reports=new List<StatReport>();
         foreach(var id in request.CharacterIds)
@@ -62,7 +63,7 @@ public sealed partial class RuntimeReplayService
                 levels[slot]=build.Skills.GetValueOrDefault(key)??throw new ArgumentException("skill_level_missing");
             var weapon=catalog["characters"]?[id]?["weapon"]?.Deserialize<WeaponDto>(Wire.Json)??throw new ArgumentException("unsupported_character");
             var hit=HitCalculationService.ApplyExperimentOverrides(report.BasicHit,request.HitOverrides?.GetValueOrDefault(id));
-            members.Add(new(WithCombatProfile(new(id,weapon,hit,report.PermanentBuffs),conditions.Combat),report.NativeStats.HP,Loadout(id,levels)));reports.Add(report);
+            members.Add(new(WithCombatProfile(new(id,weapon,hit,report.PermanentBuffs),profiles),report.NativeStats.HP,Loadout(id,levels)));reports.Add(report);
         }
         return PreparedCompute.Create(members,Graph(),conditions,original.Id,game.Id+":"+reports[0].CalculationDataId+":"+runtimeId,request.Phase);
     }
