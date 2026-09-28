@@ -11,7 +11,11 @@
   - 검증은 mock·기존 회귀만: mock 단위 13/13, vitest 10/10 + tsc, mock 브라우저 12/12(1500/850/500px), 기존 damage audit 19/19·브라우저·솔로레이드·통계 통과. 실제 API 종단·Backend 빌드는 미실행(단계 B).
   - I-BE에 넘긴 결정 대기: 큰 `long` JSON 표현, schema 3 `HitRequest` 필드, v2 변환 표시, 오류 형태 — 모두 I-BE 지시 2·3항 범위.
   - 참고(후속 후보): 엔진 client audit term에 charge·element가 별도 항으로 없다(각각 `base`·최종 곱에 포함). UI는 hit 입력으로 표시한다. 실측 실험 단계에서 항별 추적이 필요하면 엔진 audit 확장을 별도 배정한다.
-- **I-BE:** 진행 중. I-BE 인계 후 Director가 I-UI 단계 B·Q-F32 단계 B를 통지한다.
+- **I-BE: 완료, Director 검토 수용.** [I-BE 보고서](C:/Users/user/orca/workspaces/Nikke-Simul/Backend/docs/client-f32-integration.ko.md), 확정 wire는 [compute 계약](C:/Users/user/orca/workspaces/Nikke-Simul/Backend/docs/single-deck-compute-contract.ko.md)의 I-BE schema 3 절. Backend `74ca24f`(엔진 `5ced15a` 일반 merge `f818f3b` 포함). Director가 커밋 범위를 확인했다: `f818f3b..74ca24f`에서 Core/Engine/Analysis/apps 변경 0, 변경은 Api·Contracts·Data·Backend tests·문서, audit 도구 2개의 `packages.lock.json` 보완뿐. `74ca24f`는 UI `30ea4f2`·QA `cdca644`와 충돌 없이 merge된다(`git merge-tree` 확인). 테스트 재실행은 하지 않았다.
+  - wire 핵심: hit 응답 최상위 `candidates`/`selectedCandidate`(구 comparison 봉투 제거), schema 3 기본 `client_f32` + 과거 3후보(계산 불가 후보는 null + 이유), v2 요청은 원본 + `conversion` 보존하며 1/0 명시 변환, hit import와 저장 조회 GET, `rawRate10000`/`exactAmount`/`exactEffectiveAttack`/client `exactDamage`는 **출력 십진 문자열**(입력은 문자열 또는 안전 정수 number), 선택 audit 포함.
+  - compute: `hitOverrides`로 두 rate·runtimeAttackBuffs·attackFlatBuffs 실험, schema·정책·summary·raw 포함 fingerprint, 구버전 batch 재개 거부, 구결과 조회 가능·통계 분리.
+  - 검증(Backend 보고): 전체 Release 경고 0/오류 0, 329 tests(Backend 141, Core 147, Analysis 41). 격리 API(포트 54516) v3/v2/import/저장/네 후보/오류 6종, 5인 600프레임 batch 세 조건(client/legacy/실험값) 각 1회, fingerprint·튜닝 키 분리. 공개 레벨·호감도 24,360셀·큐브/소장품/장비에서 **소수 native 발견 0**.
+- **단계 B 통지(2026-09-28):** I-UI 단계 B와 Q-F32 단계 B를 시작한다. Q-F32 단계 B는 두 부분으로 나눈다 — **B1(지금)**: Backend `74ca24f`를 merge해 API·v2 변환·wire·오류·fingerprint/캐시·구결과 혼합 금지 종단 수용. **B2(I-UI 단계 B 인계 후 Director 통지)**: UI 확정 커밋으로 브라우저·피해 로그·통계 화면 종단 수용.
 
 ## 승인과 근거
 
