@@ -1,0 +1,146 @@
+{
+  "_note": "Synthetic BatchStatus payloads in Backend contract v1 (f2327e5) shape: input=ExperimentInput, execution=ExecutionSelection, counts are current-index based.",
+  "_input": {
+    "fingerprint": "exp-fp-synthetic",
+    "snapshotId": "snap-synthetic",
+    "dataVersion": "data-synthetic-1",
+    "engineVersion": "p03.skills.2",
+    "rulesVersion": "p04.team.2",
+    "characterIds": ["5011", "5008", "5009", "5004", "5044"],
+    "synchroLevel": 400,
+    "durationFrames": 10800,
+    "phase": "final",
+    "recordLevel": "summary",
+    "defPolicy": "fixed_30925_current_policy",
+    "gameVerified": false
+  },
+  "_executionCpu": {
+    "requested": "auto",
+    "backend": "cpu",
+    "deviceId": "cpu",
+    "workers": 6,
+    "chunkSize": 64,
+    "memoryLimitBytes": 4294967296,
+    "reason": "가용 병렬도 8 중 6 worker, 짧은 벤치마크에서 run/s 최대",
+    "validationVersion": "synthetic-valid-1",
+    "benchmarkVersion": "synthetic-bench-1",
+    "fingerprint": "sel-fp-synthetic-cpu",
+    "fallbackReason": null
+  },
+  "queued": {
+    "id": "exp-synthetic-1", "state": "queued", "attempt": 1,
+    "requested": 1000, "valid": 0, "failed": 0, "cancelled": 0, "partial": false, "errorCode": null,
+    "input": {
+      "fingerprint": "exp-fp-synthetic", "snapshotId": "snap-synthetic", "dataVersion": "data-synthetic-1",
+      "engineVersion": "p03.skills.2", "rulesVersion": "p04.team.2",
+      "characterIds": ["5011", "5008", "5009", "5004", "5044"], "synchroLevel": 400, "durationFrames": 10800,
+      "phase": "final", "recordLevel": "summary", "defPolicy": "fixed_30925_current_policy", "gameVerified": false
+    },
+    "execution": {
+      "requested": "auto", "backend": "cpu", "deviceId": "cpu", "workers": 6, "chunkSize": 64,
+      "memoryLimitBytes": 4294967296, "reason": "가용 병렬도 8 중 6 worker, 짧은 벤치마크에서 run/s 최대",
+      "validationVersion": "synthetic-valid-1", "benchmarkVersion": "synthetic-bench-1",
+      "fingerprint": "sel-fp-synthetic-cpu", "fallbackReason": null
+    }
+  },
+  "running": {
+    "id": "exp-synthetic-1", "state": "running", "attempt": 1,
+    "requested": 1000, "valid": 320, "failed": 2, "cancelled": 0, "partial": false, "errorCode": null,
+    "input": {
+      "fingerprint": "exp-fp-synthetic", "snapshotId": "snap-synthetic", "dataVersion": "data-synthetic-1",
+      "engineVersion": "p03.skills.2", "rulesVersion": "p04.team.2",
+      "characterIds": ["5011", "5008", "5009", "5004", "5044"], "synchroLevel": 400, "durationFrames": 10800,
+      "phase": "final", "recordLevel": "summary", "defPolicy": "fixed_30925_current_policy", "gameVerified": false
+    },
+    "execution": {
+      "requested": "auto", "backend": "cpu", "deviceId": "cpu", "workers": 6, "chunkSize": 64,
+      "memoryLimitBytes": 4294967296, "reason": "가용 병렬도 8 중 6 worker, 짧은 벤치마크에서 run/s 최대",
+      "validationVersion": "synthetic-valid-1", "benchmarkVersion": "synthetic-bench-1",
+      "fingerprint": "sel-fp-synthetic-cpu", "fallbackReason": null
+    }
+  },
+  "cancelledPartial": {
+    "id": "exp-synthetic-1", "state": "cancelled", "attempt": 1,
+    "requested": 1000, "valid": 512, "failed": 2, "cancelled": 486, "partial": true, "errorCode": null,
+    "input": {
+      "fingerprint": "exp-fp-synthetic", "snapshotId": "snap-synthetic", "dataVersion": "data-synthetic-1",
+      "engineVersion": "p03.skills.2", "rulesVersion": "p04.team.2",
+      "characterIds": ["5011", "5008", "5009", "5004", "5044"], "synchroLevel": 400, "durationFrames": 10800,
+      "phase": "final", "recordLevel": "summary", "defPolicy": "fixed_30925_current_policy", "gameVerified": false
+    },
+    "execution": {
+      "requested": "auto", "backend": "cpu", "deviceId": "cpu", "workers": 6, "chunkSize": 64,
+      "memoryLimitBytes": 4294967296, "reason": "가용 병렬도 8 중 6 worker, 짧은 벤치마크에서 run/s 최대",
+      "validationVersion": "synthetic-valid-1", "benchmarkVersion": "synthetic-bench-1",
+      "fingerprint": "sel-fp-synthetic-cpu", "fallbackReason": null
+    }
+  },
+  "resumedAttempt": {
+    "id": "exp-synthetic-1", "state": "running", "attempt": 2,
+    "requested": 1000, "valid": 512, "failed": 0, "cancelled": 0, "partial": false, "errorCode": null,
+    "input": {
+      "fingerprint": "exp-fp-synthetic", "snapshotId": "snap-synthetic", "dataVersion": "data-synthetic-1",
+      "engineVersion": "p03.skills.2", "rulesVersion": "p04.team.2",
+      "characterIds": ["5011", "5008", "5009", "5004", "5044"], "synchroLevel": 400, "durationFrames": 10800,
+      "phase": "final", "recordLevel": "summary", "defPolicy": "fixed_30925_current_policy", "gameVerified": false
+    },
+    "execution": {
+      "requested": "auto", "backend": "cpu", "deviceId": "cpu", "workers": 6, "chunkSize": 64,
+      "memoryLimitBytes": 4294967296, "reason": "재개 attempt · 미완료 index만 실행",
+      "validationVersion": "synthetic-valid-1", "benchmarkVersion": "synthetic-bench-1",
+      "fingerprint": "sel-fp-synthetic-cpu", "fallbackReason": null
+    }
+  },
+  "completed": {
+    "id": "exp-synthetic-1", "state": "completed", "attempt": 1,
+    "requested": 1000, "valid": 1000, "failed": 0, "cancelled": 0, "partial": false, "errorCode": null,
+    "input": {
+      "fingerprint": "exp-fp-synthetic", "snapshotId": "snap-synthetic", "dataVersion": "data-synthetic-1",
+      "engineVersion": "p03.skills.2", "rulesVersion": "p04.team.2",
+      "characterIds": ["5011", "5008", "5009", "5004", "5044"], "synchroLevel": 400, "durationFrames": 10800,
+      "phase": "final", "recordLevel": "summary", "defPolicy": "fixed_30925_current_policy", "gameVerified": false
+    },
+    "execution": {
+      "requested": "auto", "backend": "cpu", "deviceId": "cpu", "workers": 6, "chunkSize": 64,
+      "memoryLimitBytes": 4294967296, "reason": "가용 병렬도 8 중 6 worker, 짧은 벤치마크에서 run/s 최대",
+      "validationVersion": "synthetic-valid-1", "benchmarkVersion": "synthetic-bench-1",
+      "fingerprint": "sel-fp-synthetic-cpu", "fallbackReason": null
+    }
+  },
+  "gpuFallback": {
+    "id": "exp-synthetic-2", "state": "running", "attempt": 1,
+    "requested": 500, "valid": 40, "failed": 0, "cancelled": 0, "partial": false, "errorCode": null,
+    "input": {
+      "fingerprint": "exp-fp-synthetic-2", "snapshotId": "snap-synthetic", "dataVersion": "data-synthetic-1",
+      "engineVersion": "p03.skills.2", "rulesVersion": "p04.team.2",
+      "characterIds": ["5011", "5008", "5009", "5004", "5044"], "synchroLevel": 400, "durationFrames": 10800,
+      "phase": "pilot", "recordLevel": "summary", "defPolicy": "fixed_30925_current_policy", "gameVerified": false
+    },
+    "execution": {
+      "requested": "auto", "backend": "cpu", "deviceId": "cpu", "workers": 4, "chunkSize": 32,
+      "memoryLimitBytes": 2147483648, "reason": "GPU provider 미구현으로 CPU 실행",
+      "validationVersion": "synthetic-valid-1", "benchmarkVersion": "synthetic-bench-1",
+      "fingerprint": "sel-fp-synthetic-fallback", "fallbackReason": "gpu_not_implemented"
+    }
+  },
+  "failed": {
+    "id": "exp-synthetic-3", "state": "failed", "attempt": 1,
+    "requested": 1000, "valid": 120, "failed": 880, "cancelled": 0, "partial": true, "errorCode": "engine_run_failed",
+    "input": {
+      "fingerprint": "exp-fp-synthetic-3", "snapshotId": "snap-synthetic", "dataVersion": "data-synthetic-1",
+      "engineVersion": "p03.skills.2", "rulesVersion": "p04.team.2",
+      "characterIds": ["5011", "5008", "5009", "5004", "5044"], "synchroLevel": 400, "durationFrames": 10800,
+      "phase": "final", "recordLevel": "summary", "defPolicy": "fixed_30925_current_policy", "gameVerified": false
+    },
+    "execution": {
+      "requested": "auto", "backend": "cpu", "deviceId": "cpu", "workers": 6, "chunkSize": 64,
+      "memoryLimitBytes": 4294967296, "reason": "자동 선택", "validationVersion": "synthetic-valid-1",
+      "benchmarkVersion": "synthetic-bench-1", "fingerprint": "sel-fp-synthetic-cpu", "fallbackReason": null
+    }
+  },
+  "unknownState": {
+    "id": "exp-synthetic-4", "state": null, "attempt": null,
+    "requested": null, "valid": null, "failed": null, "cancelled": null, "partial": false, "errorCode": null,
+    "input": null, "execution": null
+  }
+}

@@ -1,0 +1,97 @@
+{
+  "_note": "Synthetic HardwareProfile payloads in Backend contract v1 (f2327e5) shape. Vendor/device names are placeholders and are NOT evidence that any vendor was verified on real hardware.",
+  "cpuOnly": {
+    "fingerprint": "hw-synthetic-cpu-only",
+    "os": "Windows 11",
+    "architecture": "x64",
+    "availableProcessors": 8,
+    "physicalCores": 4,
+    "memoryLimitBytes": 17179869184,
+    "remoteSession": false,
+    "gpus": [],
+    "probeFailures": []
+  },
+  "gpuNotImplemented": {
+    "fingerprint": "hw-synthetic-gpu-not-implemented",
+    "os": "Windows 11",
+    "architecture": "x64",
+    "availableProcessors": 16,
+    "physicalCores": 8,
+    "memoryLimitBytes": 34359738368,
+    "remoteSession": false,
+    "gpus": [
+      {
+        "deviceId": "gpu-synthetic-0",
+        "name": "합성 GPU 인벤토리",
+        "vendor": "합성 벤더 V",
+        "driver": "1.2.3",
+        "memoryBytes": 8589934592,
+        "backend": "synthetic-compute",
+        "runtimeStatus": "not_implemented",
+        "selfTestStatus": "not_run",
+        "correctnessStatus": "not_run",
+        "benchmarkStatus": "not_run",
+        "supportsFp64": null,
+        "eligible": false,
+        "reason": "full battle GPU provider가 아직 구현되지 않았습니다."
+      },
+      {
+        "deviceId": "gpu-synthetic-1",
+        "name": "합성 GPU FP64 미지원",
+        "vendor": "합성 벤더 W",
+        "driver": "0.9.1",
+        "memoryBytes": 4294967296,
+        "backend": "synthetic-compute",
+        "runtimeStatus": "passed",
+        "selfTestStatus": "passed",
+        "correctnessStatus": "unsupported",
+        "benchmarkStatus": "not_run",
+        "supportsFp64": false,
+        "eligible": false,
+        "reason": "FP64 미지원으로 수치 정확성 단계를 통과하지 못했습니다."
+      }
+    ],
+    "probeFailures": []
+  },
+  "gpuEligible": {
+    "fingerprint": "hw-synthetic-gpu-eligible",
+    "os": "Windows 11",
+    "architecture": "x64",
+    "availableProcessors": 24,
+    "physicalCores": 12,
+    "memoryLimitBytes": 68719476736,
+    "remoteSession": false,
+    "gpus": [
+      {
+        "deviceId": "gpu-synthetic-verified",
+        "name": "합성 GPU 검증본",
+        "vendor": "합성 벤더 V",
+        "driver": "2.0.0",
+        "memoryBytes": 12884901888,
+        "backend": "synthetic-compute",
+        "runtimeStatus": "passed",
+        "selfTestStatus": "passed",
+        "correctnessStatus": "passed",
+        "benchmarkStatus": "passed",
+        "supportsFp64": true,
+        "eligible": true,
+        "reason": null
+      }
+    ],
+    "probeFailures": []
+  },
+  "probeFailed": {
+    "fingerprint": "hw-synthetic-probe-failed",
+    "os": "Windows 11",
+    "architecture": "x64",
+    "availableProcessors": 4,
+    "physicalCores": null,
+    "memoryLimitBytes": 8589934816,
+    "remoteSession": true,
+    "gpus": [],
+    "probeFailures": [
+      "gpu_inventory: 원격 세션에서 장치 조회 권한이 거부되었습니다.",
+      "gpu_runtime: probe timeout 2000ms 초과"
+    ]
+  }
+}

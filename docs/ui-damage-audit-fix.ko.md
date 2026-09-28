@@ -1,5 +1,7 @@
 # 발당 피해 검산 패널 표시 수정 (UI, 2026-09-11)
 
+> 2026-09-28 후속: 이 문서의 산식·항 이름(B2~B5, 정수화 3정책)은 H-F32 이전 기준이며 지금은 비교 후보 정책의 표시다. 기본 `client_f32` 정책 표시(항 `difference`·`base`·`B`·`extra`·`reduction`·`defenceRatio`·`product`)는 [client_f32 UI 연결](client-f32-ui.ko.md) 10절(실제 격리 API 검증 포함)을 따른다.
+
 범위: `docs/ui-damage-audit-handoff-2026-09-11.ko.md`(Director 작업공간, 미커밋 인계 문서)의 UI 표시 수정만 다룬다. 엔진·Core·API·DB 원본과 저장 로그, 버스트 설정 UI(`app.js`, `burst-tactics.js`)는 바꾸지 않았다. 피해를 UI에서 다시 계산해 저장값을 대체하지 않는다. 화면은 저장된 `calculation.terms`, `hit`, `buffs` 원값을 해석해 보여 줄 뿐이다.
 
 기준: UI 브랜치를 Director `77b3cce`로 fast-forward한 뒤 `bced746`을 제출했다. Director 검수(`docs/ui-damage-audit-review-2026-09-11.ko.md`, 조건부 미수용)의 두 지적을 후속 커밋에서 고쳤다(7절). 편집 파일은 `apps/desktop-ui/damage-log-adapter.js`(피해 로그 표시·변환 부분, 버스트 DTO 변환 유지), `apps/desktop-ui/damage-log.js`, `apps/desktop-ui/simul.css`(검산 패널 전용 규칙), 테스트 `tests/ui/`, 이 문서다.
