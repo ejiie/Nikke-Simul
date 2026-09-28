@@ -147,3 +147,8 @@ Director 통지(2026-09-28): Backend 확정 `74ca24fc9b242b6268856f82a4c722f2e57
 - 합성 계정 20초 replay와 runs 1 batch는 연결·표시 확인용이며 180초·부하·성능·실게임 정확성 근거가 아니다. statDamageRatio·defenceRatioRate 값은 실험 입력이며 물리적 의미를 확정하지 않았다.
 - `hitOverrides` UI 입력, `ol-candidates`·`tuning` 진단 표시는 하지 않았다. 큰 정수 unavailable 응답의 브라우저 실제 렌더는 하지 않았다(mock 단위만).
 - 독립 QA(Q-F32 단계 B)는 검수 담당 범위다.
+
+### 10.5 단계 B 확정 커밋·인계
+
+- `ab40dd1` Backend `74ca24f` merge, `0278286` 단계 B 연결·실제 API 검증 스크립트·문서. 이 절 기록 커밋이 뒤따른다. 미추적 `package-lock.json`(SHA-256 `2ef4178a…c767`)만 남는다.
+- Director 터미널을 `terminal list`로 재확인한 뒤 한 번 전달한다. 전달 접수는 Q-F32 단계 B 수용·원본 배포 완료가 아니다.
