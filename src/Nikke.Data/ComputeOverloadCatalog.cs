@@ -10,7 +10,7 @@ namespace Nikke.Data;
 public static class ComputeOverloadCatalog
 {
     public static CandidateSpace Generate(AccountSnapshot snapshot,GameSnapshot game,IReadOnlyList<string> ids,
-        IReadOnlyDictionary<string,bool> chargeWeapons,WeaponReplayConditions combat)
+        IReadOnlyDictionary<string,bool> chargeWeapons,WeaponReplayConditions combat,IReadOnlyDictionary<string,bool>? elementalAdvantages=null)
     {
         if(snapshot.GameSnapshotId!=game.Id || ids.Count!=5 || ids.Distinct().Count()!=5)
             throw new ArgumentException("invalid_ol_catalog_input");
@@ -40,7 +40,7 @@ public static class ComputeOverloadCatalog
                         "StatAtk" or "StatAmmoLoad"=>true,
                         "StatChargeTime" or "StatChargeDamage"=>charge,
                         "StatCritical" or "StatCriticalDamage"=>combat.CritMode=="sample",
-                        "IncElementDmg"=>combat.ElementAdvantage,
+                        "IncElementDmg"=>elementalAdvantages?.GetValueOrDefault(id)??combat.ElementAdvantage,
                         _=>false // Accuracy/misses and survival/defense do not affect this damage model.
                     };
                     options.Add(new(id,gear.Slot,option,tiers.Select(v=>(double)(negative?-v:v)).ToImmutableArray(),effect,effect,
@@ -60,6 +60,10 @@ public sealed partial class RuntimeReplayService
         var conditions=request.Conditions.Deserialize<SkillReplayConditions>(Wire.Json)??throw new ArgumentException("missing_conditions");
         var charge=request.CharacterIds.ToDictionary(id=>id,id=>catalog["characters"]?[id]?["weapon"]?["isChargeWeapon"]?.GetValue<bool>()
             ??throw new ArgumentException("unsupported_character"));
-        return ComputeOverloadCatalog.Generate(snapshot,game,request.CharacterIds,charge,conditions.Combat);
+        var mode=CombatConditionWire.Inspect(CombatConditionWire.ReadCombat(request.Conditions));
+        var profiles=mode.Mode=="per_member"?Profiles():null;
+        var elements=profiles is null?null:request.CharacterIds.ToDictionary(id=>id,id=>
+            mode.BossWeakElement is {} weak && profiles.Member(id).Element==weak);
+        return ComputeOverloadCatalog.Generate(snapshot,game,request.CharacterIds,charge,conditions.Combat,elements);
     }
 }

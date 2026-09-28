@@ -1,0 +1,35 @@
+{
+  "_note": "UI MOCK in the confirmed F-COND-B shape (Backend 796eec3 contract). Weapon-group ranges/counts and the SR exception follow the Backend report table; per-member profiles are SYNTHETIC assignments chosen to hit in/out/boundary/0-0 cases, not the characters' real data. Real API values are checked by check_combat_conditions_live.py.",
+  "catalog": {
+    "runtimeDataId": "mock-runtime",
+    "schemaVersion": 1,
+    "source": { "path": "Database/raw/blabla_roledata.json", "sha256": "mock", "version": "sha256:mock", "origin": "mock", "locale": "ko" },
+    "weaponRanges": [
+      { "weaponType": "AR", "characterCount": 35, "ranges": [{ "min": 25, "max": 45, "count": 35, "isTypical": true, "characterIds": [] }], "exceptions": [], "rangeBonusAvailable": true, "diagnostics": [] },
+      { "weaponType": "MG", "characterCount": 24, "ranges": [{ "min": 35, "max": 55, "count": 24, "isTypical": true, "characterIds": [] }], "exceptions": [], "rangeBonusAvailable": true, "diagnostics": [] },
+      { "weaponType": "RL", "characterCount": 41, "ranges": [{ "min": 0, "max": 0, "count": 41, "isTypical": true, "characterIds": [] }], "exceptions": [], "rangeBonusAvailable": false, "diagnostics": ["rl_zero_range_no_bonus_unverified"] },
+      { "weaponType": "SG", "characterCount": 26, "ranges": [{ "min": 0, "max": 25, "count": 26, "isTypical": true, "characterIds": [] }], "exceptions": [], "rangeBonusAvailable": true, "diagnostics": [] },
+      { "weaponType": "SMG", "characterCount": 30, "ranges": [{ "min": 15, "max": 35, "count": 30, "isTypical": true, "characterIds": [] }], "exceptions": [], "rangeBonusAvailable": true, "diagnostics": [] },
+      { "weaponType": "SR", "characterCount": 36, "ranges": [{ "min": 45, "max": 100, "count": 35, "isTypical": true, "characterIds": [] }, { "min": 25, "max": 45, "count": 1, "isTypical": false, "characterIds": ["5042"] }],
+        "exceptions": [{ "characterId": "5042", "name": "Harran", "weaponType": "SR", "bonusRangeMin": 25, "bonusRangeMax": 45, "element": "Electronic", "rangeBonusAvailable": true, "diagnostic": null }], "rangeBonusAvailable": true, "diagnostics": [] }
+    ],
+    "elements": [
+      { "value": "Fire", "iconUrl": "/editor/assets/ui/code-fire.png" }, { "value": "Water", "iconUrl": "/editor/assets/ui/code-water.png" },
+      { "value": "Wind", "iconUrl": "/editor/assets/ui/code-wind.png" }, { "value": "Iron", "iconUrl": "/editor/assets/ui/code-iron.png" },
+      { "value": "Electronic", "iconUrl": "/editor/assets/ui/code-electric.png" }
+    ],
+    "rangeRule": "inclusive",
+    "gameVerified": false
+  },
+  "members": {
+    "runtimeDataId": "mock-runtime",
+    "snapshotId": "snap-cond",
+    "members": [
+      { "characterId": "5011", "name": "Rita", "weaponType": "SMG", "bonusRangeMin": 15, "bonusRangeMax": 35, "element": "Fire", "rangeBonusAvailable": true, "diagnostic": null },
+      { "characterId": "5008", "name": "Blanc", "weaponType": "MG", "bonusRangeMin": 35, "bonusRangeMax": 55, "element": "Water", "rangeBonusAvailable": true, "diagnostic": null },
+      { "characterId": "5009", "name": "Noir", "weaponType": "RL", "bonusRangeMin": 0, "bonusRangeMax": 0, "element": "Fire", "rangeBonusAvailable": false, "diagnostic": "rl_zero_range_no_bonus_unverified" },
+      { "characterId": "5004", "name": "Alice", "weaponType": "SR", "bonusRangeMin": 45, "bonusRangeMax": 100, "element": "Electronic", "rangeBonusAvailable": true, "diagnostic": null },
+      { "characterId": "5044", "name": "Modernia", "weaponType": "SR", "bonusRangeMin": 25, "bonusRangeMax": 45, "element": "Wind", "rangeBonusAvailable": true, "diagnostic": null }
+    ]
+  }
+}

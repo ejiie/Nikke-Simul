@@ -1,5 +1,7 @@
 # 단일 덱 compute 계약 — I-BE / client_f32 (2026-09-28)
 
+**현재 보스 조건 확장:** 아래 F-COND-B 절은 거리/약점과 저장 모드 계약을 추가한다. summary는 `cpu-summary.3-boss-conditions`로 갱신됐다. 단일 hit schema3 wire와 수동 bool 입력은 그대로다.
+
 현재 hit wire는 아래 **I-BE schema 3** 절이다. 이전 B-CPU·B-TUNE-1 절은 변경 이력을 보존한다. `final_round_even`을 명시한 기존 요청은 해당 과거 정책을 계속 선택하며, 새 요청의 기본값은 `client_f32`다.
 
 기준 a5ccba6663241e61783b509fc69098ad3c9ecef2. C#의 확정 DTO 원본은 `src/Nikke.Contracts/Compute.cs`, JSON은 기존 Wire.Json camelCase다. 아래는 구현 연결 계약이며 GPU·통계 구현 완료 선언이 아니다. 추가 호환 필드는 허용하며 의미 변경은 버전 변경/보고가 필요하다.
@@ -147,3 +149,52 @@ schema 2 요청의 원본에 새 rate가 들어 있으면 `schema2_cannot_contai
 튜닝 키가 새 workload/engine/rules를 포함하므로 이전 캐시를 재사용하지 않는다. 구 기록에서 새 메타데이터가 빠지면 schema2/null로 읽어 조회 가능성을 유지한다. 복구 시 버전·schema·정책 및 저장 payload 재계산 fingerprint가 모두 일치해야 하며, 이전 버전 재개는 HTTP 409 `engine_or_rules_version_changed`, 변조 입력은 `prepared_input_fingerprint_mismatch`다. 구 결과 삭제나 새 버전 라벨 재부여는 없다. 현재 엔진에서 과거 정책을 명시한 **새 실험**은 실행 가능하다.
 
 통계는 experiment별 유효 결과만 읽고 저장 시 input fingerprint를 검사한다. baseline 후보 비교는 같은 rules/schema/policy/summary와 동일 hitOverrides를 요구한다. 정책 실험끼리는 별개 기록으로 조회하며 OL 비교 통계에 혼합하지 않는다. 이 변경은 Analysis 산술이나 통계 방법을 수정하지 않는다.
+
+## F-COND-B — 보스 거리·약점 조건 (2026-09-28)
+
+원천·준비·전체 응답 필드와 실제 검증은 [boss-distance-element-backend.ko.md](boss-distance-element-backend.ko.md)에 있다. UI mock의 잠정 combat-ranges route는 채택하지 않았다.
+
+| GET | 응답 |
+|---|---|
+| `/api/runtime/combat-conditions` | runtimeDataId, schemaVersion1, source(path/sha256/version/origin/locale), weaponRanges, elements, rangeRule, gameVerified:false |
+| `/api/snapshots/{id}/combat-conditions?characterIds=5011,5008,5004,5009,5044` | runtimeDataId, snapshotId, members(요청 순서의 보유1~5인) |
+| `/api/runtime/skill-replays/{id}/condition-compatibility` | old/new 저장 replay의 모드·설명·값 |
+| `/api/compute/experiments/{id}/condition-compatibility` | old/new 저장 experiment의 모드·설명·값 |
+
+weaponRanges 원소는 `weaponType,characterCount,ranges,exceptions,rangeBonusAvailable,diagnostics`. ranges 원소는 `min,max,count,isTypical,characterIds`; 대표구간은 인원 최다(동률 min/max 순), 다른 구간의 실제 멤버를 exceptions에 제공한다. 모든 구간·예외는 192명 원천의 집계다.
+
+members/예외 profile은 `characterId,name,weaponType,bonusRangeMin,bonusRangeMax,element,rangeBonusAvailable,diagnostic`. RL0–0은 false와 `rl_zero_range_no_bonus_unverified`. elements는 `{value,iconUrl}` 5개이고 Electronic은 `/editor/assets/ui/code-electric.png`다. UI는 이 캐릭터 값으로 참고 표시한다. 실제 판정은 엔진이 수행한다. old catalog에 자료가 없으면409 `combat_profile_catalog_missing`, 미보유·중복·초과 인원400이다.
+
+새 replay/compute 요청은 `conditions.combat`에서:
+
+```json
+{"durationFrames":10800,"enemyDefense":30925,"bossDistance":35,"bossWeakElement":"Fire"}
+```
+
+`bossDistance`는 정수0–100/null, `bossWeakElement`는 Fire/Water/Wind/Iron/**Electronic**/null(대소문자 구분). 미설정/없음을 새 모드로 보존하려면 두 필드를 null로 명시한다. `properDistance`/`elementAdvantage`는 **생략**한다. 새 필드와 과거 bool 동시 지정은 false/null도400 `boss_conditions_mixed_with_legacy`로 거부한다. 이전 bool만 지정한 요청은 기존 전원 적용 경로를 유지한다. 거리 경계 양끝 포함, RL0–0 보너스 없음, normal에만 거리·모든 피해에 약점 일치는 잠정 실험 규칙이다. 단일 hit의 수동 bool은 이번 변경 밖이다.
+
+새 replay 최상위와 compute `input`에 `conditionCompatibility:{mode,label,legacyProperDistance,legacyElementAdvantage,bossDistance,bossWeakElement}`가 들어간다. mode는 `per_member`/`legacy_global`, label은 `보스 거리·약점(멤버별)`/`이전 방식(전원 적용)`이다. UI 재실행은 mode별 원래 필드만 구성한다. compatibility의 legacy 필드를 그대로 새 combat에 합치지 않는다. 새 두 값 null은 engine result.conditions에서 생략될 수 있으므로 mode와 명시값 복원에는 이 metadata를 사용한다. old record는 위 읽기 endpoint로 확인하며 원본 GET/export와 파일을 재작성하지 않는다.
+
+준비 members에는 `weapon.bonusRangeMin/bonusRangeMax/element`가 채워진다. 전체 member metadata/조건/원천 runtime ID/compatibility mode가 fingerprint에 포함되고 `boss-distance-element.1-inclusive`, skills/team4, summary3가 rules/cache를 구분한다. old 버전 결과는 조회 가능하고 resume은 기존 버전 불일치409를 유지한다. 과거 bool을 명시한 새 실행은 가능하다. IncElementDmg OL 후보도 새 모드의 멤버별 약점 일치에 따라 생성하고, 과거 bool에서는 기존 전역 적용을 유지한다.
+
+Git 제외 runtime 확장을 준비한 뒤 해당 dataRoot의 새 API 프로세스가 읽어야 한다. 이 작업은 원본 카탈로그·배포/서버를 변경하지 않았다. 배포 시 Director가 profile 준비와 코드 일치를 확인해야 한다.
+
+### B-FIX-2 — 불명 profile 오류 wire
+
+runtime `combatProfiles`의 필수 JSON 키는 DTO 생성 전에 검사한다. 사거리 min/max는 JSON 정수0–100, min≤max이어야 하고 문자열 숫자·null·누락을 0으로 바꾸지 않는다. element는 정확한 5종 문자열이다. 명시 min0(SG/RL), RL0–0, SR 캐릭터별 예외는 유효하다.
+
+카탈로그의 필수 키 누락·null·잘못된 타입/값은 **HTTP409**와 아래 JSON으로 반환한다. 두 combat-conditions 조회와 skill/weapon replay 생성, compute 실험 생성에 공통 적용한다. 잘못된 profile은 스탯·전투 계산 및 replay/실험 저장 전에 거부한다. 필드 단위 fallback은 없다.
+
+```json
+{
+  "code": "combat_profile_invalid",
+  "message": "combat_profile_invalid: combatProfiles.characters.5004.bonusRangeMin: missing",
+  "characterId": "5004",
+  "field": "combatProfiles.characters.5004.bonusRangeMin",
+  "reason": "missing"
+}
+```
+
+`reason`: `missing`(키 없음), `null`(명시 null), `wrong_type`(정수/문자열/객체 타입 불일치), `out_of_range`(사거리 범위·순서), `unsupported_value`(속성/무기/스키마 등), `id_mismatch`, `weapon_mismatch`, `hash_mismatch`(출처 sha256/version 불일치). `field`는 combatProfiles부터 시작하는 JSON 경로이고, 카탈로그·출처 수준 오류는 `characterId:null`이다. 성공 응답과 요청 조건 필드는 바뀌지 않는다. UI는 기존 `message`로 오류를 표시할 수 있고 세부 분류에는 code/field/reason을 사용한다.
+
+profile 멤버 전체 누락은 기존 HTTP400 `{message:"combat_member_profile_missing:<id>"}`, 전체 combatProfiles가 없는 옛 catalog의 자료 요구는 기존409 `combat_profile_catalog_missing`를 유지한다. 자료가 전혀 없는 옛 catalog의 metadata 불필요 bool 경로와 기존 기록 읽기는 유지한다. 반면 combatProfiles가 있는 catalog의 필드 손상은 과거 bool 요청이어도 묵인하지 않는다. 이 수정은 정상 계산값·fingerprint·엔진 버전을 바꾸지 않는다.

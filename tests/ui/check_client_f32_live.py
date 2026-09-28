@@ -337,9 +337,10 @@ async def desktop_checks(browser, base, api, out, problems):
                 break
             time.sleep(.2)
         result['batch'] = {'state': final['state'], 'input': {k: final['input'].get(k) for k in ('inputSchemaVersion', 'roundingPolicy', 'summaryVersion', 'engineVersion')}}
-        if final['state'] != 'completed' or final['input'].get('roundingPolicy') != 'client_f32' or final['input'].get('inputSchemaVersion') != 3:
+        if final['state'] != 'completed' or final['input'].get('roundingPolicy') != 'client_f32' or final['input'].get('inputSchemaVersion') != 3                 or not str(final['input'].get('summaryVersion', '')).startswith('cpu-summary.'):
             problems.append(f'desktop stats: batch {result["batch"]}')
-        await page.wait_for_function("document.querySelector('#stats-content')?.innerText.includes('cpu-summary.2-client-f32')", timeout=120000)
+        # The summary version follows the Backend (cpu-summary.2-client-f32, later cpu-summary.3-boss-conditions).
+        await page.wait_for_function("v => document.querySelector('#stats-content')?.innerText.includes(v)", arg=final['input'].get('summaryVersion') or '<none>', timeout=120000)
         try:
             await page.wait_for_function("document.querySelector('#stats-content')?.innerText.includes('표본 수 n')", timeout=60000)
         except Exception:

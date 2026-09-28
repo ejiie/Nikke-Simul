@@ -10,7 +10,10 @@ namespace Nikke.Data;
 public record SkillReplayRequest(string SnapshotId, IReadOnlyList<string> CharacterIds, int? ScenarioLevel, SkillReplayConditions Conditions);
 public record SavedSkillReplay(string Id, string Kind, DateTimeOffset CreatedAt, string AccountSnapshotId, string GameSnapshotId,
     string CalculationDataId, string RuntimeDataId, string StatRulesVersion, string HitRulesVersion,
-    IReadOnlyDictionary<string,int> AppliedLevels, IReadOnlyList<SkillReplayMember> Inputs, SkillReplayResult Result);
+    IReadOnlyDictionary<string,int> AppliedLevels, IReadOnlyList<SkillReplayMember> Inputs, SkillReplayResult Result)
+{
+    public CombatConditionCompatibility? ConditionCompatibility { get; init; }
+}
 
 public sealed partial class RuntimeReplayService
 {
@@ -30,6 +33,7 @@ public sealed partial class RuntimeReplayService
             _ => throw new ArgumentException($"{name} must be an object or null.")
         };
         var conditions = ObjectField(payload, "conditions") ?? throw new ArgumentException("Missing replay conditions.");
+        _ = CombatConditionWire.Inspect(ObjectField(conditions,"combat")??new JsonObject());
         var damageLog = ObjectField(conditions, "damageLog");
         var autoBurst = ObjectField(conditions, "autoBurst");
         if (autoBurst is not null && Field(autoBurst, "tactics") is not null)
@@ -83,9 +87,11 @@ public sealed partial class RuntimeReplayService
     }
     public SavedSkillReplay RunSkills(AccountSnapshot snapshot, SkillReplayRequest request, CalculationService calculation)
     {
+        var compatibility=CombatConditionWire.FromConditions(request.Conditions.Combat);
         if (request.SnapshotId!=snapshot.Id || request.CharacterIds is null || request.CharacterIds.Count is < 1 or > 5
             || request.CharacterIds.Distinct().Count()!=request.CharacterIds.Count)
             throw new ArgumentException("스냅샷과 중복 없는 1~5인 편성을 지정하세요.");
+        var profiles=ProfilesForConditions(request.Conditions.Combat);
         var reports=new List<StatReport>(); var members=new List<SkillReplayMember>();
         foreach (var id in request.CharacterIds)
         {
@@ -102,13 +108,13 @@ public sealed partial class RuntimeReplayService
             }
             var loadout=Loadout(id,levels);
             var weapon=catalog["characters"]![id]!["weapon"]!.Deserialize<WeaponDto>(Wire.Json)!;
-            members.Add(new(new(id,weapon,report.BasicHit,report.PermanentBuffs),report.NativeStats.HP,loadout));
+            members.Add(new(WithCombatProfile(new(id,weapon,report.BasicHit,report.PermanentBuffs),profiles),report.NativeStats.HP,loadout));
             reports.Add(report);
         }
         var result=SkillReplay.Run(members,Graph(),request.Conditions);
         var saved=new SavedSkillReplay(Guid.NewGuid().ToString("N"),request.Conditions.AutoBurst is null ? "skill_reference_replay" : "team_burst_replay",DateTimeOffset.UtcNow,snapshot.Id,snapshot.GameSnapshotId,
             reports[0].CalculationDataId,runtimeId,reports[0].StatRulesVersion,Nikke.Core.Combat.HitCalculator.Version,
-            reports.ToDictionary(r=>r.CharacterId,r=>r.AppliedLevel),members,result);
+            reports.ToDictionary(r=>r.CharacterId,r=>r.AppliedLevel),members,result) {ConditionCompatibility=compatibility};
         SkillArchive().Save(saved.Id, Wire.Serialize(saved));
         return saved;
     }

@@ -35,6 +35,7 @@ public record ExperimentInput(string Fingerprint, string SnapshotId, string Data
     public int InputSchemaVersion { get; init; } = 2;
     public string? RoundingPolicy { get; init; }
     public string? SummaryVersion { get; init; }
+    public CombatConditionCompatibility? ConditionCompatibility { get; init; }
 }
 public record MemberRunSummary(string CharacterId, double Damage, long Shots, long Hits, long CriticalHits,
     long Reloads, long BurstCasts);

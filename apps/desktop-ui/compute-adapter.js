@@ -259,7 +259,8 @@ export function describeComputeError(code) {
 }
 
 const CONTRACT_ERROR_CODES = ['analysis_not_integrated', 'gpu_unavailable', 'saved_tactic_stale', 'engine_or_rules_version_changed',
-  'prepared_input_fingerprint_mismatch', 'baseline_input_mismatch', 'warmup_excluded_from_statistics', 'baseline_required'];
+  'prepared_input_fingerprint_mismatch', 'baseline_input_mismatch', 'warmup_excluded_from_statistics', 'baseline_required',
+  'combat_profile_invalid', 'combat_profile_catalog_missing', 'combat_member_profile_missing'];
 /**
  * Classifies an API failure. An HTTP 4xx is an answer from a reachable API (contract refusal or bad request),
  * not an outage; 5xx and transport failures (no HTTP status) are outages.
@@ -267,7 +268,7 @@ const CONTRACT_ERROR_CODES = ['analysis_not_integrated', 'gpu_unavailable', 'sav
 export function classifyApiFailure(error) {
   const status = Number.isInteger(error?.status) ? error.status : null;
   const message = error?.message ?? String(error);
-  const code = contractErrorCode(message);
+  const code = text(error?.code) ?? contractErrorCode(message);
   const reachable = status !== null && status >= 400 && status < 500;
   return { status, message, code, reachable, outage: !reachable };
 }

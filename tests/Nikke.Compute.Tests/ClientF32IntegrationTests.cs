@@ -14,17 +14,40 @@ namespace Nikke.Compute.Tests;
 
 public sealed class ClientF32IntegrationTests
 {
-    private static PreparedCompute Prepare(string policy="client_f32",HitContext? hit=null)
+    private static PreparedCompute Prepare(string policy="client_f32",HitContext? hit=null,WeaponReplayConditions? combat=null,int rangeMin=25)
     {
         var members=Enumerable.Range(0,5).Select(i=>new SkillReplayMember(new WeaponReplayMember(i.ToString(),
             new WeaponDto{weaponType="AR",inputType="DOWN",fireType="Instant",fireRate=12,endFireRate=12,maxAmmo=100,reloadTimeSec=1,reloadBulletRate=1,shotCount=1,muzzleCount=1},
-            hit??new HitContext{StatAttack=100},new()),1000,
+            hit??new HitContext{StatAttack=100},new()){BonusRangeMin=rangeMin,BonusRangeMax=45,Element="Fire"},1000,
             new SkillLoadout("fixture",new Dictionary<string,int>{{"skill1",10},{"skill2",10},{"burst",10}},
                 new Dictionary<string,SkillDefinition>{{"skill1",new(){SkillId=1}},{"skill2",new(){SkillId=2}},{"burst",new(){SkillId=3}}}))).ToArray();
         return PreparedCompute.Create(members,new(new Dictionary<int,SkillFunction>(),new Dictionary<int,SkillDefinition>()),
-            new(){RoundingPolicy=policy,Combat=new(){DurationFrames=60,Trace=false}},"synthetic","synthetic","final");
+            new(){RoundingPolicy=policy,Combat=combat??new(){DurationFrames=60,Trace=false}},"synthetic","synthetic","final");
     }
     private static HardwareProfile Hardware=>HardwareProbe.Normalize(new(),2,8L<<30,"integration","Windows","X64",false);
+    [Fact] public void Boss_conditions_metadata_and_explicit_unset_mode_survive_restore_and_partition_cache()
+    {
+        var inputs=new[]{Prepare(),Prepare(combat:new(){DurationFrames=60,BossDistance=null,BossWeakElement=null}),
+            Prepare(combat:new(){DurationFrames=60,BossDistance=35}),Prepare(combat:new(){DurationFrames=60,BossDistance=36}),
+            Prepare(combat:new(){DurationFrames=60,BossDistance=35,BossWeakElement="Fire"}),
+            Prepare(combat:new(){DurationFrames=60,BossDistance=35},rangeMin:26)};
+        Assert.Equal(inputs.Length,inputs.Select(p=>p.Input.Fingerprint).Distinct().Count());
+        Assert.Equal(inputs.Length,inputs.Select(p=>ExecutionPolicy.Conservative(Hardware,p.Input,new()).Fingerprint).Distinct().Count());
+        foreach(var input in inputs)
+        {
+            var restored=PreparedCompute.Restore(input.PersistedInput);
+            Assert.Equal(input.Input.ConditionCompatibility,restored.Input.ConditionCompatibility);
+            Assert.Equal(input.Run("x",0,1,default).TeamDamage,restored.Run("x",0,1,default).TeamDamage);
+        }
+        Assert.Equal("legacy_global",inputs[0].Input.ConditionCompatibility!.Mode);
+        Assert.Equal("per_member",inputs[1].Input.ConditionCompatibility!.Mode);
+    }
+    [Fact] public void Explicit_null_boss_and_false_legacy_mix_fails_before_prepared_json_erases_nulls()
+    {
+        Assert.Throws<ArgumentException>(()=>Prepare(combat:new(){DurationFrames=60,BossDistance=null,ProperDistance=false}));
+        var json=JsonNode.Parse(Prepare().PersistedInput)!;json["input"]!["conditionCompatibility"]!["label"]="changed";
+        Assert.Throws<InvalidOperationException>(()=>PreparedCompute.Restore(json.ToJsonString()));
+    }
     // Storage/cache fixture for pre-upgrade metadata, not an old-engine arithmetic oracle.
     private sealed class HistoricalFixture(PreparedCompute inner) : IPreparedExperiment
     {

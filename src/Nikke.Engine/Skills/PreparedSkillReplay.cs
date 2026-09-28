@@ -12,7 +12,7 @@ public sealed record SkillRunSummary(string ImplementationVersion,string RulesVe
 // Private deep copy, no mutable input exposure, no pooling, no per-run serialization.
 public sealed class PreparedSkillReplay
 {
-    public const string Version="cpu-summary.2-client-f32";
+    public const string Version="cpu-summary.3-boss-conditions";
     private sealed record Input(SkillReplayMember[] Members,SkillGraph Graph,SkillReplayConditions Conditions);
     private readonly Input input;
     private PreparedSkillReplay(Input input) => this.input=input;

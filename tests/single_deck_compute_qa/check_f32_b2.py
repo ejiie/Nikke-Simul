@@ -2,7 +2,7 @@
 Synthetic connection/raw metadata are persisted in new dataRoot, never response mocks.
 The v2 rendering check transforms only an outgoing request, forwarding it to the API.
 """
-import argparse,hashlib,json,math,os,socket,sqlite3,subprocess,time,uuid
+import argparse,hashlib,json,math,os,socket,sqlite3,subprocess,sys,time,uuid
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 from public_fixture import create,read,digest
@@ -17,6 +17,11 @@ def main():
     run=ROOT/'artifacts/single-deck-qa'/('f32-b2-'+uuid.uuid4().hex[:12]);data=run/'data';data.mkdir(parents=True)
     source=ROOT/'artifacts/single-deck-qa/load1000-3db71912a601/data'
     hashes,game,snapshot,ids=create(source,data)
+    # F-COND regression uses the newly required public runtime profiles in this new dataRoot only.
+    source_record=next(r for r in read(ROOT/'docs/p03-source-manifest.json') if r.get('inputKey')=='sourceRoles')
+    roster=Path(source_record['sourceRoot'])/source_record['path']
+    assert digest(roster)==source_record['sha256']
+    subprocess.run([sys.executable,str(ROOT/'tools/data-pipeline/prepare_combat_conditions.py'),'--runtime-root',str(data/'runtime'),'--source-roster',str(roster)],check=True,capture_output=True)
     rawid=uuid.uuid4().hex;snapshot['rawManifestId']=rawid
     connection=dict(id='qa-browser-connection',accountId=snapshot['accountId'],status='ready',nickname='QA synthetic',area=1,updatedAt='2026-09-28T00:00:00Z',choices=[dict(area=1,label='QA synthetic',characterCount=5,openId='synthetic')])
     with sqlite3.connect(data/'accounts.db') as db:
@@ -157,7 +162,7 @@ def main():
         st=call('compute/experiments/'+b['id']+'/statistics?cut=0').json();rows=call('compute/experiments/'+b['id']+'/results').json()['runs'];save('desktop-statistics',st);save('desktop-runs',rows)
         metric(st['team'],[r['teamDamage'] for r in rows],0)
         check('stats actual completed n1 and independent mean',state['state']=='completed' and st['team']['n']==1)
-        check('stats version policy rendered',all(s in text for s in ['client_f32','schema 3','cpu-summary.2-client-f32',state['input']['fingerprint']]))
+        check('stats version policy rendered',all(s in text for s in ['client_f32','schema 3',state['input']['summaryVersion'],state['input']['fingerprint']]))
         check('stats available mean and quantiles visible',all(format(int(st['team'][key]),',') in text for key in ['mean','median','p5','p95']),dict(apiMean=st['team']['mean'],apiReason=st['team']['unsupportedReason']))
         check('completed API not labeled disconnected','compute API 미연결' not in text)
         resize(desktop,'desktop-statistics')

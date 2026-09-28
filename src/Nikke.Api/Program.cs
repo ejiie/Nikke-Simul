@@ -46,6 +46,7 @@ app.Use(async (context, next) =>
         if (context.Request.Method is not ("GET" or "HEAD") && context.Request.Headers["X-Nikke-Token"] != token) { context.Response.StatusCode = 403; return; }
     }
     try { await next(); }
+    catch (CombatProfileException ex) { context.Response.StatusCode = 409; await context.Response.WriteAsJsonAsync(ex.Error); }
     catch (KeyNotFoundException) { context.Response.StatusCode = 404; await context.Response.WriteAsJsonAsync(new { message = "항목을 찾을 수 없습니다." }); }
     catch (ArgumentException ex) { context.Response.StatusCode = 400; await context.Response.WriteAsJsonAsync(new { message = ex.Message }); }
     catch (OverflowException ex) { context.Response.StatusCode = 400; await context.Response.WriteAsJsonAsync(new { message = "integer_overflow: " + ex.Message }); }
@@ -93,6 +94,10 @@ app.MapPost("/api/desktop/shutdown", (IHostApplicationLifetime lifetime) =>
 app.MapGet("/api/runtime/catalog", () => File.Exists(Path.Combine(runtimeRoot, "current.json"))
     ? Results.Ok(runtimeReplay.Value.Summary())
     : Results.Conflict(new { message = "P03 자료 준비가 필요합니다. npm run prepare:p03을 실행하세요." }));
+app.MapGet("/api/runtime/combat-conditions", () => runtimeReplay.Value.CombatConditions());
+app.MapGet("/api/snapshots/{id}/combat-conditions", (string id, string characterIds) =>
+    runtimeReplay.Value.DeckConditions(store.Snapshot(id) ?? throw new KeyNotFoundException(),
+        characterIds.Split(',',StringSplitOptions.TrimEntries)));
 app.MapPost("/api/runtime/weapon-replays", (WeaponReplayRequest request) =>
 {
     if (string.IsNullOrWhiteSpace(request.SnapshotId)) throw new ArgumentException("저장 스냅샷을 지정하세요.");
@@ -129,6 +134,7 @@ app.MapPut("/api/accounts/{id}/burst-tactic", (string id, SaveBurstTactic reques
         executionStatus = request.Tactic is null ? "legacy" : issues.Length > 0 ? "draft_incomplete" : "requires_execution_validation", issues });
 });
 app.MapGet("/api/runtime/skill-replays/{id}", (string id) => Results.Content(skillArchive.ReadJson(id), "application/json", System.Text.Encoding.UTF8));
+app.MapGet("/api/runtime/skill-replays/{id}/condition-compatibility", (string id) => CombatConditionWire.FromReplay(skillArchive.ReadJson(id)));
 app.MapGet("/api/runtime/skill-replays/{id}/export.json", (string id) =>
     Results.File(System.Text.Encoding.UTF8.GetBytes(skillArchive.ReadJson(id)), "application/json", $"skill-replay-{id}.json"));
 app.MapGet("/api/runtime/skill-replays/{id}/damage-log", (string id) => DamageLogExport.Read(skillArchive.ReadJson(id)));
