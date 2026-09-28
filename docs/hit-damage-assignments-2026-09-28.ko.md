@@ -4,7 +4,12 @@
 
 - **H-SRC: 원천 조사 완료, Director 검토 수용.** [H-SRC 보고서](C:/Users/user/orca/workspaces/Nikke-Simul/Backend/docs/hit-damage-source-investigation.ko.md)(Backend `f4ab2fc`), 조사 스크립트 `tools/data-pipeline/investigate_hit_sources.py`, 증거 Backend `artifacts/hit-damage-source/evidence.json`(Git 제외). Director가 보고서 전문과 커밋 범위(보고서·스크립트 2파일, `src`/`apps` 변경 0)를 확인했다. 조사 스크립트 재실행은 하지 않았다. 결과 요약은 [클라이언트 공식 기록](hit-damage-client-formula.ko.md)의 H-SRC 절. 이는 읽기 전용 원천 조사 수용이며 실게임 대응 확정·실측 대조가 아니다. 클라이언트 질문 8개는 사용자 답변 대기.
 - **H-SRC → H-F32 영향:** 잠정 `breakRate = 1 + PartsDamage`는 의미 대응이 틀릴 가능성이 높으나 `extra`가 합이므로 **수치는 동일**하다. 진행 중인 H-F32를 중단하지 않고, 저지 입력 신설·96 중복 제거는 클라이언트 확인 후 별도 후속으로 둔다. `statDamageRatio` 1, `defenceRatioRate` 0 기본값은 조사 결과와 일치한다.
-- **H-F32:** 진행 중. 인계 미수신.
+- **H-F32: 엔진 독립 구현 완료, Director 검토 수용(미통합·독립 QA 전).** [H-F32 보고서](C:/Users/user/orca/workspaces/Nikke-Simul/시뮬레이션-엔진-담당/docs/hit-damage-client-f32.ko.md)(엔진 브랜치 `53b3d10`/`5ced15a`). Director가 `ClientFloatDamage`·`HitCalculator`·`OverloadProcessor`·`StatBuffCalculator` diff와 보고서 전문을 읽었다. 테스트 재실행은 하지 않았고, numpy로 전체 float32 경로 예시 4개를 따로 계산해 엔진 oracle 값(330000000, 366999968 등)과 일치를 확인했다.
+  - 구현: checked `long` 공격력 그룹 조립(raw rate/10000 보존, 나머지 비교 사사오입, 음수 포함), 공방차 `long` 계산 후 float32 전환, 각 연산 float32 저장, `MathF.Round(AwayFromZero)`·`max(1)`·checked long. `StatDamageRatio`(1)/`DefenceRatioRate`(0) 입력 추가. `SkillReplay`/`PreparedSkillReplay` 기본 `client_f32`, 과거 후보 3개는 비교용 보존. HitCalculator `p02.4-client-f32`, InputSchemaVersion 3, 엔진·summary 규칙 버전 상승.
+  - 엔진 보고 검증: Core/Engine Release 147/147, 독립 Python struct binary32 golden 10개 중간값 비트·피해 일치. 합성 5인 180초(DEF 30925): 팀 1,346,859,763 → 1,346,863,834(+4,071). 원인은 항별 floor 제거·최종 사사오입(예 172687.5 → 172688). 발수·명중·풀버스트 9회 동일. 합성 입력이며 실게임 수용 아님.
+  - 동작 변화: 소수 native/DEF/고정량과 1/10000보다 정밀한 공격력 비율은 절삭 없이 **명시 거부**한다. 장탄·HP·DEF 조립은 기존 double 유지(장탄 전환 안 함).
+  - 알려진 통합 영향: 로컬 API `/api/calculations/hit`가 schema 상수를 비교하므로 **기존 schema2 요청은 통합 시 거부**된다. API/Contracts/UI의 schema3·새 입력 연결, compute fingerprint·캐시 분리(Backend CPU 튜닝·통계 결과와 혼합 금지)가 필요하다. 1만회 측정(Q-CPU-10K)은 이 전환 후 기준으로 다시 잡아야 한다.
+  - H-SRC 차이: break/parts 잠정 분해는 수치 동일, 의미 수정은 후속.
 
 ## 승인과 근거
 
