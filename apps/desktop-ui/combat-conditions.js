@@ -180,13 +180,13 @@ export function renderConditionControls(state, { legacy = null, catalog = null }
   </div>`;
 }
 
-export function renderDistanceDialog(state, catalog, preview, { error = null } = {}) {
+export function renderDistanceDialog(state, catalog, preview, { error = null, membersError = null } = {}) {
   const rangeText = r => r.rangeBonusAvailable === false || (r.typical && r.typical.min === 0 && r.typical.max === 0)
     ? '0–0 · 보너스 없음(확인 필요)' : r.typical ? `${r.typical.min}–${r.typical.max}` : '미확인';
   const exceptionText = x => `${esc(x.name ?? x.characterId)} (#${esc(x.characterId)}): ${x.min ?? '?'}–${x.max ?? '?'}`;
   const table = catalog?.weaponRanges?.length ? `<div class="table-scroll"><table class="cond-range-table">
       <thead><tr><th>무기군</th><th>적정 사거리(다수)</th><th>인원</th><th>예외</th></tr></thead><tbody>${catalog.weaponRanges.map(r => `<tr data-weapon="${esc(r.weaponType)}"><td>${esc(r.label)}</td><td>${esc(rangeText(r))}</td><td>${r.characterCount ?? '—'}</td><td>${r.exceptions.length ? r.exceptions.map(exceptionText).join(', ') : '—'}</td></tr>`).join('')}</tbody></table></div>`
-    : `<p class="microcopy cond-load-error">무기군별 적정 사거리를 불러오지 못했습니다.${error ? ` ${esc(error)}` : ''}</p>`;
+    : `<p class="cond-load-error" data-cond-error="catalog" role="alert">무기군별 적정 사거리를 불러오지 못했습니다.${error ? ` ${esc(error)}` : ''}</p>`;
   const members = preview.length ? `<ul class="cond-member-list">${preview.map(m =>
     `<li data-member="${esc(m.id)}" data-distance-kind="${m.distance.kind}"><strong>${esc(m.name)}</strong> <span>${esc(WEAPON_LABELS[m.weaponType] ?? '무기 미확인')}</span> <em>${esc(m.distance.text)}</em></li>`).join('')}</ul>` : '';
   const value = state.bossDistance ?? '';
@@ -199,14 +199,14 @@ export function renderDistanceDialog(state, catalog, preview, { error = null } =
       <button type="button" data-cond-unset>미설정</button>
     </div>
     <p class="cond-error" role="alert" hidden></p>
-    <h4>현재 덱</h4>${members}
+    <h4>현재 덱</h4>${membersError ? `<p class="cond-load-error" data-cond-error="members" role="alert">멤버 사거리·속성을 불러오지 못했습니다. ${esc(membersError)}</p>` : ''}${members}
     <h4>무기군별 적정 사거리</h4>${table}
     <p class="microcopy">무기군 표는 참고용이며 판정은 캐릭터별 값을 씁니다(예외 캐릭터 반영).${catalog?.source ? ` 원천 ${esc(catalog.source)}` : ''}${catalog && !catalog.gameVerified ? ' · 실게임 검증 전' : ''}</p>
     <div class="cond-actions"><button type="button" data-cond-cancel>취소</button><button type="submit" class="primary" value="apply">적용</button></div>
   </form>`;
 }
 
-export function renderElementDialog(state, preview, catalog = null) {
+export function renderElementDialog(state, preview, catalog = null, { error = null } = {}) {
   const buttons = WEAK_ELEMENTS.map(e => {
     const members = preview.filter(m => m.element === e.code).map(m => m.name);
     return `<button type="button" class="cond-element ${state.bossWeakElement === e.code ? 'selected' : ''}" data-cond-element="${e.code}" aria-pressed="${state.bossWeakElement === e.code}">
@@ -216,6 +216,7 @@ export function renderElementDialog(state, preview, catalog = null) {
     <h3 id="cond-element-title">보스의 약점 속성</h3>
     <p class="cond-emphasis">보스의 약점 속성 — 이 속성 니케가 우월 코드 보너스를 받습니다.</p>
     <p class="microcopy">니케 자신의 속성이나 보스 자신의 속성이 아닙니다. 속성 상성표는 쓰지 않고, 고른 약점과 같은 속성의 니케만 보너스를 받습니다.</p>
+    ${error ? `<p class="cond-load-error" data-cond-error="members" role="alert">덱 멤버 속성을 확인하지 못했습니다. ${esc(error)}</p>` : ''}
     <div class="cond-element-grid">${buttons}
       <button type="button" class="cond-element ${state.bossWeakElement === null ? 'selected' : ''}" data-cond-element="" aria-pressed="${state.bossWeakElement === null}"><span>없음</span><small class="cond-element-members">전원 보너스 없음</small></button></div>
     <div class="cond-actions"><button type="button" data-cond-cancel>닫기</button></div>
@@ -230,32 +231,39 @@ export function mountConditionControls(container, { getMembers = () => [], loadC
   loadMembers = async () => null, onChange = () => {}, legacy = null } = {}) {
   let state = createConditionState();
   let catalog = null, catalogError = null, catalogPromise = null;
-  let profiles = null, profilesKey = null, lastTrigger = null;
+  let profiles = null, profilesKey = null, profilesError = null, lastTrigger = null;
   const doc = container.ownerDocument;
   const dialog = doc.createElement('dialog');
   dialog.className = 'cond-dialog';
   doc.body.append(dialog);
   const preview = (s = state) => memberPreview(getMembers(), profiles, s);
   const paint = () => { container.innerHTML = renderConditionControls(state, { legacy, catalog }); };
+  const names = () => new Map(getMembers().map(m => [String(m.id), m.displayName ?? String(m.id)]));
+  const errorText = error => describeCombatProfileError(error, names())?.text ?? error?.message ?? String(error);
   const ensureCatalog = () => catalogPromise ??= Promise.resolve(loadCatalog())
     .then(payload => { catalog = payload ? normalizeCatalog(payload) : null; catalogError = null; return catalog; })
-    .catch(error => { catalog = null; catalogError = error?.message ?? String(error); catalogPromise = null; return null; });
+    .catch(error => { catalog = null; catalogError = errorText(error); catalogPromise = null; return null; });
   const ensureProfiles = () => {
     const ids = getMembers().map(m => m.id);
     const key = ids.join(',');
     if (!ids.length) { profiles = null; profilesKey = key; return Promise.resolve(null); }
     if (key === profilesKey && profiles) return Promise.resolve(profiles);
-    return Promise.resolve(loadMembers(ids)).then(payload => { profiles = payload ? normalizeMembers(payload) : null; profilesKey = key; return profiles; })
-      .catch(() => { profiles = null; profilesKey = null; return null; });
+    return Promise.resolve(loadMembers(ids)).then(payload => { profiles = payload ? normalizeMembers(payload) : null; profilesKey = key; profilesError = null; return profiles; })
+      .catch(error => { profiles = null; profilesKey = null; profilesError = errorText(error); return null; });
   };
-  const set = next => { state = { ...state, ...next }; legacy = null; paint(); onChange(state); };
+  const focusOpener = () => {
+    const kind = lastTrigger?.dataset?.condOpen;
+    (kind ? container.querySelector(`[data-cond-open="${kind}"]`) : null)?.focus();
+  };
+  // Apply closes and repaints synchronously, then returns focus at once (the close event itself is queued).
+  const set = next => { state = { ...state, ...next }; legacy = null; paint(); onChange(state); focusOpener(); };
 
   function openDistance(trigger) {
     lastTrigger = trigger;
     let draft = state.bossDistance;
     const render = () => {
       dialog.setAttribute('aria-labelledby', 'cond-distance-title');
-      dialog.innerHTML = renderDistanceDialog({ ...state, bossDistance: draft }, catalog, preview({ ...state, bossDistance: draft }), { error: catalogError });
+      dialog.innerHTML = renderDistanceDialog({ ...state, bossDistance: draft }, catalog, preview({ ...state, bossDistance: draft }), { error: catalogError, membersError: profilesError });
       const form = dialog.querySelector('form');
       const number = form.elements.distance, slider = form.elements.distanceRange, error = form.querySelector('.cond-error');
       const refresh = () => {
@@ -281,9 +289,11 @@ export function mountConditionControls(container, { getMembers = () => [], loadC
       };
       number.focus();
     };
+    // Re-render once data arrives, but never replace the inputs while the user types when data was already there.
+    const stale = !catalog || !profiles || profilesKey !== getMembers().map(m => m.id).join(',');
     render();
     dialog.showModal();
-    Promise.all([ensureCatalog(), ensureProfiles()]).then(() => {
+    if (stale) Promise.all([ensureCatalog(), ensureProfiles()]).then(() => {
       if (dialog.open && dialog.querySelector('[data-cond-form="distance"]')) {
         const typed = dialog.querySelector('[name="distance"]')?.value;
         try { draft = parseDistance(typed); } catch { /* keep draft */ }
@@ -296,16 +306,17 @@ export function mountConditionControls(container, { getMembers = () => [], loadC
     lastTrigger = trigger;
     const render = () => {
       dialog.setAttribute('aria-labelledby', 'cond-element-title');
-      dialog.innerHTML = renderElementDialog(state, preview(), catalog);
+      dialog.innerHTML = renderElementDialog(state, preview(), catalog, { error: profilesError ?? catalogError });
       dialog.querySelectorAll('[data-cond-element]').forEach(button => button.onclick = () => {
         dialog.close(); set({ bossWeakElement: button.dataset.condElement || null });
       });
       dialog.querySelector('[data-cond-cancel]').onclick = () => dialog.close();
       (dialog.querySelector('.cond-element.selected') ?? dialog.querySelector('.cond-element'))?.focus();
     };
+    const stale = !catalog || !profiles || profilesKey !== getMembers().map(m => m.id).join(',');
     render();
     dialog.showModal();
-    Promise.all([ensureCatalog(), ensureProfiles()]).then(() => {
+    if (stale) Promise.all([ensureCatalog(), ensureProfiles()]).then(() => {
       if (dialog.open && dialog.querySelector('[data-cond-form="element"]')) render();
     });
   }
@@ -316,10 +327,11 @@ export function mountConditionControls(container, { getMembers = () => [], loadC
     if (button.dataset.condOpen === 'distance') openDistance(button); else openElement(button);
   });
   // Closing by apply, cancel or ESC returns focus to the (re-rendered) opener.
+  // The close event is queued; if the dialog was reopened meanwhile (fast keyboard use), keep the new content.
   dialog.addEventListener('close', () => {
+    if (dialog.open) return;
     dialog.innerHTML = '';
-    const kind = lastTrigger?.dataset?.condOpen;
-    (kind ? container.querySelector(`[data-cond-open="${kind}"]`) : null)?.focus();
+    if (!container.contains(doc.activeElement)) focusOpener();
   });
   paint();
   return {
@@ -329,4 +341,46 @@ export function mountConditionControls(container, { getMembers = () => [], loadC
     loadCatalog: ensureCatalog,
     dispose: () => dialog.remove()
   };
+}
+
+// B-FIX-2 wire: HTTP 409 {code:"combat_profile_invalid", message, characterId, field, reason} on both
+// combat-conditions GETs, replay POST and compute POST; plus the older 409 combat_profile_catalog_missing and
+// 400 combat_member_profile_missing:<id>. These are server data problems, not connection failures.
+const PROFILE_REASONS = {
+  missing: '값 없음(키 누락)', null: '값이 null', wrong_type: '자료형 오류', out_of_range: '범위 오류(0–100, 최소 ≤ 최대)',
+  unsupported_value: '지원하지 않는 값', id_mismatch: 'ID 불일치', weapon_mismatch: '무기군 불일치', hash_mismatch: '출처 해시 불일치'
+};
+const PROFILE_FIELDS = { bonusRangeMin: '최소 사거리', bonusRangeMax: '최대 사거리', element: '속성', weaponType: '무기군',
+  name: '이름', characterId: '캐릭터 ID' };
+const PREPARE_HINT = '서버 runtime의 사거리·속성 데이터 확인 후 prepare_combat_conditions.py로 다시 준비해야 합니다.';
+
+/**
+ * Korean diagnostic for a combat profile error, or null when the error is something else. `error` is the Error
+ * thrown by the app's api() (status, code, details = response body). `names` maps characterId -> display name.
+ */
+export function describeCombatProfileError(error, names = null) {
+  const body = error?.details && typeof error.details === 'object' ? error.details : {};
+  const message = String(body.message ?? error?.message ?? '');
+  const code = text(error?.code) ?? text(body.code) ?? (message.match(/^(combat_profile_invalid|combat_profile_catalog_missing|combat_member_profile_missing)/)?.[1] ?? null);
+  const who = id => { const name = names?.get?.(String(id)) ?? null; return name && name !== String(id) ? `${name}(#${id})` : `#${id}`; };
+  if (code === 'combat_profile_invalid') {
+    const field = text(body.field);
+    const key = field?.split('.').pop() ?? null;
+    const reason = text(body.reason);
+    const subject = body.characterId != null ? who(body.characterId) : '카탈로그·출처';
+    const fieldText = key && PROFILE_FIELDS[key] ? `${PROFILE_FIELDS[key]}(${key})` : field ?? '필드 미기록';
+    return { code, characterId: body.characterId ?? null, field, reason,
+      text: `사거리·속성 데이터 오류 · ${subject} · ${fieldText} · ${PROFILE_REASONS[reason] ?? reason ?? '사유 미기록'}. ${PREPARE_HINT}`,
+      raw: field ? `${code}: ${field}: ${reason ?? '?'}` : message };
+  }
+  if (code === 'combat_profile_catalog_missing') {
+    return { code, characterId: null, field: null, reason: null, raw: message,
+      text: '이 runtime에는 사거리·속성 데이터(combatProfiles)가 준비되지 않았습니다. 보스 거리·약점 조건을 쓰려면 prepare_combat_conditions.py로 데이터를 준비해야 합니다.' };
+  }
+  if (code === 'combat_member_profile_missing') {
+    const id = message.split(':')[1]?.trim() ?? null;
+    return { code, characterId: id, field: null, reason: 'missing', raw: message,
+      text: `${id ? who(id) : '편성 멤버'}의 사거리·속성 데이터가 없습니다. ${PREPARE_HINT}` };
+  }
+  return null;
 }

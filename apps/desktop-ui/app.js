@@ -7,7 +7,7 @@ import { createDamageLogViewer } from './damage-log.js';
 import { toServerTacticDto } from './damage-log-adapter.js';
 import { createSingleDeckStatsView } from './single-deck-stats.js';
 import { defaultPolicy, policyOptions } from './hit-policy.js';
-import { COND_WIRE, conditionWire, describeCompatibility, mountConditionControls } from './combat-conditions.js';
+import { COND_WIRE, conditionWire, describeCombatProfileError, describeCompatibility, mountConditionControls } from './combat-conditions.js';
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -91,7 +91,8 @@ async function api(path,method='GET',body){
   if(response.status===204)return null;
   const data=await response.json().catch(()=>({}));
   // status marks an HTTP answer; a rejected fetch (transport failure) carries none.
-  if(!response.ok)throw Object.assign(new Error(data.message??`요청 실패 (${response.status})`),{status:response.status});
+  // code/details keep structured error bodies (e.g. 409 combat_profile_invalid {characterId, field, reason}).
+  if(!response.ok)throw Object.assign(new Error(data.message??`요청 실패 (${response.status})`),{status:response.status,code:data.code??null,details:data});
   return data;
 }
 Object.defineProperty(api,'token',{get:()=>boot.token,configurable:true});
@@ -298,7 +299,12 @@ function renderRaid(){
     };
     $('run-replay').disabled=true;$('replay-result').textContent='검산 중…';
     try{lastReplay=await api('/runtime/skill-replays','POST',request);renderReplay(lastReplay);status('검산 결과를 저장했습니다.');}
-    catch(error){$('replay-result').textContent=error.message;}
+    catch(error){
+      // Server data problems (combat profiles) get a Korean diagnostic; other errors keep the server message.
+      const profile=typeof describeCombatProfileError==='function'?describeCombatProfileError(error,new Map(getMembersWithMeta().map(m=>[m.id,m.displayName]))):null;
+      if(profile)$('replay-result').innerHTML=`<p class="compute-warning" data-profile-error="${esc(profile.code)}">${esc(profile.text)}</p><p class="microcopy">서버 원문: ${esc(profile.raw)}</p>`;
+      else $('replay-result').textContent=error.message;
+    }
     finally{$('run-replay').disabled=false;}
   };
 }

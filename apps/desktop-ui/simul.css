@@ -240,6 +240,7 @@ pre{max-height:400px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;}
 .cond-distance-inputs{display:grid;grid-template-columns:1fr 90px auto;gap:10px;align-items:center;}
 .cond-distance-inputs input[type=range]{width:100%;min-width:0;}
 .cond-error{margin:0;color:#b91c1c;font-weight:700;}
+.cond-load-error{margin:0;padding:6px 10px;border-left:4px solid #f59e0b;background:#fffbeb;color:#92400e;font-weight:700;overflow-wrap:anywhere;}
 .cond-member-list{margin:0;padding:0;list-style:none;display:grid;gap:4px;}
 .cond-member-list li{display:flex;flex-wrap:wrap;gap:4px 10px;padding:4px 8px;border-radius:6px;background:#f8fafc;}
 .cond-member-list li em{font-style:normal;margin-left:auto;}

@@ -1,6 +1,6 @@
 # 보스 거리·약점 속성 조건 — UI (F-COND-U)
 
-2026-09-28. **mock 단계 완료**(1~5절, 당시 기록) → **단계 B 완료**(Backend 확정 `796eec3` merge, 확정 wire 연결, 실제 격리 API·브라우저 검증 — 6절). 이 문서는 UI 구현·검증 보고이며 독립 QA 수용·원본 배포 보고가 아니다. 1~5절과 6절이 다르면 6절이 우선한다.
+2026-09-28~29. **U-FIX-2 완료**(사거리·속성 데이터 오류 진단, 7절). 2026-09-28. **mock 단계 완료**(1~5절, 당시 기록) → **단계 B 완료**(Backend 확정 `796eec3` merge, 확정 wire 연결, 실제 격리 API·브라우저 검증 — 6절). 이 문서는 UI 구현·검증 보고이며 독립 QA 수용·원본 배포 보고가 아니다. 1~5절과 6절이 다르면 6절이 우선한다.
 
 배정: [F-COND-1 지시서](C:/Users/user/orca/workspaces/Nikke-Simul/Director/docs/boss-distance-element-assignments-2026-09-28.ko.md)의 "결정한 기본값"·"공통 기준"·"F-COND-U" 절. 공통 기준은 [client_f32 통합 지시서](C:/Users/user/orca/workspaces/Nikke-Simul/Director/docs/client-f32-integration-assignments-2026-09-28.ko.md)의 "공통 기준·보존"을 따른다. Director 문서는 읽기만 했다.
 
@@ -99,7 +99,44 @@ Director 통지(2026-09-28): Backend 확정 `796eec3bd4c6852c8dba7618c2b8584c142
 
 ### 6.4 미실행·한계
 
-- EXE 빌드·배포 없음. 원본 경로·5180/5181·원본 data/local 미접촉. **배포 시 원본 dataRoot runtime에도 `prepare_combat_conditions.py` 준비가 필요**하다(Backend 보고와 같음). 준비 전 runtime에서는 사거리 API가 409 `combat_profile_catalog_missing`이며, UI는 표 자리에 오류를 표시한다(실제 409 화면은 이번에 확인하지 않음 — mock 단위만).
+- EXE 빌드·배포 없음. 원본 경로·5180/5181·원본 data/local 미접촉. **배포 시 원본 dataRoot runtime에도 `prepare_combat_conditions.py` 준비가 필요**하다(Backend 보고와 같음). 준비 전 runtime에서는 사거리 API가 409 `combat_profile_catalog_missing`이다(단계 B 당시 실제 409 화면 미확인 → 7절 U-FIX-2에서 실제 API로 확인).
 - 합성 덱에 RL 멤버가 없어 실제 API의 멤버 `보너스 없음` 표시는 무기군 표로만 확인했다(멤버 행은 mock 단위·브라우저에서 확인).
 - 판정 규칙(양끝 포함, RL 0–0, 평타만 거리)은 잠정 가설이며 실측 전이다. 엔진 멤버별 플래그는 피해 로그 대상 1명(앨리스)만 UI 검사에서 대조했다. 전 멤버 엔진 검증은 엔진·Backend·QA 범위다.
 - 저장 조건을 폼으로 다시 여는 기능은 없어 이전 방식 표시는 결과 카드·통계 카드에서만 한다.
+
+## 7. U-FIX-2 — 사거리·속성 데이터 오류 진단 (2026-09-29)
+
+배정: Director 지시서 `B-FIX-2`·`U-FIX-2` 항목, Backend `97ba7bf` 보고서 마지막 B-FIX-2 절과 계약 문서 B-FIX-2 절. Backend `97ba7bf`를 일반 merge(`1a40692`, 충돌 0). Backend·엔진·QA 파일은 수정하지 않았다.
+
+### 7.1 변경
+
+- 오류 wire: HTTP 409 `{code:"combat_profile_invalid", message, characterId, field, reason}`(두 combat-conditions GET, replay POST, compute POST 공통), 기존 409 `combat_profile_catalog_missing`, 400 `combat_member_profile_missing:<id>`.
+- `app.js` `api()`: HTTP 오류에 `status`와 함께 `code`·`details`(응답 본문)를 붙인다(메시지 불변).
+- `combat-conditions.js` `describeCombatProfileError`: 한국어 진단 `사거리·속성 데이터 오류 · 앨리스(#5004) · 최소 사거리(bonusRangeMin) · 값 없음(키 누락). 서버 runtime의 사거리·속성 데이터 확인 후 prepare_combat_conditions.py로 다시 준비해야 합니다.` 이름은 덱 표시 이름(없으면 `#ID`), 카탈로그·출처 수준은 `카탈로그·출처 · <field>`. reason 8종 한국어(missing 값 없음(키 누락)/null 값이 null/wrong_type 자료형 오류/out_of_range 범위 오류(0–100, 최소 ≤ 최대)/unsupported_value 지원하지 않는 값/id_mismatch ID 불일치/weapon_mismatch 무기군 불일치/hash_mismatch 출처 해시 불일치), 모르는 reason·field는 원문. catalog_missing은 `이 runtime에는 사거리·속성 데이터(combatProfiles)가 준비되지 않았습니다 … 준비해야 합니다`, member_missing은 `리타(#5011)의 사거리·속성 데이터가 없습니다 …`. 서버 원문도 함께 표시한다.
+- 표시 위치: 거리 팝업(무기군 표 자리·현재 덱 자리 각각, 멤버 조회 오류는 이전에는 삼켜졌음), 약점 팝업(덱 멤버 속성 확인 실패), 솔로 레이드 결과(`data-profile-error`), 단일 덱 통계 오류 목록. 경고 스타일(`.cond-load-error`)·줄바꿈.
+- 연결 상태: 통계의 `classifyApiFailure`가 `error.code`를 우선 사용하고 세 코드를 계약 코드 목록에 추가. 409/400은 도달한 API 응답이라 `실제 API 응답` 상태를 유지한다(transport·5xx만 장애).
+- 발견·수정한 대화상자 결함(`09e27cb`부터 잠재): 적용 후 포커스 복귀가 비동기 `close` 이벤트에만 있어, 키보드로 바로 다시 열면 포커스가 버튼에 없거나 늦게 온 `close` 처리기가 새로 연 팝업 내용을 지울 수 있었다. mock 브라우저 검사가 이번에 간헐 실패(3/4)해 드러났다. 적용 시 동기 포커스 복귀, `close` 처리기는 다시 열린 상태면 무시, 데이터가 이미 있으면 팝업을 다시 그리지 않도록 수정 — 이후 mock 검사 5/5 통과.
+
+### 7.2 검증
+
+**실제 격리 API + Chromium, 일부러 손상한 runtime**: `python tests/ui/check_combat_profile_errors_ui.py --dotnet … --source-data <Backend I-BE 격리 run의 data> --source-roster <공개 roster> --assets <격리 아이콘 사본>` → **통과** `artifacts/ui/combat-profile-errors/run-c405d3997fe1`(최종 코드; 앞선 `run-ce2c6287d744`·`run-a9a60e686f56`도 통과).
+
+- 사례마다 새 격리 dataRoot·새 합성 계정·임의 포트. `prepare_combat_conditions.py` 후 **그 격리 runtime만** 손상해 `write_runtime`으로 hash-valid하게 기록: ① `5004.bonusRangeMin` 삭제, ② `5011.element = null`, ③ 준비하지 않은 runtime(combatProfiles 없음). 원천·roster·아이콘 해시 전후 동일. 원본 `data/local`·5180/5181 미접촉. 합성 HTTP는 bootstrap 연결·combat-powers `{}`뿐.
+- 실제 응답: ①② 409 `combat_profile_invalid`(characterId/field/reason 포함), ③ 409 `{message:"combat_profile_catalog_missing: prepare pinned public roster catalog"}`.
+- 화면: 세 사례 모두 거리 팝업 두 곳·약점 팝업·솔로 레이드 결과·통계 오류 목록에 기대 진단(①`앨리스(#5004) · 최소 사거리(bonusRangeMin) · 값 없음(키 누락)`, ②`리타(#5011) · 속성(element) · 값이 null`, ③`준비되지 않았습니다`)과 `prepare_combat_conditions.py` 안내 표시. replay·compute POST 실제 409. 통계 상단 `실제 API 응답`, `미연결` 없음. 1500/850/500px 가로 넘침 0·팝업 뷰포트 안, JS 오류 0.
+
+**mock·기존 회귀** (최종 코드):
+
+| 명령 | 결과 |
+|---|---|
+| `node tests/ui/combat_conditions.test.mjs` | 12/12 (신규 3: reason 8종·이름·필드·카탈로그 수준·메시지 전용 형태, catalog/member missing·무관 오류 null, 팝업 오류 표시) |
+| `node tests/ui/single_deck_stats.test.mjs` | 18/18 (신규 1: 실험 생성 409 → 연결 유지·한국어 진단) |
+| `check_combat_conditions_live.py`, `check_client_f32_live.py` (실제 격리 API) | 통과 `combat-conditions-live/run-ef88d25a4afd`(최종), `client-f32-live/run-73fbc79b5854` |
+| `check_combat_conditions_mock.py` | 최종 코드 5/5 통과(수정 전 간헐 실패, 7.1) |
+| `tests/q3/check_ui_contract.mjs <Q3 engine-example result.json>` | 26/26 |
+| `check_solo_raid_level.py`, `check_single_deck_stats_browser.py`, `check_client_f32_mock_browser.py`, `check_damage_audit_browser.py --real-replay`, `client_f32_mock`·`damage_audit` 단위, vitest | 모두 통과 |
+
+### 7.3 한계
+
+- `combat_member_profile_missing`(400)은 단위 테스트만 했다(실제 runtime 손상 사례는 필드 손상 2종과 카탈로그 없음).
+- EXE 배포 없음. 배포 시 원본 runtime 준비(`prepare_combat_conditions.py`)가 필요하다는 점은 6.4와 같다.

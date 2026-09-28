@@ -7,7 +7,7 @@
  * damage or statistics, never shows a CPU run as a GPU success, and keeps an OL candidate
  * 우열 미확정 unless the difference interval excludes zero.
  */
-import { COND_WIRE, createConditionState, describeCompatibility, describePlannedConditions } from './combat-conditions.js';
+import { COND_WIRE, createConditionState, describeCombatProfileError, describeCompatibility, describePlannedConditions } from './combat-conditions.js';
 import {
   COMPUTE_ROUTES,
   describeHardwareProfile,
@@ -329,8 +329,11 @@ export function createSingleDeckStatsView({ api, getSnapshot, getMembersWithMeta
       // A 4xx (contract refusal such as baseline_required) proves the API answered; only 5xx/transport is an outage.
       if (failure.reachable) state.endpointStatus = 'connected';
       else state.endpointStatus = 'unavailable';
+      // Combat profile data errors name the character, field and reason (B-FIX-2); still not an outage.
+      const profile = describeCombatProfileError(error, new Map(deckMembers().map(m => [m.characterId, m.displayName])));
       return { ok: false, code: failure.code, reachable: failure.reachable,
-        error: failure.code ? `${describeComputeError(failure.code)} (${failure.message})` : failure.message };
+        error: profile ? `${profile.text} (서버 원문: ${profile.raw})`
+          : failure.code ? `${describeComputeError(failure.code)} (${failure.message})` : failure.message };
     }
   }
 
