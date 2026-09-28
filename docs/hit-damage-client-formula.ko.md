@@ -83,7 +83,9 @@ candidate = max(1, round(
 6. `rate`의 원래 자료형(예: `1.5f`)과 `rate − 1`의 계산 자료형.
 7. 출처 기록: 클라이언트 버전, 클래스·메서드 이름.
 
-## 후속 작업 후보 (미배정)
+## 후속 작업
+
+2026-09-28 아래 1·2를 배정했다: [H-F32·H-SRC 지시서](hit-damage-assignments-2026-09-28.ko.md). 3·4는 미배정이다.
 
 1. `HitCalculator`에 `client_f32` policy 추가: `long` 공격력 조립 → `float32` 대미지 경로 → 사사오입 `max(1, round)`. 기존 후보는 비교용으로 유지한다. `defenceRatioRate`(기본 0)는 필수로, `statDamageRatio`(기본 1)는 조사 결과 전까지 중립값 입력으로 추가한다. 입력 계약 버전 변경 여부는 구현 시 결정한다.
 2. `statDamageRatio`·`damageRatio`·`defenceRatioRate` 원천 조사를 담당자에게 배정한다. 사용자 추정을 확정 사실로 전달하지 않는다.
