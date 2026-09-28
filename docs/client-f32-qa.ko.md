@@ -1,6 +1,48 @@
-# Q-F32 — 단계 A 및 B1 독립 수용 (2026-09-28)
+# Q-F32 — 단계 A·B1 및 B2 독립 수용 (2026-09-28)
 
-## 최신 판정 — 단계 B1
+## 최신 판정 — B2 전체 수용 보류: 통계 UI 결함 2건
+
+**최종 실제 Chromium + 격리 API 자체 검사 77건 중 75 통과, 2 실패.** 단일 히트·replay·exact/불가 후보 렌더는 통과했으나 통계 저장값/화면 일치와 연결 상태 표시는 실패했다. 아래 B1/A는 당시 판정이며 B2 통과로 합산하지 않는다. 제품을 직접 수정하지 않았다.
+
+시작 HEAD `058b8a5`, 미추적 package-lock.json만 있는 상태에서 UI `343877e`(Backend `74ca24f` 포함)를 일반 merge해 `74a4225`가 되었다. Director 배정서 최신 상태/Q-F32 단계 B와 UI 보고서10절을 읽었다. QA `check_f32_b2.py`는 UI의 live 검사·mock·golden을 재사용하지 않는다. 자기 Fraction/binary32 기대값과 독립 통계 도구로 검산했다. apps/web은 npm ci 후 TypeScript/Vite build(`--base=/legacy/`) 성공. API는 Backend 변경이 없는 자기 B1 Release DLL을 사용했다.
+
+실제 API **61468**, 새 합성5인 DB·connection·raw envelope/manifest, 공개12파일 allowlist만 사용했다. 원본 계정/세션을 복제하지 않았고 bootstrap까지 응답 mock이 없다. v2 렌더 검사만 브라우저의 나가는 POST를 schema2로 바꿔 실제 API로 전달했다(응답 대체 없음). 이는 UI에 자연적인 v2 입력/import 동선이 있다는 판정이 아니다. 독립 HTTP import/저장 수용은 B1 근거다. desktop-ui의 단일 히트 검산은 솔로레이드 로그의 선택 audit이며 별도 입력 폼은 apps/web에서 검사했다.
+
+### B2 최종 범위별 결과
+
+| 범위 | 실제 근거·판정 |
+|---|---|
+| 기본·과거3 후보·새 입력 | client_f32 기본, 과거3정책 선택/네 후보, 새 두 rate 실험 표시, rawRate10000 문자열 요청, 과정밀 입력 HTTP 전 거부 통과 |
+| 저장·선택 audit | web 각 정책 후보/선택 항목과 저장 GET/다운로드 동일, audit 행·값 일치 통과 |
+| 큰 정수·불가 후보 | 실제 폼 attack999999999997 및 버프 입력으로 exactEffectiveAttack **9845047699970465**(홀수) 그대로 표시, client exactDamage **9845047516200960**, 과거3개 null 및 이유 표시 통과. mock 없음 |
+| v2·오류 | 실제 API v2 conversion 설명, 실제400 오류, warmup 배치의 실제409 통계 제외 설명 통과 |
+| 레벨400·버스트·피해 로그 | 20초/DEF30925 합성 replay, client 및 legacy 로그, fullburst/core 히트 선택10항 audit 저장값 일치, Alice 로그의 각 hit 독립 Fraction 검산, 저장 GET 일치 통과 |
+| 단일 덱 통계 | 10초/600프레임 worker1 정상1회, API n1·평균 독립 검산 및 schema3/summary2/policy/fingerprint 표시 통과. 유효 평균·분위수 화면 표시와 연결 상태는 아래2건 실패 |
+| 브라우저 | 1500/850/500 너비 실제 screenshot·가로 overflow 검사 통과, JS 예외0. 큰 정수 및 통계 screenshot 직접 시각 확인 |
+
+### B2-STAT-1 — 정상 n1의 제공된 통계를 숨김 (담당 I-UI)
+
+최소 재현: 합성5인, 레벨400/DEF30925, 레이드10초 설정 → 단일 덱 통계 → runs1/worker1 → 완료. 최종 experimentId `de35dc72e8d443f883a0c166257ca951`. API 평균/중앙값/P5/P95는 모두 **53451919**, n1, partial=false다. sampleSd/meanCi만 null이고 `unsupportedReason=mean_ci_requires_n_at_least_2`다. 화면은 팀/멤버의 평균과 모든 분위수까지 **미지원**으로 숨긴다.
+
+원인: `apps/desktop-ui/compute-adapter.js:285`에서 reason 존재를 전체 metric의 unsupported로 전달한다. 수정 수용 조건: 지표별 null/지원 여부를 구분하여 제공된 평균·분위수(제공 시 cut/Wilson도)를 표시하고 SD/평균CI 제한만 안내할 것. 실제 n1 API/브라우저 일치, n0 값 미조작, n2 CI 회귀를 재검수해야 한다. 이번 화면은 컷 미지정이며 별도 독립 API 검산에서만 cut=0을 사용했다.
+
+### B2-STAT-2 — 정상 API를 미연결로 표시 (담당 I-UI)
+
+동일 완료 실험 화면 우상단에 **compute API 미연결**이 나온다. `/comparison`의 실제400 `baseline_required`가 원인이다. `single-deck-stats.js:339`의 loadAnalysis가 baseline 없는 일반 실험에도 comparison을 요청하고, `compute-adapter.js:260` 계약 오류 목록에서 이 코드를 인식하지 못해 `single-deck-stats.js:313` 경로가 endpointStatus=unavailable로 만든다.
+
+수정 수용 조건: baseline 없는 실험에는 비교 요청을 생략하거나 정상적인 비교 불가 응답을 API 장애와 구분할 것. 실제 완료 통계 조회에 연결 상태가 정상이고, 실제 transport 장애는 여전히 실패로 표시되어야 한다. 두 결함은 현재 통합본에서 재현했으며 f32 변경이 최초 도입 원인이라고 단정하지 않는다.
+
+### B2 근거·재현·보존·남은 범위
+
+최종 근거 **`artifacts/single-deck-qa/f32-b2-02a9eb8a5f02/`**: `summary.json`(77/75/2), `traffic.json` 실제 요청/응답, `trace.zip`, `web-*.json/png`, `desktop-client-replay.json`, `selected-desktop-hit.json`, `desktop-audit-dom.json`, `desktop-statistics.json`, `desktop-stats-dom.json`, `desktop-statistics-1500.png`, `source-hashes.json`, `preservation.json`. 실행은 `python tests/single_deck_compute_qa/check_f32_b2.py --dotnet <dotnet.exe>`이며 자기 공개 fixture와 apps/web 빌드 및 API Release DLL이 필요하다. `--stats-only`는 같은 새 격리 fixture의 두 결함 재현용이다. 최종 exit1은 위 두 수용 실패이며 실행 중단이 아니다.
+
+예비 실행 `8a38f606d807`은 합성 connection의 updatedAt 누락으로 폼이 초기화되어 QA fixture 고정 날짜를 보완했다. `b56d1de722e8`은 접힌 고급옵션의 worker 입력을 찾는 QA 타임아웃으로, details를 열도록 보완했다. `dfa72ce15104`의 제한된 stats-only 7검사 통과 후 DOM 검토에서 두 결함을 발견하여 명시적 수용 assertion을 추가했다. 그 제한 판정을 최종 통과로 사용하지 않으며 최종 전체 재실행 75/77이 우선한다.
+
+자기 API PID28760 종료·wait 완료. 공개 입력12파일 hash변경0. package-lock SHA256 `2ef4178aa07ddd9ac2e4d47422038d02d8adaadfb15586cee6a2f1995253c767` 동일·커밋제외. 승인 merge 외 제품 직접수정0. 사용자 원본 계정·세션·캐시·EXE·5180/5181 접근/종료, 타worktree 편집, 배포/push/새worker/Run/Dispatch/lifecycle 없음. 실제 사용자 덱·실게임 정확성·EXE 배포·부하 성능은 미판정이며 Q-CPU-10K 계속 보류. Director에게 QA 커밋과 두 UI 결함을 한 번 인계한 후 수정 통지를 기다린다.
+
+---
+
+## 단계 B1 — 당시 독립 API 수용 기록
 
 **B1 API·wire·저장·버전/캐시 분리 수용 통과. 자체 API 검사85/85, 후속 캐시·저장 입력 검사9/9. 차단 결함 발견0. B2 브라우저/UI는 Director 별도 통지 대기. Q-CPU-10K 및 부하 측정은 계속 보류.** 아래 단계 A 기록은 당시 근거로 보존하며 A 숫자를 B1 검사에 합산하지 않는다.
 
