@@ -3,8 +3,18 @@ using Nikke.Simulator.Core.Stats;
 namespace Nikke.Core.Stats;
 
 // Rates from OL, equipment effects and active skills share the same native stat basis.
-public sealed record StatRateBuff(string Source, double Rate, int Stacks = 1);
-public sealed record StatFlatBuff(string Source, double Amount);
+public sealed record StatRateBuff(string Source, double Rate, int Stacks = 1)
+{
+    // Retain source units when available; legacy double inputs must represent exactly a 1/10000 rate.
+    public long? RawRate10000 { get; init; }
+    public static StatRateBuff FromRaw(string source, long rate10000, int stacks = 1) =>
+        new(source, (double)((decimal)rate10000 / 10000), stacks) { RawRate10000 = rate10000 };
+}
+public sealed record StatFlatBuff(string Source, double Amount)
+{
+    public long? ExactAmount { get; init; }
+    public static StatFlatBuff FromInteger(string source, long amount) => new(source, amount) { ExactAmount = amount };
+}
 public sealed record StatBuffSet
 {
     public IReadOnlyList<StatRateBuff> Attack { get; init; } = [];
@@ -22,7 +32,58 @@ public sealed record StatBuffSet
 
 public static class StatBuffCalculator
 {
-    public const string Version = "native-stat-shared-buffs-v2";
+    public const string Version = "native-stat-shared-buffs-v3-attack-i64";
+
+    // Binary64 transport compatibility only. No inferred rounding/truncation of fractional native/flat stats.
+    public static long RequireInteger(double value)
+    {
+        if (!double.IsFinite(value) || value != Math.Truncate(value) || Math.Abs(value) > 9007199254740991d)
+            throw new ArgumentException("Attack/defence/flat input must be an exactly representable integer; use the long fixture entry for larger values.");
+        return checked((long)value);
+    }
+
+    public static long ApplyAttack(long nativeStat, params IReadOnlyList<StatRateBuff>[] groups)
+    {
+        if (nativeStat < 0 || groups is null) throw new ArgumentException("Invalid native attack.");
+        var rates = new Dictionary<long, long>();
+        long count = 0;
+        foreach (var buffs in groups)
+        {
+            if (buffs is null || buffs.Count > 1024) throw new ArgumentException("Invalid attack buffs.");
+            foreach (var buff in buffs)
+            {
+                if (buff is null || string.IsNullOrWhiteSpace(buff.Source) || buff.Source.Length > 256
+                    || !double.IsFinite(buff.Rate) || Math.Abs(buff.Rate) > 1e6 || buff.Stacks is < 1 or > 1000)
+                    throw new ArgumentException("Invalid attack buff.");
+                count = checked(count + buff.Stacks);
+                if (count > 10000) throw new ArgumentException("Too many attack buff stacks.");
+                long raw = buff.RawRate10000 ?? checked((long)Math.Round(buff.Rate * 10000, MidpointRounding.AwayFromZero));
+                if ((double)((decimal)raw / 10000) != buff.Rate)
+                    throw new ArgumentException("Attack rate must retain 1/10000 source units; higher precision or conflicting raw/rate inputs are unsupported, never truncated.");
+                rates[raw] = checked(rates.GetValueOrDefault(raw) + buff.Stacks);
+            }
+        }
+        long value = OverloadProcessor.CalculateFinalBaseStat(nativeStat, rates);
+        if (value < 0) throw new ArgumentException("Negative effective attack.");
+        return value;
+    }
+
+    public static long AddAttackFlat(long ratedStat, IReadOnlyList<StatFlatBuff> buffs)
+    {
+        if (ratedStat < 0 || buffs is null || buffs.Count > 1024) throw new ArgumentException("Invalid flat attack buffs.");
+        long total = ratedStat;
+        foreach (var buff in buffs)
+        {
+            if (buff is null || string.IsNullOrWhiteSpace(buff.Source) || buff.Source.Length > 256)
+                throw new ArgumentException("Invalid flat attack buff.");
+            long amount = buff.ExactAmount ?? RequireInteger(buff.Amount);
+            if (!double.IsFinite(buff.Amount) || (double)amount != buff.Amount)
+                throw new ArgumentException("Conflicting exact flat attack amount.");
+            total = checked(total + amount);
+        }
+        if (total < 0) throw new ArgumentException("Negative effective attack.");
+        return total;
+    }
 
     public static double AddFlat(double ratedStat, IReadOnlyList<StatFlatBuff> buffs)
     {

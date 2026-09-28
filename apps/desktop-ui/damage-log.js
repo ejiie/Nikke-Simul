@@ -50,6 +50,37 @@ const AUDIT_EFFECT_GROUPS = [
  * Renders the per-hit audit from buildHitAudit(). Values are the stored engine terms; every
  * dynamic string is escaped. Missing values read "미제공" instead of a plausible 0/1.
  */
+// client_f32 cards: recorded terms first; rates shown from hit inputs are labelled as inputs, not terms.
+function clientAuditCards(b, card, f) {
+  const c = b.client;
+  const long = v => v === null ? '미제공' : v.exact ? f(v.value) : `${v.text} (JSON 정밀도 초과)`;
+  const input = v => v === null ? '미기록' : f(v);
+  // binary32 round-trips in 9 significant digits; the steps table below keeps the full recorded value.
+  const f32 = v => v === null ? '미제공' : f(Number(v.toPrecision(9)));
+  const rates = [['크리', c.rates.critical], ['코어', c.rates.core], ['풀버스트', c.rates.burst], ['적정 거리', c.rates.range]]
+    .map(([label, v]) => `${label} ${input(v)}`).join(' → ');
+  const finalSub = b.finalMatchesStored === true ? '저장된 발당 피해와 일치'
+    : b.finalMatchesStored === false ? `저장된 발당 피해 ${f(b.storedDamage)}와 불일치` : '저장값 대조 불가';
+  return [
+    card('기초 공격력 (Base ATK)', f(b.baseAttack)),
+    card('최종 공격력 (long 조립)', long(c.attack), '', 'text-cyan'),
+    card('적 방어력 (정수)', long(c.defence), b.defenseIgnored ? '방어 무시 타격' : ''),
+    card('공방차 (long → float32)', long(c.difference), '', 'text-green'),
+    card('damageRatio (스킬 계수)', c.damageRatio === null ? '미제공' : `${f(c.damageRatio * 100)}%`, 'H-F32 잠정: 기존 계수'),
+    card('statDamageRatio', input(c.statDamageRatio), '실험·미확정 입력 · 중립 1'),
+    card('base (float32)', f32(c.base), '공방차 × damageRatio × statDamageRatio × chargeDamageRate'),
+    card('B (float32 누적)', f32(c.bonus), `입력 rate: ${rates}`),
+    card('extra', f32(c.extra), 'breakRate + addDamageRate − 1 · 잠정 대응'),
+    card('1 − damageReductionRate', f32(c.reduction), '받는 대미지·분배 · 잠정 대응'),
+    card('1 − defenceRatioRate', f32(c.defenceFactor), `실험·미확정 · 입력 ${input(c.defenceRatioRate)}`),
+    card('elementRate (입력)', input(c.rates.element), '감사 항 미기록 · hit 입력 기준'),
+    card('정수화 전 곱 (float32)', f32(c.product)),
+    card('정수화 정책', b.policy, '사사오입(0.5는 0에서 먼 쪽) · 최소 1', 'font-mono'),
+    card('최종 피해', long(c.final), c.minimumApplied ? `최소 피해 1 적용 · ${finalSub}` : finalSub,
+      b.finalMatchesStored === false ? 'text-bad' : b.finalMatchesStored === true ? 'text-ok' : '')
+  ].join('');
+}
+
 export function renderDamageAuditPanel(hit, audit) {
   const b = audit.breakdown;
   const f = formatAuditNumber;
@@ -71,7 +102,7 @@ export function renderDamageAuditPanel(hit, audit) {
     : b.factors.every(x => x.factor !== null) ? b.factors.map(x => f(x.factor)).join(' × ') : '미제공';
   const finalSub = b.finalMatchesStored === true ? '저장된 발당 피해와 일치'
     : b.finalMatchesStored === false ? `저장된 발당 피해 ${f(b.storedDamage)}와 불일치` : '저장값 대조 불가';
-  const cards = [
+  const cards = b.client ? clientAuditCards(b, card, f) : [
     card('기초 공격력 (Base ATK)', f(b.baseAttack)),
     card('버프 적용 공격력 (최종 공격력)', f(b.effectiveAttack), '', 'text-cyan'),
     card('적 방어력 (Target DEF)', f(b.defense), b.defenseIgnored ? '방어 무시 타격' : ''),

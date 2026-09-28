@@ -45,8 +45,8 @@ public record WeaponReplayResult(string RulesVersion, string Status, string Skil
 // A weapon-only reference replay. Prescribed condition windows are never labelled automatic skills or burst cycles.
 public static class WeaponReplay
 {
-    public const string Version = "p03.weapon-reference.1";
-    private static readonly string[] Policies = ["legacy_term_floor", "final_round_even", "nested_floor"];
+    public const string Version = "p03.weapon-reference.2-client-f32";
+    private static readonly string[] Policies = [HitCalculator.DefaultPolicy, "legacy_term_floor", "final_round_even", "nested_floor"];
     private static Dictionary<string, double> ZeroDamage() => Policies.ToDictionary(p => p, _ => 0d);
     private sealed class MemberState
     {
@@ -131,7 +131,8 @@ public static class WeaponReplay
     }
 
     private static double[] Rates(IReadOnlyList<StatRateBuff> buffs) => buffs.SelectMany(b => Enumerable.Repeat(b.Rate, b.Stacks)).ToArray();
-    internal static void Validate(IReadOnlyList<WeaponReplayMember> members, WeaponReplayConditions c)
+    internal static void Validate(IReadOnlyList<WeaponReplayMember> members, WeaponReplayConditions c,
+        string policy = HitCalculator.DefaultPolicy)
     {
         if (c is null || members is null || members.Count is < 1 or > 5 || members.Any(m => m is null)
             || members.Select(m => m.CharacterId).Distinct().Count() != members.Count || c.DurationFrames is < 1 or > 10800
@@ -142,6 +143,7 @@ public static class WeaponReplay
             throw new ArgumentException("평타 시간축 검산 입력을 확인하세요.");
         if (c.ManualCharacterId != "" && !members.Any(m => m.CharacterId == c.ManualCharacterId))
             throw new ArgumentException("수동 조작 캐릭터가 편성에 없습니다.");
+        if (policy == HitCalculator.DefaultPolicy) StatBuffCalculator.RequireInteger(c.EnemyDefense);
         foreach (var m in members)
         {
             var w = m.Weapon;
@@ -160,7 +162,7 @@ public static class WeaponReplay
                 throw new ArgumentException("이 검산에서 지원하는 무기 입력이 아닙니다.");
             if (w.weaponType == "SG" && c.PelletCoefficientPolicy is not ("per_trigger" or "per_pellet"))
                 throw new ArgumentException("SG 계수를 한 발 전체 또는 펠릿당 기준 중 명시하세요.");
-            HitCalculator.Compare(m.Hit);
+            HitCalculator.Calculate(m.Hit,policy);
             foreach (var buffs in new[] { m.Buffs.Ammo, m.Buffs.ChargeSpeed, m.Buffs.ReloadSpeed, m.Buffs.CriticalChance })
                 StatBuffCalculator.Apply(0, buffs); // shared validation before expanding stack terms
             if (StatBuffCalculator.Apply(w.maxAmmo, m.Buffs.Ammo) is < 1 or > 100000)
@@ -175,6 +177,8 @@ public static class WeaponReplay
         var windows = c.FullBurstWindows.OrderBy(w => w.StartFrame).ToArray();
         if (windows.Zip(windows.Skip(1)).Any(p => p.First.EndFrame > p.Second.StartFrame))
             throw new ArgumentException("풀버스트 조건 구간이 겹칩니다.");
-        foreach (var window in c.AttackBuffWindows) StatBuffCalculator.Apply(0, new StatRateBuff[] { window.Buff });
+        foreach (var window in c.AttackBuffWindows)
+            if (policy == HitCalculator.DefaultPolicy) StatBuffCalculator.ApplyAttack(0, new StatRateBuff[] { window.Buff });
+            else StatBuffCalculator.Apply(0, new StatRateBuff[] { window.Buff });
     }
 }

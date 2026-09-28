@@ -1,0 +1,119 @@
+{
+  "_note": "Synthetic StatisticsResult payloads in Backend contract v1 (f2327e5) shape: team + members dictionary of MetricStatistics, Interval(lower, upper, confidence, method).",
+  "normal": {
+    "experimentId": "exp-synthetic-1",
+    "partial": false,
+    "methodVersion": "synthetic-stats-1",
+    "gameVerified": false,
+    "team": {
+      "n": 1000,
+      "mean": 152382293.4,
+      "sampleSd": 4821904.5,
+      "meanCi": { "lower": 152083461.2, "upper": 152681125.6, "confidence": 0.95, "method": "student_t" },
+      "median": 152401002,
+      "p5": 144512900,
+      "p95": 160233815,
+      "cut": 150000000,
+      "cutSuccess": 0.683,
+      "cutCi": { "lower": 0.654, "upper": 0.711, "confidence": 0.95, "method": "wilson" },
+      "quantileMethod": "type7",
+      "unit": "team_damage"
+    },
+    "members": {
+      "5004": { "n": 1000, "mean": 61230011.5, "sampleSd": 2110044.2,
+        "meanCi": { "lower": 61102003, "upper": 61358020, "confidence": 0.95, "method": "student_t" },
+        "median": 61240110, "p5": 57880220, "p95": 64510990, "cut": null, "cutSuccess": null, "cutCi": null,
+        "quantileMethod": "type7", "unit": "member_damage" },
+      "5044": { "n": 1000, "mean": 42110552.1, "sampleSd": 1802113.7,
+        "meanCi": { "lower": 42001110, "upper": 42219994, "confidence": 0.95, "method": "student_t" },
+        "median": 42098770, "p5": 39220110, "p95": 45012880, "cut": null, "cutSuccess": null, "cutCi": null,
+        "quantileMethod": "type7", "unit": "member_damage" },
+      "5009": { "n": 1000, "mean": 21990013.2, "sampleSd": 980221.4,
+        "meanCi": { "lower": 21900001, "upper": 22080025, "confidence": 0.95, "method": "student_t" },
+        "median": 21985540, "p5": 20410880, "p95": 23560110, "cut": null, "cutSuccess": null, "cutCi": null,
+        "quantileMethod": "type7", "unit": "member_damage" },
+      "5011": { "n": 1000, "mean": 15020880.9, "sampleSd": 640110.3,
+        "meanCi": { "lower": 14960004, "upper": 15081757, "confidence": 0.95, "method": "student_t" },
+        "median": 15018820, "p5": 13990110, "p95": 16050220, "cut": null, "cutSuccess": null, "cutCi": null,
+        "quantileMethod": "type7", "unit": "member_damage" },
+      "5008": { "n": 1000, "mean": 12030835.7, "sampleSd": 511220.8,
+        "meanCi": { "lower": 11980002, "upper": 12081669, "confidence": 0.95, "method": "student_t" },
+        "median": 12028870, "p5": 11210330, "p95": 12880440, "cut": null, "cutSuccess": null, "cutCi": null,
+        "quantileMethod": "type7", "unit": "member_damage" }
+    }
+  },
+  "empty": {
+    "experimentId": "exp-synthetic-empty",
+    "partial": false,
+    "methodVersion": "synthetic-stats-1",
+    "gameVerified": false,
+    "team": { "n": 0, "mean": null, "sampleSd": null, "meanCi": null, "median": null, "p5": null, "p95": null,
+      "cut": null, "cutSuccess": null, "cutCi": null, "quantileMethod": "type7", "unit": "team_damage" },
+    "members": {}
+  },
+  "single": {
+    "experimentId": "exp-synthetic-single",
+    "partial": false,
+    "methodVersion": "synthetic-stats-1",
+    "gameVerified": false,
+    "team": { "n": 1, "mean": 151002993, "sampleSd": null, "meanCi": null, "median": 151002993,
+      "p5": null, "p95": null, "cut": null, "cutSuccess": null, "cutCi": null, "quantileMethod": "type7",
+      "unit": "team_damage" },
+    "members": {
+      "5004": { "n": 1, "mean": 60112000, "sampleSd": null, "meanCi": null, "median": 60112000, "p5": null,
+        "p95": null, "cut": null, "cutSuccess": null, "cutCi": null, "quantileMethod": "type7", "unit": "member_damage" }
+    }
+  },
+  "zeroDamage": {
+    "experimentId": "exp-synthetic-zero",
+    "partial": false,
+    "methodVersion": "synthetic-stats-1",
+    "gameVerified": false,
+    "team": { "n": 250, "mean": 0, "sampleSd": 0,
+      "meanCi": { "lower": 0, "upper": 0, "confidence": 0.95, "method": "student_t" },
+      "median": 0, "p5": 0, "p95": 0, "cut": 150000000, "cutSuccess": 0,
+      "cutCi": { "lower": 0, "upper": 0.0147, "confidence": 0.95, "method": "wilson" },
+      "quantileMethod": "type7", "unit": "team_damage" },
+    "members": {
+      "5004": { "n": 250, "mean": 0, "sampleSd": 0,
+        "meanCi": { "lower": 0, "upper": 0, "confidence": 0.95, "method": "student_t" },
+        "median": 0, "p5": 0, "p95": 0, "cut": null, "cutSuccess": null, "cutCi": null,
+        "quantileMethod": "type7", "unit": "member_damage" }
+    }
+  },
+  "partialUnsupported": {
+    "experimentId": "exp-synthetic-1",
+    "partial": true,
+    "methodVersion": "synthetic-stats-1",
+    "gameVerified": false,
+    "team": { "n": 512, "mean": 151884220.7, "sampleSd": 4711002.4,
+      "meanCi": { "lower": 151475110, "upper": 152293331, "confidence": 0.95, "method": "student_t" },
+      "median": null, "p5": null, "p95": null, "cut": 150000000, "cutSuccess": null, "cutCi": null,
+      "quantileMethod": "type7", "unit": "team_damage" },
+    "members": {
+      "5004": { "n": 512, "mean": null, "sampleSd": null, "meanCi": null, "median": null, "p5": null, "p95": null,
+        "cut": null, "cutSuccess": null, "cutCi": null, "quantileMethod": "type7", "unit": "member_damage",
+        "unsupportedReason": "부분 결과에서 니케별 집계를 제공하지 않습니다." }
+    }
+  },
+  "singleAnalysis": {
+    "_note": "Mirrors the Nikke.Analysis ComputeAnalysis n<2 shape: point estimates supplied for n=1, only sampleSd/meanCi null. Synthetic values.",
+    "experimentId": "exp-synthetic-n1", "partial": false, "methodVersion": "single-deck.analysis.1", "gameVerified": false,
+    "team": { "n": 1, "mean": 48120007, "sampleSd": null, "meanCi": null, "median": 48120007, "p5": 48120007, "p95": 48120007,
+        "cut": 0, "cutSuccess": 1, "cutCi": { "lower": 0.2065493143772374, "upper": 1, "confidence": 0.95, "method": "Wilson score; strict damage > cut" }, "quantileMethod": "Hyndman-Fan type 7", "unit": "damage",
+        "unsupportedReason": "mean_ci_requires_n_at_least_2" },
+    "members": {
+      "5004": { "n": 1, "mean": 17000011, "sampleSd": null, "meanCi": null, "median": 17000011, "p5": 17000011, "p95": 17000011,
+        "cut": null, "cutSuccess": null, "cutCi": null, "quantileMethod": "Hyndman-Fan type 7", "unit": "damage",
+        "unsupportedReason": "mean_ci_requires_n_at_least_2" }
+    }
+  },
+  "emptyAnalysis": {
+    "_note": "n=0 in the same shape: every value null; nothing may be invented.",
+    "experimentId": "exp-synthetic-n0", "partial": false, "methodVersion": "single-deck.analysis.1", "gameVerified": false,
+    "team": { "n": 0, "mean": null, "sampleSd": null, "meanCi": null, "median": null, "p5": null, "p95": null,
+        "cut": null, "cutSuccess": null, "cutCi": null, "quantileMethod": "Hyndman-Fan type 7", "unit": "damage",
+        "unsupportedReason": "mean_ci_requires_n_at_least_2" },
+    "members": {}
+  }
+}

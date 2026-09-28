@@ -19,15 +19,19 @@ builder.WebHost.UseUrls($"http://127.0.0.1:{port}");
 var store = new SnapshotStore(dataRoot);
 // A second backend must not interrupt jobs owned by the first one.
 using var instanceLock = new FileStream(Path.Combine(dataRoot, "backend.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
-var gamePath = Environment.GetEnvironmentVariable("NIKKE_GAME_CATALOG") ?? Path.Combine(root, "data/local/game-catalog.json");
+var gamePath = Environment.GetEnvironmentVariable("NIKKE_GAME_CATALOG") ?? Path.Combine(dataRoot, "game-catalog.json");
 if (!File.Exists(gamePath)) throw new InvalidOperationException("Run npm run setup:sync to prepare the pinned game catalog.");
 var game = Wire.Read<GameSnapshot>(File.ReadAllText(gamePath)); store.SaveGame(game);
 builder.Services.AddSingleton(store); builder.Services.AddSingleton(game);
+builder.Services.AddSingleton<IComputeAnalysis>(_ => new Nikke.Analysis.ComputeAnalysis());
 builder.Services.AddSingleton(new CollectorProcess(root, dataRoot, python));
 builder.Services.AddSingleton(new PresentationService(root, Path.Combine(dataRoot, "presentation"), python, dataRoot));
 builder.Services.AddHostedService(sp => sp.GetRequiredService<PresentationService>());
 builder.Services.AddSingleton<SyncCoordinator>(); builder.Services.AddHostedService(sp => sp.GetRequiredService<SyncCoordinator>());
-builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.PropertyNamingPolicy = Wire.Json.PropertyNamingPolicy);
+builder.Services.ConfigureHttpJsonOptions(options => {
+    options.SerializerOptions.PropertyNamingPolicy = Wire.Json.PropertyNamingPolicy;
+    options.SerializerOptions.TypeInfoResolver = HitWire.Resolver();
+});
 var app = builder.Build();
 var token = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
 var allowedOrigins = new[] { $"http://127.0.0.1:{port}", "http://127.0.0.1:5174" };
@@ -44,6 +48,7 @@ app.Use(async (context, next) =>
     try { await next(); }
     catch (KeyNotFoundException) { context.Response.StatusCode = 404; await context.Response.WriteAsJsonAsync(new { message = "항목을 찾을 수 없습니다." }); }
     catch (ArgumentException ex) { context.Response.StatusCode = 400; await context.Response.WriteAsJsonAsync(new { message = ex.Message }); }
+    catch (OverflowException ex) { context.Response.StatusCode = 400; await context.Response.WriteAsJsonAsync(new { message = "integer_overflow: " + ex.Message }); }
     catch (InvalidOperationException ex) { context.Response.StatusCode = 409; await context.Response.WriteAsJsonAsync(new { message = ex.Message }); }
 });
 app.MapGet("/api/bootstrap", () => new { token, connections = store.Connections(), jobs = store.Jobs().Take(30), connectionFailure = store.LastConnectionFailure(),
@@ -75,6 +80,7 @@ var calculationPath = Path.Combine(dataRoot, "calculation");
 var calculations = new Lazy<CalculationService>(() => new CalculationService(calculationPath));
 var runtimeRoot = Path.Combine(dataRoot, "runtime");
 var runtimeReplay = new Lazy<RuntimeReplayService>(() => new(runtimeRoot, Path.Combine(dataRoot, "weapon-replays")));
+app.MapCompute(dataRoot, store, game, runtimeReplay, calculations);
 var presentationRoot = Path.Combine(dataRoot, "presentation");
 var presentation = app.Services.GetRequiredService<PresentationService>();
 app.MapGet("/api/presentation", () => presentation.Read());
@@ -159,17 +165,10 @@ app.MapPost("/api/accounts/{id}/characters/{characterId}/edit", (string id,strin
     next.Id=Guid.NewGuid().ToString("N");
     return store.Commit(next,expectedId:request.ExpectedSnapshotId);
 });
-app.MapPost("/api/calculations/hit", (HitRequest request) =>
-{
-    if (request.InputSchemaVersion != HitCalculator.InputSchemaVersion)
-        throw new ArgumentException("계산 입력 형식이 변경되었습니다. 화면을 새로고침한 뒤 다시 계산하세요.");
-    if (request.Input is null || !request.Input.ContainsKey("statAttack"))
-        throw new ArgumentException("버프 적용 전 statAttack 입력이 필요합니다.");
-    HitContext input;
-    try { input = request.Input.Deserialize<HitContext>(new JsonSerializerOptions(Wire.Json) { UnmappedMemberHandling = System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow })!; }
-    catch (JsonException) { throw new ArgumentException("계산 입력 필드를 확인하세요. 기존 attack은 statAttack과 버프 목록으로 분리되었습니다."); }
-    return HitCalculator.Compare(input, request.ObservedDamage);
-});
+var hitCalculations = new HitCalculationService(Path.Combine(dataRoot,"hit-calculations"));
+app.MapPost("/api/calculations/hit", (HitCalculationRequest request) => hitCalculations.Calculate(request));
+app.MapPost("/api/calculations/hit/import", (JsonObject artifact) => hitCalculations.Import(artifact));
+app.MapGet("/api/calculations/hit/{id}", (string id) => hitCalculations.Read(id));
 var editor = Path.Combine(root, "apps/desktop-ui");
 if (Directory.Exists(editor))
 {
@@ -193,4 +192,3 @@ app.MapGet("/api/health", () => new { status = "ok", application = "nikke-simul"
 await app.RunAsync();
 record AreaSelection(int Area);
 record StartSync(string ConnectionId);
-record HitRequest(JsonObject Input, double? ObservedDamage, int InputSchemaVersion);

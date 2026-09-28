@@ -47,7 +47,8 @@
   - B2-STAT-1 해소: n=1 평균·중앙값·P5·P95(각 53,285,096)와 5인 값 API = 화면, SD·평균 CI만 미지원. 실제 n=2(600프레임 2회) 독립 통계 검산 — SD 5,375.43, Student CI [32,642,198.72, 32,738,791.28] 화면 일치.
   - B2-STAT-2 해소: 실제 400 `baseline_required`·`invalid_experiment_input`, 404, 409 warmup 모두 연결 유지. 로컬 HTTP 503 주입·connection refused 주입은 "미연결", 해제 후 복구.
   - 미판정: 실제 n=0 API, 모든 4xx 개별 코드, 제품 자연 5xx, 실게임·실사용자 덱·성능·배포.
-- **결론: client_f32 통합 연결·독립 QA 수용 완료(B1·B2).** 남은 것은 Director 통합과 원본 배포(AGENTS.md 절차, 사용자 확인 후 별도 진행). 통합 기준 후보는 QA `1abba9b`(제품 전체 + QA 도구·보고서). Director HEAD와 merge 시 `README.md`만 내용 충돌이 예상되고(`git merge-tree` 확인), `main`과는 충돌 없음.
+- **결론: client_f32 통합 연결·독립 QA 수용 완료(B1·B2).** 통합 기준은 QA `1abba9b`(제품 전체 + QA 도구·보고서).
+- **Director 통합(2026-09-28, 사용자 지시로 1단계만):** Director에 `1abba9b`를 `--no-ff` merge했다. `README.md` 내용 충돌 1건은 양쪽 서술을 합쳐 해결했다(UI의 정책 비교 설명 + Director의 공식·결정·통합 상태). 원본 `main` 로컬 통합·EXE 빌드·원본 경로 배포·실행 검증은 **미실행**이며 사용자 확인 후 별도로 진행한다. 원본 실행 경로는 계속 `C:/Users/user/Documents/GitHub/Nikke-Simul/artifacts/desktop/win-x64/Nikke Simul.exe`이고 이번 통합으로 바뀌지 않았다.
 
 ## 승인과 근거
 

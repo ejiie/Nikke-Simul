@@ -1,6 +1,6 @@
 # 단일 히트 대미지 — 클라이언트 분석 공식
 
-작성: 2026-09-27. 갱신: 2026-09-28 사용자 결정 및 H-SRC 원천 조사 반영. 상태: **정보·결정·원천 조사 기록 완료 / H-F32 구현·API/UI 연결·독립 QA(A·B1·B2) 수용 완료, Director 통합·원본 배포 전 / 실측 대조 전**.
+작성: 2026-09-27. 갱신: 2026-09-28 사용자 결정 및 H-SRC 원천 조사 반영. 상태: **정보·결정·원천 조사 기록 완료 / H-F32 구현·API/UI 연결·독립 QA(A·B1·B2) 수용 완료, Director 통합 완료·원본 배포 전 / 실측 대조 전**.
 
 ## 출처와 신뢰 범위
 
@@ -109,7 +109,7 @@ Attack = statAtk + sum(round(statAtk * atkBuff * buffNum))
 
 ## 후속 작업
 
-2026-09-28 아래 1·2를 배정했다: [H-F32·H-SRC 지시서](hit-damage-assignments-2026-09-28.ko.md). **2(H-SRC)는 원천 조사 완료·Director 검토 수용**, **1(H-F32)은 엔진 브랜치 구현 완료·Director 검토 수용(미통합) — 통합 연결·독립 QA는 [I-BE·I-UI·Q-F32 지시서](client-f32-integration-assignments-2026-09-28.ko.md)로 배정** — [H-F32 보고서](C:/Users/user/orca/workspaces/Nikke-Simul/시뮬레이션-엔진-담당/docs/hit-damage-client-f32.ko.md)(엔진 브랜치 `53b3d10`/`5ced15a`). 3·4는 미배정이다. 추가 후속: 클라이언트 질문 답변 후 break/parts 분리(저지 입력 신설·96 중복 제거)와 `statDamageRatio`·`defenceRatioRate` 원천 연결.
+2026-09-28 아래 1·2를 배정했다: [H-F32·H-SRC 지시서](hit-damage-assignments-2026-09-28.ko.md). **2(H-SRC)는 원천 조사 완료·Director 검토 수용**, **1(H-F32)은 구현·통합 연결·독립 QA 수용 후 2026-09-28 Director 통합 완료([I-BE·I-UI·Q-F32 지시서](client-f32-integration-assignments-2026-09-28.ko.md)), 원본 배포 전** — [H-F32 보고서](C:/Users/user/orca/workspaces/Nikke-Simul/시뮬레이션-엔진-담당/docs/hit-damage-client-f32.ko.md)(엔진 브랜치 `53b3d10`/`5ced15a`). 3·4는 미배정이다. 추가 후속: 클라이언트 질문 답변 후 break/parts 분리(저지 입력 신설·96 중복 제거)와 `statDamageRatio`·`defenceRatioRate` 원천 연결.
 
 1. `HitCalculator`에 `client_f32` policy 추가: `long` 공격력 조립 → `float32` 대미지 경로 → 사사오입 `max(1, round)`. 기존 후보는 비교용으로 유지한다. `defenceRatioRate`(기본 0)는 필수로, `statDamageRatio`(기본 1)는 조사 결과 전까지 중립값 입력으로 추가한다. 입력 계약 버전 변경 여부는 구현 시 결정한다.
 2. `statDamageRatio`·`damageRatio`·`defenceRatioRate` 원천 조사를 담당자에게 배정한다. 사용자 추정을 확정 사실로 전달하지 않는다.

@@ -166,7 +166,9 @@ public sealed class CalculationService
         var native = core + gear + cube + coll;
         StatRateBuff[] OptionBuffs(string type) => c.Equipment.SelectMany(eq => eq.Lines
             .Where(x => x.Presence == "present" && (x.OptionType == type || type == "StatDef" && x.OptionType == "IncHurtDef"))
-            .Select(line => new StatRateBuff($"overload:{c.CharacterId}:{eq.Slot}:{line.LineIndex}:{line.OptionType}", (double)line.NormalizedValue!.Value))).ToArray();
+            .Select(line => type == "StatAtk"
+                ? AttackOption($"overload:{c.CharacterId}:{eq.Slot}:{line.LineIndex}:{line.OptionType}", line)
+                : new StatRateBuff($"overload:{c.CharacterId}:{eq.Slot}:{line.LineIndex}:{line.OptionType}", (double)line.NormalizedValue!.Value))).ToArray();
         double[] Options(string type) => OptionBuffs(type).Select(x => x.Rate).ToArray();
         permanentBuffs = new() { Attack = OptionBuffs("StatAtk"),
             HP = OptionBuffs("StatMaxHP").Concat(effectTerms.GetValueOrDefault("MaxHp") ?? []).ToArray(),
@@ -187,10 +189,25 @@ public sealed class CalculationService
             ElementBonus = Options("IncElementDmg").Sum() + effects.GetValueOrDefault("ElementAdvantageDamage"),
             PartsDamage = effects.GetValueOrDefault("PartsDamage"), PierceDamage = effects.GetValueOrDefault("PierceDamage"), TrueDamage = effects.GetValueOrDefault("TrueDamage") };
         deferred.Add("character_skills_and_team_buffs:P03/P04");
+        if (native.ATK != Math.Truncate(native.ATK)) deferred.Add("client_f32:fractional_native_attack_unsupported_without_rounding_rule");
         foreach (var type in new[] { "StatAccuracyCircle", "StatAmmoLoad", "StatChargeTime", "StatReloadTime", "StatCritical" })
             if (Options(type).Length > 0) deferred.Add("overload:" + type + ":weapon_runtime_or_rng:P03");
         foreach (var effect in effects.Keys.Where(x => !new[] { "MaxHp", "Def", "NormalAttackMultiplier", "ChargeDamage", "ChargeDamageMultiplier", "CoreDamage", "ElementAdvantageDamage", "PartsDamage", "PierceDamage", "TrueDamage" }.Contains(x))) deferred.Add("accessory:" + effect + ":not_consumed_in_single_hit");
         return Result(native, hit);
     }
     private static StatVector Vector(JsonNode row, bool upper) => new(row[upper ? "HP" : "hp"]!.GetValue<double>(), row[upper ? "ATK" : "atk"]!.GetValue<double>(), row[upper ? "DEF" : "def"]!.GetValue<double>());
+    public static StatRateBuff AttackOption(string source, EquipmentLine line)
+    {
+        var normalized = line.NormalizedValue ?? throw new ArgumentException("attack_option_normalized_value_required");
+        decimal raw = normalized * 10000m;
+        if (line.RawValue is {} original)
+        {
+            if (line.RawUnit != "Percent" || original / 10000m != normalized)
+                throw new ArgumentException("attack_option_raw_normalized_mismatch");
+            raw = original;
+        }
+        if (raw != decimal.Truncate(raw) || raw < long.MinValue || raw > long.MaxValue)
+            throw new ArgumentException("attack_option_requires_exact_1_per_10000_units");
+        return StatRateBuff.FromRaw(source, (long)raw);
+    }
 }
