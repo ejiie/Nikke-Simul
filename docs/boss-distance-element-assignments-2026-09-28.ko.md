@@ -68,4 +68,12 @@
 
 ## 전달 확인
 
-(전달 후 기록)
+지시서 커밋 `5b2059a`. 전달 직전 세 터미널 idle 확인.
+
+| 담당 | 터미널 | 요청 ID | 착수 근거 |
+|---|---|---|---|
+| F-COND-E 엔진 | `term_5e3783c1…` (codex) | `7fb48184-69b2-41ea-a912-d84a161fd502` | `input_accepted`·`turn_started` |
+| F-COND-B Backend | `term_e5d05982…` (codex) | `8be4fa1e-6d7a-49fd-9faf-a1134d23b401` | `input_accepted`. 화면에서 Working 확인, 재전송 없음 |
+| F-COND-U UI | `term_c322a450…` (claude) | `2777e10c-ee07-433a-b412-8bbb3a6cffd3` | `input_accepted`·`turn_started` |
+
+검수 담당에는 아직 배정하지 않았다. 착수 확인이며 구현 완료가 아니다.
