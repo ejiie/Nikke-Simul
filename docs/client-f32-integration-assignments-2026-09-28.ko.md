@@ -49,6 +49,7 @@
   - 미판정: 실제 n=0 API, 모든 4xx 개별 코드, 제품 자연 5xx, 실게임·실사용자 덱·성능·배포.
 - **결론: client_f32 통합 연결·독립 QA 수용 완료(B1·B2).** 통합 기준은 QA `1abba9b`(제품 전체 + QA 도구·보고서).
 - **Director 통합(2026-09-28, 사용자 지시로 1단계만):** Director에 `1abba9b`를 `--no-ff` merge했다. `README.md` 내용 충돌 1건은 양쪽 서술을 합쳐 해결했다(UI의 정책 비교 설명 + Director의 공식·결정·통합 상태). 원본 `main` 로컬 통합·EXE 빌드·원본 경로 배포·실행 검증은 **미실행**이며 사용자 확인 후 별도로 진행한다. 원본 실행 경로는 계속 `C:/Users/user/Documents/GitHub/Nikke-Simul/artifacts/desktop/win-x64/Nikke Simul.exe`이고 이번 통합으로 바뀌지 않았다.
+  - 통합 확인: merge 커밋 `6cbb2db`의 `src`·`tests`·`apps` 트리가 QA 수용 커밋 `1abba9b`와 동일하다(`git diff` 0). Director에서 locked restore → Release build(경고 0·오류 0) → test를 실행해 **329/329 통과**(Analysis 41, Sync 99, Core 147, Compute 42). SDK는 원본 저장소 `.tools/dotnet`을 읽기 전용 실행했고 CLI home·NuGet 캐시는 Director `.tools` 아래를 사용했다. UI 브라우저·API 종단은 QA B2 근거에 의존하며 Director에서 재실행하지 않았다.
 
 ## 승인과 근거
 
