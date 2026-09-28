@@ -44,7 +44,10 @@ public sealed partial class RuntimeReplayService
             || request.OlChanges?.Any(c=>!request.CharacterIds.Contains(c.CharacterId))==true
             || request.HitOverrides?.Keys.Any(id=>!request.CharacterIds.Contains(id))==true)throw new ArgumentException("compute_requires_five_members");
         var snapshot=VirtualOverload.Apply(original,game,request.OlChanges??[]);
-        var conditions=request.Conditions.Deserialize<SkillReplayConditions>(Wire.Json)??throw new ArgumentException("missing_conditions");
+        _=CombatConditionWire.Inspect(CombatConditionWire.ReadCombat(request.Conditions));
+        SkillReplayConditions conditions;
+        try {conditions=request.Conditions.Deserialize<SkillReplayConditions>(Wire.Json)??throw new ArgumentException("missing_conditions");}
+        catch(JsonException ex){throw new ArgumentException("invalid_compute_conditions",ex);}
         if(conditions.Combat is null)throw new ArgumentException("missing_combat");
         conditions=conditions with {Combat=conditions.Combat with {Trace=false},DamageLog=null};
         var members=new List<SkillReplayMember>();var reports=new List<StatReport>();
@@ -59,7 +62,7 @@ public sealed partial class RuntimeReplayService
                 levels[slot]=build.Skills.GetValueOrDefault(key)??throw new ArgumentException("skill_level_missing");
             var weapon=catalog["characters"]?[id]?["weapon"]?.Deserialize<WeaponDto>(Wire.Json)??throw new ArgumentException("unsupported_character");
             var hit=HitCalculationService.ApplyExperimentOverrides(report.BasicHit,request.HitOverrides?.GetValueOrDefault(id));
-            members.Add(new(new(id,weapon,hit,report.PermanentBuffs),report.NativeStats.HP,Loadout(id,levels)));reports.Add(report);
+            members.Add(new(WithCombatProfile(new(id,weapon,hit,report.PermanentBuffs),conditions.Combat),report.NativeStats.HP,Loadout(id,levels)));reports.Add(report);
         }
         return PreparedCompute.Create(members,Graph(),conditions,original.Id,game.Id+":"+reports[0].CalculationDataId+":"+runtimeId,request.Phase);
     }
@@ -70,7 +73,7 @@ public sealed class PreparedCompute : IPreparedExperiment
 {
     public const string ImplementationVersion=PreparedSkillReplay.Version;
     public static string RulesVersion(string policy)=>SkillReplay.Version+":"+TeamBurstController.Version+":"+
-        Nikke.Core.Combat.HitCalculator.Version+":"+Nikke.Core.Stats.StatBuffCalculator.Version+":"+policy;
+        Nikke.Core.Combat.HitCalculator.Version+":"+Nikke.Core.Stats.StatBuffCalculator.Version+":"+BossConditionResolver.Version+":"+policy;
     private sealed record Payload(ExperimentInput Input,IReadOnlyList<SkillReplayMember> Members,SkillGraph Graph,SkillReplayConditions Conditions);
     private readonly Payload payload;
     private readonly PreparedSkillReplay engine;
@@ -82,26 +85,28 @@ public sealed class PreparedCompute : IPreparedExperiment
             || payload.Input.InputSchemaVersion!=HitWire.SchemaVersion
             || payload.Input.RulesVersion!=RulesVersion(payload.Conditions.RoundingPolicy)
             || payload.Input.RoundingPolicy!=payload.Conditions.RoundingPolicy)throw new InvalidOperationException("engine_or_rules_version_changed");
-        if(payload.Input.Fingerprint!=Fingerprint(payload.Members,payload.Graph,payload.Conditions,payload.Input.SnapshotId,payload.Input.DataVersion))
+        if(payload.Input.ConditionCompatibility is null || payload.Input.Fingerprint!=Fingerprint(payload.Members,payload.Graph,payload.Conditions,
+            payload.Input.SnapshotId,payload.Input.DataVersion,payload.Input.ConditionCompatibility))
             throw new InvalidOperationException("prepared_input_fingerprint_mismatch");
         engine=PreparedSkillReplay.Create(payload.Members,payload.Graph,payload.Conditions);}
     public static PreparedCompute Restore(string persisted)=>new(persisted);
     public static PreparedCompute Create(IReadOnlyList<SkillReplayMember> members,SkillGraph graph,SkillReplayConditions conditions,string snapshotId,string dataVersion,string phase)
     {
         if(members.Count!=5)throw new ArgumentException("compute_requires_five_members");
+        var compatibility=CombatConditionWire.FromConditions(conditions.Combat);
         conditions=conditions with {Combat=conditions.Combat with {Trace=false},DamageLog=null,
             AutoBurst=conditions.AutoBurst is {} auto?auto with {TimelineLimit=0}:null};
-        var hash=Fingerprint(members,graph,conditions,snapshotId,dataVersion);
+        var hash=Fingerprint(members,graph,conditions,snapshotId,dataVersion,compatibility);
         var input=new ExperimentInput(hash,snapshotId,dataVersion,ImplementationVersion,
             RulesVersion(conditions.RoundingPolicy),
             members.Select(m=>m.Weapon.CharacterId).ToArray(),400,conditions.Combat.DurationFrames,phase,"summary",
             "fixed:"+conditions.Combat.EnemyDefense.ToString("R",System.Globalization.CultureInfo.InvariantCulture))
-            {InputSchemaVersion=HitWire.SchemaVersion,RoundingPolicy=conditions.RoundingPolicy,SummaryVersion=ImplementationVersion};
+            {InputSchemaVersion=HitWire.SchemaVersion,RoundingPolicy=conditions.RoundingPolicy,SummaryVersion=ImplementationVersion,ConditionCompatibility=compatibility};
         return new(Wire.Serialize(new Payload(input,members,graph,conditions)));
     }
-    private static string Fingerprint(IReadOnlyList<SkillReplayMember> members,SkillGraph graph,SkillReplayConditions conditions,string snapshotId,string dataVersion)
+    private static string Fingerprint(IReadOnlyList<SkillReplayMember> members,SkillGraph graph,SkillReplayConditions conditions,string snapshotId,string dataVersion,CombatConditionCompatibility compatibility)
         =>Wire.Hash(Wire.Canonical(JsonSerializer.SerializeToNode(new {members,graph,conditions,snapshotId,dataVersion,level=400,
-            implementation=ImplementationVersion,rules=RulesVersion(conditions.RoundingPolicy),inputSchemaVersion=HitWire.SchemaVersion},Wire.Json)));
+            implementation=ImplementationVersion,rules=RulesVersion(conditions.RoundingPolicy),inputSchemaVersion=HitWire.SchemaVersion,compatibility},Wire.Json)));
     public RunSummary Run(string experimentId,int index,int attempt,CancellationToken cancellationToken)
     {
         var result=engine.Run(cancellationToken);

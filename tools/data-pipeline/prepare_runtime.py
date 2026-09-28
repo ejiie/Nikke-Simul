@@ -6,6 +6,7 @@ claim that importing a function means the combat interpreter supports it.
 import hashlib
 import json
 from pathlib import Path
+from prepare_combat_conditions import assemble_profiles
 
 ROOT = Path(__file__).resolve().parents[2]
 TARGETS = ('리타', '블랑', '누아르', '앨리스', '모더니아')
@@ -147,6 +148,7 @@ def main():
     catalog['gaugeConstants'] = gauge_constants(inputs['gaugeTable'], inputs['gaugeConfig'])
     catalog['connectionSchemaVersion'] = 1
     catalog['sourceHashes'] = hashes
+    catalog['combatProfiles'] = assemble_profiles(inputs['sourceRoles'], hashes['sourceRoles'])
     content = json.dumps(catalog, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()
     version = digest(content)
     folder = ROOT / 'data/local/runtime' / version

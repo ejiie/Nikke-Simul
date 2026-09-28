@@ -5,6 +5,17 @@ namespace Nikke.Compute.Tests;
 
 public sealed class OverloadAdapterTests
 {
+    [Fact] public void Weak_element_candidates_apply_only_to_matching_members()
+    {
+        var ids=new[]{"fire","water","c","d","e"};
+        var snapshot=new AccountSnapshot{GameSnapshotId="game",Characters=ids.Select(id=>new CharacterBuild {
+            CharacterId=id,Equipment=[new(){Slot="head",Tier=10,Lines=[new(){LineIndex=1,Presence="present",OptionType="StatAtk",NormalizedValue=.1m}]}]}).ToList()};
+        var game=new GameSnapshot{Id="game",OptionSteps=new(){["atk_pct"]=[.1m],["element_bonus"]=[.1m]}};
+        var charge=ids.ToDictionary(id=>id,id=>false);var matching=ids.ToDictionary(id=>id,id=>id=="fire");
+        var space=ComputeOverloadCatalog.Generate(snapshot,game,ids,charge,new(),matching);
+        Assert.Equal("fire",Assert.Single(space.Candidates.Where(c=>c.After.Option=="IncElementDmg")).After.CharacterId);
+        Assert.Equal(5,ComputeOverloadCatalog.Generate(snapshot,game,ids,charge,new(){ElementAdvantage=true}).Candidates.Count(c=>c.After.Option=="IncElementDmg"));
+    }
     [Fact] public void Catalog_preserves_signed_tiers_slots_and_excludes_unmodeled_effects()
     {
         var ids=new[]{"a","b","c","d","e"};var snapshot=new AccountSnapshot{GameSnapshotId="game",Characters=ids.Select(id=>new CharacterBuild {
