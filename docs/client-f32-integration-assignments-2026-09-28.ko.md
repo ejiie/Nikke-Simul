@@ -6,7 +6,12 @@
   - 독립 기준: 엔진 golden/oracle 미사용. `Fraction` 정확 유리수 → binary32 nearest-even 자체 구현과 최종 half-away. 산술·경계·예외 **326/326**(중간 6항 비트, 공격력 `long`, 정밀도 거부, NaN/Inf, overflow).
   - replay **54/54**: client 7,979히트 독립 재계산 일치, 팀 1,346,859,763 → 1,346,863,834(+4,071) 재현, 팀 = 구성원 = 히트 합, 발수·명중·풀버스트 9회 불변. 전환 전 `53b3d10^` 소스를 분리 빌드해 과거 3정책을 실행한 결과가 전환 후 명시 선택 결과와 히트별 frame·피해·누적까지 정확히 같다. 정책별 병렬 2회·취소·취소 후 prepared 재사용 통과.
   - 미판정: API/UI·v2 변환·wire·fingerprint/캐시 종단(단계 B), 실게임 정확도, 실측 18점, SW, GPU, 성능. Q-CPU-10K 보류 유지, 재개 시 기준 재고정.
-- **I-BE:** 진행 중. **I-UI 단계 A:** 진행 중.
+- **I-UI 단계 A: 완료, Director 검토 수용.** [I-UI 보고서](C:/Users/user/orca/workspaces/Nikke-Simul/UI/docs/client-f32-ui.ko.md), UI 브랜치 `96faf5d`(Backend `f4ab2fc` 일반 merge, 충돌 0, merge 결과 `src`가 `f4ab2fc`와 동일) → `548a6b4`(화면 준비) → `30ea4f2`(보고서). 변경은 `apps/desktop-ui`·`apps/web`·UI tests·UI 문서뿐이다.
+  - 준비: `hit-policy.js`(client 기본·과거 3개 비교 후보, `statDamageRatio`·`defenceRatioRate` 실험·미확정 표시, 큰 `long` number/문자열 대응), 피해 로그 client 항·카드·산식, web 후보표·실험 입력. `CLIENT_F32_WIRE.confirmed=false`라 **실제 요청·선택지는 아직 바뀌지 않는다**(기본 legacy 유지).
+  - 검증은 mock·기존 회귀만: mock 단위 13/13, vitest 10/10 + tsc, mock 브라우저 12/12(1500/850/500px), 기존 damage audit 19/19·브라우저·솔로레이드·통계 통과. 실제 API 종단·Backend 빌드는 미실행(단계 B).
+  - I-BE에 넘긴 결정 대기: 큰 `long` JSON 표현, schema 3 `HitRequest` 필드, v2 변환 표시, 오류 형태 — 모두 I-BE 지시 2·3항 범위.
+  - 참고(후속 후보): 엔진 client audit term에 charge·element가 별도 항으로 없다(각각 `base`·최종 곱에 포함). UI는 hit 입력으로 표시한다. 실측 실험 단계에서 항별 추적이 필요하면 엔진 audit 확장을 별도 배정한다.
+- **I-BE:** 진행 중. I-BE 인계 후 Director가 I-UI 단계 B·Q-F32 단계 B를 통지한다.
 
 ## 승인과 근거
 
