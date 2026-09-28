@@ -1,12 +1,10 @@
 import { escape as e } from './model';
-import { buildHitRequest, changedHitFields, comparisonTableHtml, EXPERIMENTAL_INPUTS, HIT_WIRE, parseAttackBuffs, parseExperimentalInput, type Candidate, type ExperimentalKey, type Hit } from './calculation-model';
+import { auditTableHtml, buildHitRequest, changedHitFields, comparisonTableHtml, conversionText, DEFAULT_POLICY, EXPERIMENTAL_INPUTS, exactInteger, HIT_POLICIES, HIT_WIRE, hitErrorText, limitationText, parseAttackBuffs, parseExperimentalInput, type ExperimentalKey, type Hit, type HitResponse } from './calculation-model';
 
 type Vector = { hp: number; atk: number; def: number };
 type Report = { accountSnapshotId: string; gameSnapshotId: string; calculationDataId: string; characterId: string; name: string;
   accountLevel: number; appliedLevel: number; levelSource: string; status: string; issues: { message: string }[];
   statRulesVersion: string; nativeStats: Vector | null; basicHit: Hit | null };
-type Comparison = { rulesVersion: string; status: string; input: Hit; effectiveAttack: number; observedDamage: number | null;
-  candidates: Candidate[] };
 type Api = <T>(path: string, method?: string, body?: unknown) => Promise<T>;
 const n = (v: number) => v.toLocaleString('ko-KR', { maximumFractionDigits: 8 });
 const numbers = [['statAttack','스탯 공격력',false], ['defense','적용 적 방어력',false], ['coefficient','타격 계수 (%)',true],
@@ -43,6 +41,7 @@ export function mountCalculation(container: HTMLElement, snapshotId: string, cha
       <fieldset class="experimental-inputs" ${HIT_WIRE.confirmed ? '' : 'disabled'}><legend>실험 입력 · 미확정 공식 항</legend>
       <p class="muted">${HIT_WIRE.confirmed ? '추정값을 기본으로 넣지 않습니다. 중립값에서 바꾼 값은 실험 가정입니다.' : 'client_f32 연결 전 · 현재 검산 요청에 포함되지 않습니다.'}</p>
       <div class="fields">${EXPERIMENTAL_INPUTS.map(s => `<label>${s.key}<input name="${s.key}" type="number" step="any" min="${s.min}" ${s.max === undefined ? '' : `max="${s.max}"`} value="${s.neutral}" required><small>${e(s.note)}</small></label>`).join('')}</div></fieldset>
+      <div class="fields"><label>선택 정책 (계산 단계 표시)<select name="roundingPolicy">${HIT_POLICIES.map(p => `<option value="${p.id}"${p.id === DEFAULT_POLICY ? ' selected' : ''}>${e(p.role === 'default' ? `${p.label} (기본)` : `비교 후보 · ${p.label}`)}</option>`).join('')}</select></label></div>
       <div class="fields"><label>실측 대미지 (선택)<input type="number" name="observed" min="1" step="1" placeholder="추후 입력 가능"></label><label>측정 조건 메모<input name="notes" maxlength="2000" placeholder="대상·스킬·버프·측정 시점"></label></div>
       <button type="submit" class="primary">${HIT_WIRE.confirmed ? '대미지 정책 비교' : '정수화 후보 비교'}</button></form><div class="hit-result" aria-live="polite"></div></details>`;
       let hitSequence = 0;
@@ -61,17 +60,25 @@ export function mountCalculation(container: HTMLElement, snapshotId: string, cha
           hit.runtimeAttackBuffs = parseAttackBuffs(String(data.get('attack-buffs') ?? ''));
           const experimental = Object.fromEntries(EXPERIMENTAL_INPUTS.map(s => [s.key, HIT_WIRE.confirmed
             ? parseExperimentalInput(s.key, String(data.get(s.key) ?? '')) : s.neutral])) as Record<ExperimentalKey, number>;
-          const request = buildHitRequest(hit, observed ? Number(observed) : null, experimental);
-          const comparison = await api<Comparison>('/calculations/hit', 'POST', request);
+          const request = buildHitRequest(hit, observed ? Number(observed) : null, experimental, String(data.get('roundingPolicy') ?? DEFAULT_POLICY));
+          const response = await api<HitResponse>('/calculations/hit', 'POST', request);
           if (!section.isConnected || hitRequestSequence !== hitSequence) return;
-          result.innerHTML = `<p>버프 적용 공격력 <strong class="effective-attack">${n(comparison.effectiveAttack)}</strong></p><p class="muted">${HIT_WIRE.confirmed ? '기본 client_f32 · 과거 정책은 비교 후보 · 실측 대조 전' : '정수화 미확정 · 동일한 입력에 대한 후보 비교입니다.'}</p>${comparisonTableHtml(comparison.candidates)}<button class="export-calculation">검산 기록 저장 (JSON)</button>`;
+          const conversion = conversionText(response.conversion);
+          result.innerHTML = `<p>버프 적용 공격력 (client long) <strong class="effective-attack">${exactInteger(response.exactEffectiveAttack, response.effectiveAttack)}</strong></p>
+            <p class="muted">기본 client_f32 · 과거 3정책은 비교 후보(새 두 비율 미적용) · ${e(response.rulesVersion)} · ${e(response.status)} · 실측 대조 전</p>
+            ${conversion ? `<p class="notice hit-conversion">${e(conversion)}</p>` : ''}
+            ${comparisonTableHtml(response.candidates, HIT_WIRE, response.selectedPolicy)}
+            <details class="hit-audit" open><summary>선택 정책 계산 단계 · ${e(response.selectedPolicy)}</summary>${auditTableHtml(response.selectedCandidate)}</details>
+            <ul class="hit-limitations muted">${response.limitations.map(code => `<li>${e(limitationText(code))}</li>`).join('')}</ul>
+            <p class="muted calc-id">기록 ID ${e(response.id)}</p><button class="export-calculation">검산 기록 저장 (JSON)</button>`;
           result.querySelector<HTMLButtonElement>('.export-calculation')!.onclick = () => {
             const editedFields = changedHitFields(hit, report.basicHit!);
-            const artifact = { schemaVersion: 2, inputSchemaVersion: request.inputSchemaVersion, kind: 'single_hit_calibration', createdAt: new Date().toISOString(), notes: String(data.get('notes')), stats: report, editedFields, comparison };
+            // Import-compatible: POST /calculations/hit/import reads inputSchemaVersion + comparison.{input,observedDamage,selectedPolicy}.
+            const artifact = { schemaVersion: 3, inputSchemaVersion: response.inputSchemaVersion, roundingPolicy: response.selectedPolicy, kind: 'single_hit_calibration', createdAt: new Date().toISOString(), notes: String(data.get('notes')), stats: report, editedFields, comparison: response };
             const url = URL.createObjectURL(new Blob([JSON.stringify(artifact, null, 2)], { type: 'application/json' }));
             const a = document.createElement('a'); a.href = url; a.download = `nikke-hit-${characterId}-${Date.now()}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
           };
-        } catch (error) { if (section.isConnected && hitRequestSequence === hitSequence) result.textContent = error instanceof Error ? error.message : '검산 실패'; }
+        } catch (error) { if (section.isConnected && hitRequestSequence === hitSequence) result.textContent = hitErrorText(error instanceof Error ? error.message : '검산 실패'); }
       };
     } catch (error) { if (section.isConnected && current === sequence) output.textContent = error instanceof Error ? error.message : '계산 실패'; }
   };

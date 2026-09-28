@@ -14,6 +14,7 @@ import {
   describeStatistics,
   describeOlComparison,
   describeComputeError,
+  contractErrorCode,
   buildExperimentRequest,
   formatNumber,
   formatPercent,
@@ -53,6 +54,8 @@ function deckSection(model) {
         ${metricCard('DEF 정책', input.defPolicy ?? '현행 고정 DEF 정책', '자동 20억 전환 없음')}
         ${metricCard('버스트 전술', model.tacticSummary || UNKNOWN, '솔로 레이드 저장 설정')}
         ${metricCard('표본 단계', input.phase ?? model.phase, 'warmup은 표본으로 저장하지 않음')}
+        ${metricCard('대미지 정책', input.present ? (input.roundingPolicy ?? '기록 없음 (client_f32 이전 기록)') : model.roundingPolicy ?? UNKNOWN,
+          input.present ? [input.inputSchemaVersion ? `schema ${input.inputSchemaVersion}` : 'schema 기록 없음', input.summaryVersion].filter(Boolean).join(' · ') : '요청 예정 값')}
         ${metricCard('입력 fingerprint', input.fingerprint ?? UNKNOWN, input.rulesVersion ? `규칙 ${input.rulesVersion}` : '')}
       </div>
       <p class="microcopy">결과는 현재 모델 기반 실험이며 실게임 검증 완료 추천이 아닙니다.${input.gameVerified === false ? ' 저장 입력도 gameVerified=false입니다.' : ''}</p>
@@ -257,7 +260,7 @@ export function renderSingleDeckStats(model) {
 /** Builds the view model from contract payloads; missing payloads degrade to explicit unknown states. */
 export function buildStatsModel({ hardware, batch, statistics, comparison, deckMembers = [], tacticSummary = '',
   requestedRuns = DEFAULT_RUNS, phase = 'final', cut = null, endpointStatus = 'unknown', analysisStatus = 'unknown',
-  errors = [], recovered = false } = {}) {
+  errors = [], recovered = false, roundingPolicy = null } = {}) {
   const described = describeBatch(batch);
   const displayNames = new Map(deckMembers.map(m => [m.characterId, m.displayName ?? m.characterId]));
   return {
@@ -269,6 +272,7 @@ export function buildStatsModel({ hardware, batch, statistics, comparison, deckM
     cut,
     deckMembers,
     tacticSummary,
+    roundingPolicy: typeof roundingPolicy === 'string' && roundingPolicy ? roundingPolicy : null,
     hardware: describeHardwareProfile(hardware),
     batch: described,
     statistics: describeStatistics(statistics, { memberOrder: described.input.characterIds, displayNames }),
@@ -294,7 +298,8 @@ export function createSingleDeckStatsView({ api, getSnapshot, getMembersWithMeta
   let disposed = false;
 
   const deckMembers = () => (getMembersWithMeta?.() ?? []).map(m => ({ characterId: m.id, displayName: m.displayName, burstStep: m.burstStep }));
-  const model = () => buildStatsModel({ ...state, deckMembers: deckMembers(), tacticSummary: getTacticSummary?.() ?? '' });
+  const model = () => buildStatsModel({ ...state, deckMembers: deckMembers(), tacticSummary: getTacticSummary?.() ?? '',
+    roundingPolicy: getConditions?.()?.roundingPolicy ?? null });
 
   async function call(path, method = 'GET', body) {
     try {
@@ -303,9 +308,11 @@ export function createSingleDeckStatsView({ api, getSnapshot, getMembersWithMeta
       return { ok: true, data: result };
     } catch (error) {
       const message = error?.message ?? String(error);
-      if (message.includes('analysis_not_integrated')) state.analysisStatus = 'not_integrated';
-      else state.endpointStatus = 'unavailable';
-      return { ok: false, error: message };
+      const code = contractErrorCode(message);
+      if (code === 'analysis_not_integrated') state.analysisStatus = 'not_integrated';
+      else if (!code) state.endpointStatus = 'unavailable';
+      // A contract refusal is an answer from a reachable API, not an outage.
+      return { ok: false, error: code ? `${describeComputeError(code)} (${message})` : message };
     }
   }
 

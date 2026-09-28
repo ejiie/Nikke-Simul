@@ -681,7 +681,7 @@ export function describeRoundingFormula(policy, minimum = false) {
     'elementRate = 우월 코드면 1 + 기본 + 추가, 아니면 1',
     '최종 = max(1, 사사오입(base × B × extra × 감소 × 방어비율 × elementRate)) · 0.5는 0에서 먼 쪽 · 곱마다 float32'
   ];
-  // After stage B the engine default is client_f32; a stored earlier policy is then a comparison candidate.
+  // The engine default is client_f32 (H-F32); a stored earlier policy is a comparison candidate.
   const comparison = CLIENT_F32_WIRE.confirmed && policyInfo(policy).role === 'comparison'
     ? ['비교 후보 정책 · 기본 경로는 client_f32 (엔진 H-F32)'] : [];
   const lines = ['P = (최종 공격력 − 방어력) × 스킬 계수 × 차지 배율',

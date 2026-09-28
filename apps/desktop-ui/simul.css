@@ -186,6 +186,7 @@ pre{max-height:400px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;}
 #stats-content .table-scroll table{width:100%;border-collapse:collapse;font-size:12px;}
 #stats-content .table-scroll th,#stats-content .table-scroll td{padding:6px 8px;text-align:left;border-bottom:1px solid #e2e8f0;vertical-align:top;}
 #stats-content progress{width:100%;height:10px;margin:10px 0;}
+#stats-content .metric-card{min-width:0;}#stats-content .metric-card strong,#stats-content .metric-card .compute-sub{overflow-wrap:anywhere;}
 
 /* Filters and Table */
 .log-filter-bar{display:flex;flex-direction:column;gap:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:14px;}

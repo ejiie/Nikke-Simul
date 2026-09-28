@@ -1,20 +1,17 @@
 /**
- * Damage policy registry for the desktop UI (client_f32 transition, I-UI stage A).
+ * Damage policy registry for the desktop UI.
  *
  * The engine (H-F32, 5ced15a) makes client_f32 the default and keeps the three earlier policies as
- * comparison candidates. The Backend wire contract for schema 3 is not published yet, so
- * CLIENT_F32_WIRE.confirmed stays false: live screens keep sending the current schema/policies, and the
- * client_f32 presentation below is exercised with mock fixtures only. Stage B flips the flag after the
- * Backend commit is merged and the confirmed wire shape is connected.
+ * comparison candidates. Backend 74ca24f publishes the wire ("I-BE schema 3" in
+ * docs/single-deck-compute-contract.ko.md): replay/compute conditions.roundingPolicy accepts the same four
+ * policies and defaults to client_f32. `confirmed: false` reproduces the stage-A (pre-schema 3) choices for tests.
  */
 
 export const CLIENT_F32 = 'client_f32';
 
 export const CLIENT_F32_WIRE = Object.freeze({
-  confirmed: false,
-  // Current API compares against the Core constant; the engine raises it to 3 with client_f32.
-  liveInputSchemaVersion: 2,
-  clientInputSchemaVersion: 3
+  confirmed: true,
+  inputSchemaVersion: 3
 });
 
 export const HIT_POLICIES = Object.freeze([
@@ -31,12 +28,12 @@ export function policyInfo(id) {
   return byId.get(id) ?? { id: id ?? null, label: `미해석 정책 ${id ?? '미제공'}`, role: 'unknown', note: '표시 규칙 없음' };
 }
 
-/** Engine default when a stored replay/log omits the policy. Before stage B the live API still defaults to legacy. */
+/** Policy the UI sends by default. The unconfirmed (stage A) branch is the earlier legacy default. */
 export function defaultPolicy(confirmed = CLIENT_F32_WIRE.confirmed) {
   return confirmed ? CLIENT_F32 : 'legacy_term_floor';
 }
 
-/** Options for a policy <select>. Unconfirmed wire keeps the earlier three only, so live requests do not change. */
+/** Options for a policy <select>: client_f32 default first, then the comparison candidates. */
 export function policyOptions(confirmed = CLIENT_F32_WIRE.confirmed) {
   return HIT_POLICIES.filter(p => confirmed || p.id !== CLIENT_F32).map(p => ({
     value: p.id,
@@ -83,8 +80,8 @@ export function parseExperimentalInput(key, text) {
 }
 
 /**
- * Wire long reader. Backend has not fixed number vs string for large longs; accept both, keep the exact text,
- * and flag numbers beyond 2^53 as possibly rounded by JSON parsing.
+ * Wire long reader. Exact fields (exactDamage, exactEffectiveAttack, rawRate10000, exactAmount) are decimal
+ * strings; audit before/after are binary64 numbers. Numbers beyond 2^53 are flagged as possibly rounded.
  */
 export function readWireLong(value) {
   if (typeof value === 'number' && Number.isFinite(value) && Number.isInteger(value))

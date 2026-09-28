@@ -170,7 +170,8 @@ export function describeExperimentInput(input) {
   if (!input || typeof input !== 'object') {
     return { present: false, fingerprint: null, snapshotId: null, characterIds: [], synchroLevel: null,
       durationFrames: null, durationSecondsText: UNKNOWN, phase: null, recordLevel: null, defPolicy: null,
-      engineVersion: null, rulesVersion: null, dataVersion: null, gameVerified: null };
+      engineVersion: null, rulesVersion: null, dataVersion: null, gameVerified: null,
+      inputSchemaVersion: null, roundingPolicy: null, summaryVersion: null };
   }
   const durationFrames = isFiniteNumber(input.durationFrames) ? input.durationFrames : null;
   return {
@@ -187,7 +188,11 @@ export function describeExperimentInput(input) {
     engineVersion: text(input.engineVersion),
     rulesVersion: text(input.rulesVersion),
     dataVersion: text(input.dataVersion),
-    gameVerified: triState(input.gameVerified)
+    gameVerified: triState(input.gameVerified),
+    // I-BE schema 3 metadata. Records made before client_f32 omit them; they stay null (구 기록), never a guess.
+    inputSchemaVersion: isFiniteNumber(input.inputSchemaVersion) ? input.inputSchemaVersion : null,
+    roundingPolicy: text(input.roundingPolicy),
+    summaryVersion: text(input.summaryVersion)
   };
 }
 
@@ -243,9 +248,21 @@ export function describeComputeError(code) {
   const known = {
     analysis_not_integrated: '통계 모듈(Analysis) 미연결 · 집계를 제공할 수 없습니다.',
     gpu_unavailable: 'GPU 사용 불가 · 강제 GPU 요청은 실행 전에 거부됩니다.',
-    stale_tactic: '저장된 버스트 전술이 현재 스냅샷·편성과 달라 거부되었습니다.'
+    stale_tactic: '저장된 버스트 전술이 현재 스냅샷·편성과 달라 거부되었습니다.',
+    engine_or_rules_version_changed: '엔진·규칙 버전이 바뀐 이전 실험은 재개할 수 없습니다 · 결과 조회만 가능',
+    prepared_input_fingerprint_mismatch: '저장된 준비 입력의 fingerprint가 일치하지 않아 재개를 거부했습니다.',
+    baseline_input_mismatch: '기준 실험과 snapshot·5인 순서·조건·phase·정책·hitOverrides가 달라 비교할 수 없습니다.',
+    warmup_excluded_from_statistics: 'warmup 실험은 통계 표본에서 제외됩니다.'
   };
   return known[key] ?? `오류 코드 ${key}`;
+}
+
+const CONTRACT_ERROR_CODES = ['analysis_not_integrated', 'gpu_unavailable', 'saved_tactic_stale', 'engine_or_rules_version_changed',
+  'prepared_input_fingerprint_mismatch', 'baseline_input_mismatch', 'warmup_excluded_from_statistics'];
+/** Finds a contract error code inside an API error message (server returns {message}). */
+export function contractErrorCode(message) {
+  const found = CONTRACT_ERROR_CODES.find(code => String(message ?? '').includes(code));
+  return found === 'saved_tactic_stale' ? 'stale_tactic' : found ?? null;
 }
 
 function metricValue(value, { percent = false, digits = null, unsupported = false } = {}) {
