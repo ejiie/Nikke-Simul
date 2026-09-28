@@ -22,6 +22,11 @@
   - compute(합성 5인·400·600프레임·DEF 30925·worker 1): default·legacy·stat·defence·raw·rate·flat 각 1회 → fingerprint 7개·튜닝 키 7개 분리. 동일 조건 재요청은 검증된 캐시 재사용, 구 캐시 존재 시 새 키 miss, 변조 payload 복구 거부.
   - 구 이력: 이전 Q-LOAD-1000 합성 calibration 20행을 격리 이관(계정 DB 복제 없음) — 원본 GET 동일, resume 409 `engine_or_rules_version_changed`, 구 fingerprint RunSummary의 새 batch 쓰기 거부(0행), 새 통계 n1과 구 통계 n20 분리.
   - 미판정: B2(브라우저·UI·피해 로그/통계 화면), 실게임·실측 18점·실사용자 덱·GPU·SW·성능. Q-CPU-10K 보류 유지.
+- **I-UI 단계 B: 완료, Director 검토 수용.** [I-UI 보고서](C:/Users/user/orca/workspaces/Nikke-Simul/UI/docs/client-f32-ui.ko.md) 10절. UI `ab40dd1`(Backend `74ca24f` 일반 merge, 충돌 0) → `0278286`(schema 3 wire 연결·실제 API 검증 스크립트) → `343877e`(기록). Director 확인: merge 이후 변경은 `apps/desktop-ui`·`apps/web`·UI tests·UI 문서·README뿐, 제품 `src` 변경 0. `343877e`는 QA `058b8a5`와 충돌 없이 merge된다. 재실행은 하지 않았다.
+  - 연결: 솔로레이드·통계·web 기본 `client_f32`(과거 3개 비교 후보), web 요청 schema 3 + roundingPolicy + 두 rate, 수동 버프 `rawRate10000` 문자열(0.01%보다 정밀하면 브라우저에서 거부), `candidates`/`selectedCandidate` 표시, 계산 불가 후보는 0이 아닌 이유 표시, exact 문자열 우선, 선택 audit 표, v2 conversion·400 오류 한국어, 통계 화면 schema/policy/summaryVersion 카드와 409 설명, 긴 fingerprint 카드 넘침(기존 결함) 수정.
+  - 실제 격리 API(UI worktree Release, 새 dataRoot·합성 계정): web client 118,985 vs 과거 79,323/79,324/79,323(`statDamageRatio` 2, `defenceRatioRate` 0.25 — Director 산술 확인 79,323 × 2 × 0.75 ≈ 118,984.5), desktop replay 로그 전 항목 `client_f32`, 타격 #946 최종 1,711,007 = 저장값, 통계 batch schema 3·`cpu-summary.2-client-f32`·n=1, 1500/850/500px 넘침 0·JS 오류 0. mock·기존 회귀 통과.
+  - 미실행: EXE 빌드·배포, Backend 전체 테스트 재실행, `hitOverrides` UI 입력(이번 범위 아님), 큰 정수·계산 불가 후보의 실제 브라우저 렌더(mock 단위만).
+- **Q-F32 B2 통지(2026-09-28):** UI `343877e` 기준 브라우저·UI 종단 수용 시작.
 
 ## 승인과 근거
 
