@@ -19,7 +19,7 @@
 - **F-COND-Q 단계 1: 정상 경로 통과, 전체 수용 보류(결함 1건).** 검수 `53d183d`(Backend `796eec3` merge), [QA 보고서](C:/Users/user/orca/workspaces/Nikke-Simul/검수/docs/boss-distance-element-qa.ko.md), 근거 검수 `artifacts/single-deck-qa/conditions-cc81af4fb37e/`. 자체 검사 83/83 + 추가 11/12 = **94/95**(Backend·엔진 검사·정답 미사용).
   - 통과: 공개 192명 독립 집계·프로필·6무기군·SR 예외·RL 일치, 실제 5인 API 경계 18조건, 별도 resolver 1,253사례, 실제 2,087히트(비normal 614) 독립 Fraction/binary32 산술·멤버별 flag 일치, 구 bool replay·batch 정확 재현(이전 QA API DLL 직접 실행과 대조)·구 GET/export/hash 불변·compatibility·구 resume 409, 조건 5종 fingerprint·튜닝 키·통계 분리, 속성 OL 후보 멤버별 판정.
   - **F-COND-Q-1(Backend):** 격리 runtime에서 `combatProfiles.characters.5004.bonusRangeMin`만 제거하면 프로필 GET이 200으로 앨리스 SR을 min 0/max 100으로 내고, 거리 35·Fire replay도 200으로 저장된다(원천은 45–100). Director 확인: `src/Nikke.Contracts/CombatConditions.cs`의 `int BonusRangeMin`(non-nullable) 역직렬화가 누락을 0으로 채우고 `CombatProfileCatalog` 범위 검사를 통과해, 엔진의 불명 검사에 도달하지 못한다. max·element 누락은 500 빈 응답, 멤버 전체 누락은 400. 정상 prepare 산출물에는 누락이 없으므로 **비정상 runtime 방어 경로 결함**이며 실제 배포 손상은 아니다.
-- **B-FIX-2 배정(2026-09-28, F-COND-B 담당):** 필수 키·타입 누락을 보존해(0 채움 금지) 조회·replay·compute 모두 계산·저장 전에 명시적 400/409 진단을 반환한다. 500 빈 응답도 같은 진단으로 바꾼다. 유효한 min 0(SG·RL)·RL 0–0·SR 예외·구 bool 회귀를 유지한다. wire(오류 코드·필드)가 바뀌면 인계에 명시한다. 이후 QA가 이 결함과 회귀를 재수용한다.
+- **B-FIX-2 배정(2026-09-28, F-COND-B 담당):** 필수 키·타입 누락을 보존해(0 채움 금지) 조회·replay·compute 모두 계산·저장 전에 명시적 400/409 진단을 반환한다. 500 빈 응답도 같은 진단으로 바꾼다. 유효한 min 0(SG·RL)·RL 0–0·SR 예외·구 bool 회귀를 유지한다. wire(오류 코드·필드)가 바뀌면 인계에 명시한다. 이후 QA가 이 결함과 회귀를 재수용한다. 전달 `term_e5d05982…` 요청 `5d8caf26-1230-46bf-946e-c0c7ec136f1c`, accepted=true·`input_accepted`(재전송 없음).
 
 ### F-COND-Q — 독립 QA (검수 담당)
 
