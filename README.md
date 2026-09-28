@@ -2,11 +2,13 @@
 
 Solo Raid의 대미지 시뮬레이션, 비중복 5덱 선정, 장비별 육성 효율 분석을 위한 프로젝트입니다.
 
+**다른 프로젝트로 계정 가져오기·동기화 이식:** [이식 진입점·의존성·브랜치 안내](docs/account-sync-porting.ko.md). 비공개 저장소의 기본 브랜치는 `Director`이며, 다른 작업 브랜치는 개별 상태와 이력을 보존합니다. 계정 DB·로그인 세션·캐시·EXE는 포함하지 않습니다.
+
 [니케 PvE 전투·육성 조사](docs/nikke-pve-combat-growth-research.ko.md): 무기·버스트·스탯·장비·큐브·소장품·레이드 시스템과 현재 구현의 차이를 정리했습니다. 확인일 2026-09-09.
 
 **Windows 실행 파일 UI:** Nikke-Local-Lab의 화면·카드·상세 탭과 WinForms/WebView2 창을 이식했습니다. [이식 범위·이미지 출처·실행 방법](docs/desktop-ui-migration.ko.md).
 
-**2026-09-14 원본 실행본:** 실제 사용 경로는 `C:/Users/user/Documents/GitHub/Nikke-Simul/artifacts/desktop/win-x64/Nikke Simul.exe`이며, 바탕 화면의 `Nikke Simul.lnk`도 이 파일을 가리킵니다. 원본 `main`에 완료 커밋을 통합하고 EXE·백엔드·실행 설정을 이 위치에서 갱신했습니다. [원본 배포·검증 기록](docs/desktop-release-original-2026-09-14.ko.md). Director와 다른 worktree의 실행본은 별도 검증용이며, 그 빌드 성공을 원본 배포 완료로 간주하지 않습니다. [앞선 Director 한정 배포 기록](docs/desktop-release-2026-09-14.ko.md).
+**원본 실행본 (최신 배포 2026-09-28, client_f32):** 실제 사용 경로는 `C:/Users/user/Documents/GitHub/Nikke-Simul/artifacts/desktop/win-x64/Nikke Simul.exe`이며, 바탕 화면의 `Nikke Simul.lnk`도 이 파일을 가리킵니다. 원본 `main`에 완료 커밋을 통합하고 EXE·백엔드·실행 설정을 이 위치에서 갱신했습니다. [최신 원본 배포·검증 기록](docs/desktop-release-original-2026-09-28.ko.md) · [2026-09-14 배포 기록](docs/desktop-release-original-2026-09-14.ko.md). Director와 다른 worktree의 실행본은 별도 검증용이며, 그 빌드 성공을 원본 배포 완료로 간주하지 않습니다. [앞선 Director 한정 배포 기록](docs/desktop-release-2026-09-14.ko.md).
 
 **스펙 편집:** 상세 화면에서 장비·OL·스킬·성장·소장품·큐브를 변경하고 Save로 저장합니다. 공식 장비 이미지와 Local Lab 선택 UI를 사용하며, 별 3개와 코어 배지를 붙여 ±로 조정합니다. [편집·저장 범위와 출처](docs/desktop-spec-editor.ko.md).
 
@@ -14,7 +16,9 @@ Solo Raid의 대미지 시뮬레이션, 비중복 5덱 선정, 장비별 육성 
 
 **피해 로그·버스트 전략 통합 수용 통과:** 선택 니케의 실제 명중 로그, 버스트 참여자·단계별 우선순위·III 순환/첫 시전자 설정, 저장·JSON/CSV 내보내기를 통합했습니다. 실제 API·브라우저에서 서버 전술 복원→실행→로그 표시와 원본 다운로드를 검증했고, 통계 검사기의 종료 프레임 경계 수정도 22개 회귀 및 기존 실패 로그 재검산을 통과했습니다. 실게임 발당 영점·사이클 정확도 검증은 별도 미완료입니다. 수용 범위·근거·실패 이력은 [통합 검증 기록](docs/integration-verification-2026-09-11.ko.md)을 참조하세요.
 
-**현재 P02 단일 히트 검산 구현 완료:** P01 계정 동기화에 최종 스탯 표시·확정 차지식·정수화 후보 비교·실측 입력·검산 JSON 저장을 연결했습니다. OL과 스킬 공증은 버프 적용 전 스탯을 기준으로 함께 계산합니다. [버프 처리 정정·검증](docs/p02-buff-correction.ko.md). 히트 정수화는 실측 판정 대기 중입니다.
+**현재 P02 단일 히트 검산 구현 완료:** P01 계정 동기화에 최종 스탯 표시·확정 차지식·대미지 정책 비교(기본 `client_f32`, 과거 3정책은 비교 후보 — [client_f32 UI 연결](docs/client-f32-ui.ko.md))·실측 입력·검산 JSON 저장을 연결했습니다. OL과 스킬 공증은 버프 적용 전 스탯을 기준으로 함께 계산합니다. [버프 처리 정정·검증](docs/p02-buff-correction.ko.md). 히트 정수화는 실측 판정 대기 중입니다. 2026-09-27 사용자가 클라이언트 분석으로 확인한 단일 히트 공식(마지막 반올림, B `float32` 누적)과 09-28 결정(대미지 경로 `float32`, 사사오입 기본, `defenceRatioRate` 추가)을 [기록](docs/hit-damage-client-formula.ko.md)했습니다. `client_f32` 엔진 구현·API/UI 연결·독립 QA 수용을 마치고 2026-09-28 Director 통합 후 원본 실행본에 배포했습니다([통합·QA 기록](docs/client-f32-integration-assignments-2026-09-28.ko.md), [배포 기록](docs/desktop-release-original-2026-09-28.ko.md)). 실측 대조는 미실행입니다.
+
+**수치 정밀도 결정 (2026-09-18, 09-28 갱신):** 공격력 조립은 `long` 기반 정수 경로, 대미지 경로는 클라이언트와 같은 `float32`로 재현하고 최종 반올림은 사사오입을 기본으로 합니다. 스노우 화이트 풀차지 버스트 단일 타격으로 `long` 조립 overflow와 최종 변환 범위를 검사할 예정입니다. [결정·완료 조건](docs/p02-buff-correction.ko.md) · [클라이언트 공식](docs/hit-damage-client-formula.ko.md). 공격력 `long` 조립·`float32` 대미지 경로를 구현하고 독립 QA를 통과해 원본 실행본까지 배포했습니다(2026-09-28). SW 검사는 미실행입니다.
 
 **솔로 레이드 챌린지 레벨:** 검산은 내부적으로 싱크로 레벨 400을 사용합니다. 레벨 선택란은 없으며 계정의 실제 육성 레벨은 변경하지 않습니다. [변경·검증 범위](docs/solo-raid-challenge-level.ko.md).
 
@@ -70,7 +74,7 @@ npm run dev:reference
 - [설계 초안](docs/architecture-draft.ko.md): 계산·통계·최적화 원칙.
 - [원본 버전 및 이식 hash](sources.lock.json), [라이선스 고지](THIRD_PARTY_NOTICES.md).
 
-기존 C#의 스탯 계산·테이블·관련 DTO는 바이트 그대로 보존합니다. P01 수집기·정제기는 양쪽 원본의 요청 구조·매핑을 참고해 새 계약으로 작성했습니다. 현재 기본 UI는 Local Lab 화면이며 이전 upstream 테마 화면은 `/legacy/`에 보존합니다. 캐릭터를 선택하면 HP·공격력·방어력을 자동 계산합니다. 필요할 때 `단일 히트 검산`을 펼쳐 조건 입력 → `정수화 후보 비교`로 검산합니다. OL은 자동 적용되며 추가 스킬 공증은 `50, 30`처럼 개별 입력합니다. 단일 히트 도구에서는 스킬 계수·허용 조건을 직접 지정하고, 솔로 레이드 검산에서는 선택한 5인의 스킬을 실행합니다.
+기존 C#의 스탯 계산·테이블·관련 DTO는 바이트 그대로 보존합니다. P01 수집기·정제기는 양쪽 원본의 요청 구조·매핑을 참고해 새 계약으로 작성했습니다. 현재 기본 UI는 Local Lab 화면이며 이전 upstream 테마 화면은 `/legacy/`에 보존합니다. 캐릭터를 선택하면 HP·공격력·방어력을 자동 계산합니다. 필요할 때 `단일 히트 검산`을 펼쳐 조건 입력 → `대미지 정책 비교`로 검산합니다(hit schema 3, 실험 입력 `statDamageRatio`·`defenceRatioRate`는 중립 1/0이 기본). OL은 자동 적용되며 추가 스킬 공증은 `50, 30`처럼 개별 입력합니다. 단일 히트 도구에서는 스킬 계수·허용 조건을 직접 지정하고, 솔로 레이드 검산에서는 선택한 5인의 스킬을 실행합니다.
 
 [P02 검증 결과·실측 안내](docs/p02-verification.ko.md) · [P02 기능별 출처](docs/p02-source-map.ko.md). 현재 고정 자료로 193명 중 160명의 스탯 입력을 계산하고, 자료가 부족한 33명은 미완료로 표시합니다. 이는 전투 효과 지원 캐릭터 수가 아닙니다.
 

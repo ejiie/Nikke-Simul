@@ -1,0 +1,72 @@
+{
+  "schema": "qa-portable-evidence-v1",
+  "evidence": "synthetic",
+  "productCommit": "fixture-sha",
+  "contractVersion": "QA_fixture_NOT_Backend_contract",
+  "engineVersion": "fixture-v1",
+  "workloadFingerprint": "fixture-5-person",
+  "policyVersion": "fixture-v1",
+  "hardware": {
+    "os": "Windows",
+    "architecture": "x64",
+    "cpu": {
+      "availableWorkers": 8,
+      "physicalCores": 4,
+      "logicalCores": 8
+    },
+    "memoryLimitBytes": 1073741824,
+    "probeStatus": "ok",
+    "probeReason": null,
+    "fingerprint": "machine-driver-engine-workload-v1",
+    "gpus": []
+  },
+  "selection": {
+    "requested": "auto",
+    "effective": "cpu",
+    "deviceId": null,
+    "workers": 2,
+    "chunkSize": 8,
+    "memoryCapBytes": 1048576,
+    "reason": "bounded_cpu_fixture",
+    "fallbackReason": "no_eligible_gpu",
+    "cacheFingerprint": null,
+    "started": true,
+    "error": null
+  },
+  "measurements": [
+    {
+      "thermalState": "warm",
+      "requestedRuns": 1000,
+      "validRuns": 1000,
+      "exclusiveBenchmarkWindow": true,
+      "elapsedSeconds": {
+        "value": 1,
+        "reason": null
+      },
+      "peakMemoryBytes": {
+        "value": 1024,
+        "reason": null
+      },
+      "storageBytes": {
+        "value": 512,
+        "reason": null
+      },
+      "allocatedBytes": {
+        "value": null,
+        "reason": "not_measured"
+      },
+      "gcCollections": {
+        "value": null,
+        "reason": "not_measured"
+      },
+      "uiP95Milliseconds": {
+        "value": null,
+        "reason": "not_measured"
+      },
+      "cancelMilliseconds": {
+        "value": null,
+        "reason": "not_measured"
+      }
+    }
+  ]
+}
