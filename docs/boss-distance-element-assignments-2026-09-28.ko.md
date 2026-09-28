@@ -30,7 +30,11 @@
   - 수정: DTO 생성 전 필수 키·타입·범위 검사, 스탯·전투 계산 전 catalog 검증. **확정 오류 wire: HTTP 409 `{code: combat_profile_invalid, message, characterId, field, reason}`**(reason: missing/null/wrong_type/out_of_range/unsupported_value/id_mismatch/weapon_mismatch/hash_mismatch). 두 combat-conditions GET, skill/weapon replay POST, compute POST 공통. 멤버 전체 누락 400·구 catalog 자료 없음 409는 유지, 성공 wire·fingerprint 불변.
   - Backend 보고 검증: .NET 408/408, 잘못된 runtime 21종 × API 5개 = 105/105 모두 409, 실패 시 replay/compute 파일 불변·실험 0건. 정상 회귀(SG·RL min 0, RL 0–0, SR 예외, 구 bool replay 1,586,529·compute 1,847,281, 새 모드 결과·OL 후보) 유지.
 - **U-FIX-2 배정(2026-09-29, F-COND-U 담당):** UI에 `combat_profile_invalid`·`combat_profile_catalog_missing` 전용 표시가 없어 서버 원문 메시지만 노출된다(Director 확인: `apps/desktop-ui`에 해당 코드 매핑 없음). Backend `97ba7bf`를 merge하고 두 팝업·검산 결과·통계 화면에서 한국어 진단(어느 캐릭터·필드·사유, 데이터 준비 필요 안내)을 표시하며, 연결 장애로 분류하지 않는다. 격리 runtime을 일부러 손상시켜 실제 브라우저로 확인한다. 전달 `term_c322a450…` 요청 `8321e00b-a9af-4c17-a1a1-e136e49b764f`, accepted=true·`input_accepted`·`turn_started`.
-- **이후 F-COND-Q:** U-FIX-2 인계 후 B-FIX-2 재수용(API) + 단계 2(브라우저)를 한 번에 통지한다.
+- **U-FIX-2: 완료, Director 검토 수용.** UI `1a40692`(Backend `97ba7bf` merge, 충돌 0) → `77264bf`, 보고서 7절. 변경은 `apps/desktop-ui`·UI tests·UI 문서뿐(제품 `src`·QA `tests/q3` 0). `77264bf`는 엔진 `f374c1d`·Backend `97ba7bf`·`cd004f1`을 모두 포함하고 QA `53d183d`와 충돌 없이 merge된다.
+  - 변경: `api()`가 오류 본문(code·details) 보존, `combat_profile_invalid`(캐릭터 이름/ID·필드·reason 8종 한국어)·`combat_profile_catalog_missing`·`combat_member_profile_missing`을 한국어 진단 + `prepare_combat_conditions.py` 준비 안내 + 서버 원문으로 거리·약점 팝업·솔로레이드 결과·통계 오류 목록에 표시. 409/400은 도달 응답이라 연결 상태 유지.
+  - 추가 발견·수정: `09e27cb`부터 있던 팝업 포커스/close 경쟁(빠른 키보드 재열기 시 버튼 포커스 누락·새 팝업 내용 삭제). mock 브라우저 간헐 실패로 드러났고 동기 포커스 복귀·재열림 시 close 무시로 고쳐 5/5.
+  - UI 보고 실제 격리 API + Chromium: 사례마다 새 dataRoot에 prepare 후 격리 runtime만 손상(5004 `bonusRangeMin` 삭제, 5011 element null, 미준비) → 실제 409와 네 화면의 기대 진단, 연결 정상, 넘침 0·JS 오류 0. 기존 회귀 통과. 한계: `combat_member_profile_missing` 400은 단위만, EXE 배포 없음.
+- **F-COND-Q 재수용 + 단계 2 통지(2026-09-29):** UI `77264bf` 기준으로 B-FIX-2 재수용(API)과 브라우저 단계 2를 한 번에 요청한다.
 
 ### F-COND-Q — 독립 QA (검수 담당)
 
