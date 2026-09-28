@@ -291,10 +291,10 @@ await check('controller_start_cancel_resume_and_recovery', async () => {
 await check('controller_reports_analysis_and_gpu_rejection', async () => {
   const api = async (path, method = 'GET') => {
     if (path === adapter.COMPUTE_ROUTES.hardware) return hardware.cpuOnly;
-    if (path === adapter.COMPUTE_ROUTES.experiments && method === 'POST') throw new Error('요청 실패 (409): gpu_unavailable');
+    if (path === adapter.COMPUTE_ROUTES.experiments && method === 'POST') throw Object.assign(new Error('요청 실패 (409): gpu_unavailable'), { status: 409 });
     if (path === adapter.COMPUTE_ROUTES.experiment('exp-synthetic-1')) return batches.completed;
-    if (path.startsWith('/compute/experiments/exp-synthetic-1/statistics')) throw new Error('요청 실패 (409): analysis_not_integrated');
-    if (path === adapter.COMPUTE_ROUTES.comparison('exp-synthetic-1')) throw new Error('요청 실패 (409): analysis_not_integrated');
+    if (path.startsWith('/compute/experiments/exp-synthetic-1/statistics')) throw Object.assign(new Error('요청 실패 (409): analysis_not_integrated'), { status: 409 });
+    if (path === adapter.COMPUTE_ROUTES.comparison('exp-synthetic-1')) throw Object.assign(new Error('요청 실패 (409): analysis_not_integrated'), { status: 409 });
     throw new Error('unexpected ' + path);
   };
   const controller = view.createSingleDeckStatsView({
@@ -314,6 +314,76 @@ await check('controller_reports_analysis_and_gpu_rejection', async () => {
   const markup = view.renderSingleDeckStats(model);
   assert.ok(markup.includes('통계 모듈(Analysis) 미연결'));
   controller.dispose();
+});
+
+// U-FIX-1 / B2-STAT-1: a reason explains only the null fields it names; supplied point estimates stay visible.
+await check('n1_analysis_shows_point_estimates_and_scoped_reason', () => {
+  const single = adapter.describeStatistics(statistics.singleAnalysis, { memberOrder: ['5004'] });
+  for (const key of ['mean', 'median', 'p5', 'p95']) {
+    assert.equal(single.team[key].value, 48120007, key);
+    assert.equal(single.team[key].text, '48,120,007', key);
+    assert.equal(single.team[key].unsupported, false, key);
+    assert.equal(single.members[0][key].value, 17000011, key);
+  }
+  assert.equal(single.team.sampleSd.text, '미지원');
+  assert.equal(single.team.meanCi.text, '미지원');
+  assert.equal(single.team.cutSuccess.text, '100%');
+  assert.notEqual(single.team.cutCi.text, '미지원');           // Wilson interval is supplied for n=1
+  assert.match(single.team.unsupportedReasonText, /평균 CI·표본 표준편차는 표본 2건 이상 필요.*mean_ci_requires_n_at_least_2/);
+  const markup = html({ statistics: statistics.singleAnalysis, batch: batches.completed });
+  assert.ok(markup.includes('48,120,007') && markup.includes('17,000,011'));
+  assert.ok(markup.includes('mean_ci_requires_n_at_least_2'));
+});
+
+await check('n0_analysis_invents_no_values', () => {
+  const empty = adapter.describeStatistics(statistics.emptyAnalysis);
+  for (const key of ['mean', 'median', 'p5', 'p95']) assert.equal(empty.team[key].value, null, key);
+  assert.equal(empty.team.mean.text, adapter.UNKNOWN);
+  assert.equal(empty.team.sampleSd.text, '미지원');
+  assert.equal(empty.team.sampleNote, '표본 없음');
+  const normal = adapter.describeStatistics(statistics.normal);
+  assert.equal(normal.team.meanCi.unsupported ?? false, false);
+  assert.ok(normal.team.meanCi.lower !== null && !normal.team.meanCi.text.includes('미지원'));
+  assert.equal(normal.team.unsupportedReasonText, null);
+});
+
+// U-FIX-1 / B2-STAT-2: 4xx contract answers keep the API "connected"; only transport/5xx is an outage.
+await check('failure_classification_contract_vs_transport', () => {
+  const answer = adapter.classifyApiFailure(Object.assign(new Error('baseline_required'), { status: 400 }));
+  assert.deepEqual([answer.reachable, answer.outage, answer.code], [true, false, 'baseline_required']);
+  assert.equal(adapter.classifyApiFailure(Object.assign(new Error('x'), { status: 409 })).reachable, true);
+  assert.equal(adapter.classifyApiFailure(Object.assign(new Error('boom'), { status: 500 })).outage, true);
+  assert.equal(adapter.classifyApiFailure(new TypeError('Failed to fetch')).outage, true);
+  assert.match(adapter.describeComputeError('baseline_required'), /비교 기준 없음/);
+});
+
+await check('controller_no_baseline_is_not_an_outage', async () => {
+  const api = async path => {
+    if (path === adapter.COMPUTE_ROUTES.experiment('exp-synthetic-1')) return batches.completed;
+    if (path.startsWith('/compute/experiments/exp-synthetic-1/statistics')) return statistics.singleAnalysis;
+    if (path === adapter.COMPUTE_ROUTES.comparison('exp-synthetic-1')) throw Object.assign(new Error('baseline_required'), { status: 400 });
+    if (path === adapter.COMPUTE_ROUTES.hardware) return hardware.cpuOnly;
+    throw new Error('unexpected ' + path);
+  };
+  const controller = view.createSingleDeckStatsView({ api, getSnapshot: () => ({ id: 'snap-1' }), getMembersWithMeta: () => members,
+    getTacticSummary: () => '', status: () => {}, getConditions: () => ({}), storage: { getItem: () => 'exp-synthetic-1', setItem: () => {} } });
+  await controller.mount('stats-content');
+  const model = controller.getModel();
+  assert.equal(model.endpointStatus, 'connected');
+  assert.equal(model.comparisonStatus, 'no_baseline');
+  assert.equal(model.errors.length, 0, model.errors.join(' | '));
+  const markup = view.renderSingleDeckStats(model);
+  assert.ok(markup.includes('실제 API 응답') && !markup.includes('compute API 미연결'));
+  assert.ok(markup.includes('data-comparison-state="no_baseline"'));
+  controller.dispose();
+  // A transport failure on the same route is still an outage.
+  const down = view.createSingleDeckStatsView({ api: async path => { if (path === adapter.COMPUTE_ROUTES.experiment('exp-synthetic-1')) throw new TypeError('Failed to fetch'); throw new TypeError('Failed to fetch'); },
+    getSnapshot: () => ({ id: 'snap-1' }), getMembersWithMeta: () => members, getTacticSummary: () => '', status: () => {},
+    getConditions: () => ({}), storage: { getItem: () => 'exp-synthetic-1', setItem: () => {} } });
+  await down.mount('stats-content');
+  assert.equal(down.getModel().endpointStatus, 'unavailable');
+  assert.ok(view.renderSingleDeckStats(down.getModel()).includes('compute API 미연결'));
+  down.dispose();
 });
 
 const failed = checks.filter(c => !c.passed);

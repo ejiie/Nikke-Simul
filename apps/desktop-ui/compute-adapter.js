@@ -252,13 +252,26 @@ export function describeComputeError(code) {
     engine_or_rules_version_changed: '엔진·규칙 버전이 바뀐 이전 실험은 재개할 수 없습니다 · 결과 조회만 가능',
     prepared_input_fingerprint_mismatch: '저장된 준비 입력의 fingerprint가 일치하지 않아 재개를 거부했습니다.',
     baseline_input_mismatch: '기준 실험과 snapshot·5인 순서·조건·phase·정책·hitOverrides가 달라 비교할 수 없습니다.',
-    warmup_excluded_from_statistics: 'warmup 실험은 통계 표본에서 제외됩니다.'
+    warmup_excluded_from_statistics: 'warmup 실험은 통계 표본에서 제외됩니다.',
+    baseline_required: '비교 기준 없음 · 이 실험은 baselineExperimentId 없이 실행되어 OL 비교 대상이 아닙니다.'
   };
   return known[key] ?? `오류 코드 ${key}`;
 }
 
 const CONTRACT_ERROR_CODES = ['analysis_not_integrated', 'gpu_unavailable', 'saved_tactic_stale', 'engine_or_rules_version_changed',
-  'prepared_input_fingerprint_mismatch', 'baseline_input_mismatch', 'warmup_excluded_from_statistics'];
+  'prepared_input_fingerprint_mismatch', 'baseline_input_mismatch', 'warmup_excluded_from_statistics', 'baseline_required'];
+/**
+ * Classifies an API failure. An HTTP 4xx is an answer from a reachable API (contract refusal or bad request),
+ * not an outage; 5xx and transport failures (no HTTP status) are outages.
+ */
+export function classifyApiFailure(error) {
+  const status = Number.isInteger(error?.status) ? error.status : null;
+  const message = error?.message ?? String(error);
+  const code = contractErrorCode(message);
+  const reachable = status !== null && status >= 400 && status < 500;
+  return { status, message, code, reachable, outage: !reachable };
+}
+
 /** Finds a contract error code inside an API error message (server returns {message}). */
 export function contractErrorCode(message) {
   const found = CONTRACT_ERROR_CODES.find(code => String(message ?? '').includes(code));
@@ -281,10 +294,19 @@ function metricValue(value, { percent = false, digits = null, unsupported = fals
 export function describeMetricStatistics(metrics, { label = null } = {}) {
   const unsupportedReason = text(metrics?.unsupportedReason);
   const n = isFiniteNumber(metrics?.n) ? metrics.n : null;
-  const sampleNote = unsupportedReason ? null : n === 0 ? '표본 없음' : n === 1 ? '표본 1건 · 산포/신뢰구간 없음' : null;
-  const unsupported = Boolean(unsupportedReason);
-  const meanCi = describeInterval(metrics?.meanCi);
-  const cutCi = describeInterval(metrics?.cutCi, { percent: true });
+  const sampleNote = n === 0 ? '표본 없음' : n === 1 ? '표본 1건 · 산포/신뢰구간 없음' : null;
+  // Contract: "n=0/1의 불명값은 null" — support is per field. A reason never hides a value the API supplied;
+  // it explains only null fields, and only the fields its scope names (unknown reasons: every null field).
+  const scope = unsupportedReason ? REASON_SCOPE[unsupportedReason] ?? null : null;
+  const covered = field => Boolean(unsupportedReason) && (scope === null || scope.includes(field));
+  const value = (field, options = {}) => isFiniteNumber(metrics?.[field]) ? metricValue(metrics[field], options)
+    : metricValue(null, { ...options, unsupported: covered(field) });
+  const interval = (field, options = {}) => {
+    const described = describeInterval(metrics?.[field], options);
+    if (described.lower !== null) return described;
+    return { ...described, unsupported: covered(field),
+      text: covered(field) ? NOT_SUPPORTED : sampleNote && field === 'meanCi' ? sampleNote : described.text };
+  };
   return {
     label,
     present: Boolean(metrics && typeof metrics === 'object'),
@@ -292,18 +314,27 @@ export function describeMetricStatistics(metrics, { label = null } = {}) {
     nText: n === null ? UNKNOWN : formatNumber(n),
     sampleNote,
     unsupportedReason,
-    mean: metricValue(metrics?.mean, { unsupported }),
-    sampleSd: metricValue(metrics?.sampleSd, { unsupported }),
-    meanCi: { ...meanCi, text: unsupported ? NOT_SUPPORTED : sampleNote && meanCi.lower === null ? sampleNote : meanCi.text },
-    median: metricValue(metrics?.median, { unsupported }),
-    p5: metricValue(metrics?.p5, { unsupported }),
-    p95: metricValue(metrics?.p95, { unsupported }),
-    cut: metricValue(metrics?.cut, { unsupported }),
-    cutSuccess: metricValue(metrics?.cutSuccess, { percent: true, unsupported }),
-    cutCi: { ...cutCi, text: unsupported ? NOT_SUPPORTED : cutCi.text },
+    unsupportedReasonText: describeUnsupportedReason(unsupportedReason),
+    mean: value('mean'),
+    sampleSd: value('sampleSd'),
+    meanCi: interval('meanCi'),
+    median: value('median'),
+    p5: value('p5'),
+    p95: value('p95'),
+    cut: value('cut'),
+    cutSuccess: value('cutSuccess', { percent: true }),
+    cutCi: interval('cutCi', { percent: true }),
     quantileMethod: text(metrics?.quantileMethod),
     unit: text(metrics?.unit)
   };
+}
+
+// Fields each Analysis reason code refers to (Nikke.Analysis ComputeAnalysis: N < 2 -> mean_ci_requires_n_at_least_2).
+const REASON_SCOPE = { mean_ci_requires_n_at_least_2: ['sampleSd', 'meanCi'] };
+const REASON_TEXT = { mean_ci_requires_n_at_least_2: '평균 CI·표본 표준편차는 표본 2건 이상 필요 (평균·분위수는 제공값 표시)' };
+export function describeUnsupportedReason(reason) {
+  const key = text(reason);
+  return key ? REASON_TEXT[key] ? `${REASON_TEXT[key]} · ${key}` : key : null;
 }
 
 /**

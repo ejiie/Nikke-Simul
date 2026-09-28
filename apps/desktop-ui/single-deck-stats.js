@@ -14,7 +14,7 @@ import {
   describeStatistics,
   describeOlComparison,
   describeComputeError,
-  contractErrorCode,
+  classifyApiFailure,
   buildExperimentRequest,
   formatNumber,
   formatPercent,
@@ -177,7 +177,7 @@ function statisticsSection(model) {
     <article class="surface">
       <h3>통계 ${stats.partial ? '<span class="status-pill warning">부분 결과</span>' : ''}</h3>
       ${team.sampleNote ? `<p class="compute-warning">${esc(team.sampleNote)}</p>` : ''}
-      ${team.unsupportedReason ? `<p class="compute-warning">${esc(team.unsupportedReason)}</p>` : ''}
+      ${team.unsupportedReasonText ? `<p class="compute-warning">${esc(team.unsupportedReasonText)}</p>` : ''}
       <div class="summary-metrics-grid">
         ${metricCard('표본 수 n', team.nText, stats.methodVersion ? `방식 ${stats.methodVersion}` : '')}
         ${metricCard('평균 팀 피해', team.mean.text, team.unit ?? '')}
@@ -205,6 +205,9 @@ function olSection(model) {
     return `<article class="surface"><h3>오버로드 후보 비교</h3><p class="compute-warning">${esc(describeComputeError('analysis_not_integrated'))}</p></article>`;
   }
   const ol = model.comparison;
+  if (!ol.present && model.comparisonStatus === 'no_baseline') {
+    return `<article class="surface"><h3>오버로드 후보 비교</h3><p class="microcopy" data-comparison-state="no_baseline">${esc(describeComputeError('baseline_required'))}</p></article>`;
+  }
   if (!ol.present) {
     return '<article class="surface"><h3>오버로드 후보 비교</h3><p class="microcopy">비교 결과가 없습니다. 기준 실험과 후보 실험이 준비되면 표시합니다.</p></article>';
   }
@@ -260,7 +263,7 @@ export function renderSingleDeckStats(model) {
 /** Builds the view model from contract payloads; missing payloads degrade to explicit unknown states. */
 export function buildStatsModel({ hardware, batch, statistics, comparison, deckMembers = [], tacticSummary = '',
   requestedRuns = DEFAULT_RUNS, phase = 'final', cut = null, endpointStatus = 'unknown', analysisStatus = 'unknown',
-  errors = [], recovered = false, roundingPolicy = null } = {}) {
+  errors = [], recovered = false, roundingPolicy = null, comparisonStatus = null } = {}) {
   const described = describeBatch(batch);
   const displayNames = new Map(deckMembers.map(m => [m.characterId, m.displayName ?? m.characterId]));
   return {
@@ -273,6 +276,7 @@ export function buildStatsModel({ hardware, batch, statistics, comparison, deckM
     deckMembers,
     tacticSummary,
     roundingPolicy: typeof roundingPolicy === 'string' && roundingPolicy ? roundingPolicy : null,
+    comparisonStatus,
     hardware: describeHardwareProfile(hardware),
     batch: described,
     statistics: describeStatistics(statistics, { memberOrder: described.input.characterIds, displayNames }),
@@ -290,7 +294,7 @@ export function createSingleDeckStatsView({ api, getSnapshot, getMembersWithMeta
   const store = storage ?? (typeof localStorage === 'undefined' ? null : localStorage);
   const state = {
     endpointStatus: 'unknown', analysisStatus: 'unknown', requestedRuns: DEFAULT_RUNS, phase: 'final', cut: null,
-    recovered: false, errors: [], hardware: null, batch: null, statistics: null, comparison: null,
+    recovered: false, errors: [], hardware: null, batch: null, statistics: null, comparison: null, comparisonStatus: null,
     requestedDevice: 'auto', workerLimit: null, memoryLimitBytes: null, retune: false
   };
   let containerId = 'stats-content';
@@ -307,12 +311,13 @@ export function createSingleDeckStatsView({ api, getSnapshot, getMembersWithMeta
       state.endpointStatus = 'connected';
       return { ok: true, data: result };
     } catch (error) {
-      const message = error?.message ?? String(error);
-      const code = contractErrorCode(message);
-      if (code === 'analysis_not_integrated') state.analysisStatus = 'not_integrated';
-      else if (!code) state.endpointStatus = 'unavailable';
-      // A contract refusal is an answer from a reachable API, not an outage.
-      return { ok: false, error: code ? `${describeComputeError(code)} (${message})` : message };
+      const failure = classifyApiFailure(error);
+      if (failure.code === 'analysis_not_integrated') state.analysisStatus = 'not_integrated';
+      // A 4xx (contract refusal such as baseline_required) proves the API answered; only 5xx/transport is an outage.
+      if (failure.reachable) state.endpointStatus = 'connected';
+      else state.endpointStatus = 'unavailable';
+      return { ok: false, code: failure.code, reachable: failure.reachable,
+        error: failure.code ? `${describeComputeError(failure.code)} (${failure.message})` : failure.message };
     }
   }
 
@@ -341,7 +346,11 @@ export function createSingleDeckStatsView({ api, getSnapshot, getMembersWithMeta
     if (statistics.ok) { state.statistics = statistics.data ?? null; state.analysisStatus = 'integrated'; }
     else if (state.analysisStatus !== 'not_integrated') note(`통계를 불러오지 못했습니다. ${statistics.error}`);
     const comparison = await call(COMPUTE_ROUTES.comparison(id));
+    state.comparisonStatus = comparison.ok ? 'present' : comparison.code === 'baseline_required' ? 'no_baseline' : 'failed';
     if (comparison.ok) state.comparison = comparison.data ?? null;
+    // No baseline is the normal state of a plain experiment, not an error.
+    else if (comparison.code !== 'baseline_required' && comparison.code !== 'analysis_not_integrated')
+      note(`OL 비교를 불러오지 못했습니다. ${comparison.error}`);
     render();
   }
 
@@ -389,6 +398,7 @@ export function createSingleDeckStatsView({ api, getSnapshot, getMembersWithMeta
     state.recovered = false;
     state.statistics = null;
     state.comparison = null;
+    state.comparisonStatus = null;
     applyBatch(response.data);
     render();
     schedulePoll();
