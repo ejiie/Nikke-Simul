@@ -9,7 +9,7 @@
   - 엔진 보고 검증: Release Core/Engine 174/174(기존 147 + 신규 27), 기존 5인 180초 client 1,346,863,834 / legacy 1,346,859,763 정확 재현.
   - 내부 계약: `WeaponReplayConditions.BossDistance`(int?)·`BossWeakElement`(string, `Electronic` 철자), `WeaponReplayMember.BonusRangeMin/Max`(int?)·`Element`. 새 요청에서 이전 bool 기본 false를 채우면 혼용 오류가 난다.
   - Backend 추가 의존: `ComputeOverloadCatalog`의 `IncElementDmg` 유효 후보 판단이 전역 `combat.ElementAdvantage`를 읽으므로 새 모드에서는 멤버별 약점 일치로 연결해야 한다.
-- **F-COND-B:** 진행 중. 엔진 `f374c1d` merge 통지(2026-09-28).
+- **F-COND-B:** 진행 중. 엔진 `f374c1d` merge 통지(2026-09-28). 전달 `term_e5d05982…` 요청 `d7835645-d743-4bfc-9d22-fe30b2806d5d`, accepted=true·`input_accepted`(작업 중 턴에 전달). 직후 화면에서 엔진 파일 merge 출력을 확인했다.
 
 ## 사용자 요청
 
