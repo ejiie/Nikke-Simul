@@ -64,4 +64,15 @@ H-SRC 결과로 잠정 대응을 확정·수정 → H-F32 반영 → 기존 실�
 
 ## 전달 확인
 
-(전달 후 기록)
+Orca app 1.4.215, runtime `a0bed151-149f-486b-a796-53848c05acdc`. 지시서 커밋 `4fa7e16`. 이전 runtime의 handle 목록을 재사용하지 않고 `terminal list`로 재조회했다.
+
+| 담당 | 터미널 | 요청 ID | 착수 근거 |
+|---|---|---|---|
+| H-F32 엔진 | 기존 `term_5e3783c1-9520-4d7b-be57-f6c74d2cf6de` (codex 세션 재개) | `cc3e0620-23c9-4b7a-97c4-5c41458ffed6` | accepted=true, `input_accepted`·`turn_started` |
+| H-SRC Backend | 신규 `term_e5d05982-dabd-4b09-9242-c75d3d7b6010` (codex, GPT-6-Astra high) | `c965a78f-871b-46e9-ba02-4f09b89c441c` | accepted=true, `input_accepted`·`turn_started` |
+
+- 엔진 터미널은 Codex 업데이트 안내에서 멈춰 있어 `2`(Skip) 한 글자만 입력한 뒤, 세션 재개·idle 확인 후 지시를 보냈다. Codex 업데이트는 하지 않았다.
+- Backend worktree에는 현 runtime의 터미널이 없어 `terminal create --command codex`로 새 agent 터미널 하나를 만들었다. 새 worktree·Run/Dispatch·하위 워커는 만들지 않았다.
+- 검수·UI·통계 터미널에는 보내지 않았다. 검수 담당은 Q-CPU-10K 재개 조건 대기 상태를 유지한다.
+
+이 기록은 착수 확인이며 구현·조사 완료나 수용 통과가 아니다. 원본 EXE·계정 데이터는 변경하지 않았다.
