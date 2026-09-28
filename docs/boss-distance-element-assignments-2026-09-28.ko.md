@@ -1,5 +1,12 @@
 # 보스 거리·약점 속성 조건 — F-COND-1 배정 (2026-09-28)
 
+## 최신 상태
+
+- **F-COND-U mock 단계: 완료, Director 검토 수용.** UI `cc24bc9`(`cd004f1` ff 후), [보고서](C:/Users/user/orca/workspaces/Nikke-Simul/UI/docs/boss-distance-element-ui.ko.md). 변경은 `apps/desktop-ui`(app.js·새 `combat-conditions.js`·simul.css·single-deck-stats.js)·UI tests·UI 문서뿐. Director가 mock 캡처(거리·약점 팝업, 폼 1500px)를 확인했다: 32×32 아이콘 버튼 + 현재 값, 거리 슬라이더·숫자·미설정·멤버별 판정·무기군 표, 약점 팝업의 5속성 이미지·"보스의 약점 속성 — 이 속성 니케가 우월 코드 보너스를 받습니다" 경고·속성별 덱 멤버. 캡처의 멤버 무기·속성·예외 값은 **합성 mock 데이터**이며 실제 캐릭터 정보가 아니다.
+  - `COND_WIRE.confirmed=false`라 실제 폼·요청은 아직 바뀌지 않았다. 잠정 wire(`GET /api/runtime/combat-ranges?snapshotId=`, `combat.bossDistance`/`bossWeakElement`, `Fire/Water/Wind/Iron/Electronic`)는 `combat-conditions.js` 한 곳에 모았다. Backend 확정 wire 통지 대기.
+  - 검증은 mock만: 단위 8/8, mock Chromium, 기존 회귀 통과(audit 브라우저 첫 실행의 로컬 연결 거부 1건은 코드 변경 없이 재실행 2회 통과).
+- F-COND-E·F-COND-B: 진행 중.
+
 ## 사용자 요청
 
 배포본을 사용한 사용자의 첫 개선 요청(2026-09-28, 솔로 레이드 "전투 조건" 화면 캡처 첨부):
