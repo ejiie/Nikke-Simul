@@ -91,6 +91,7 @@ public sealed partial class RuntimeReplayService
         if (request.SnapshotId!=snapshot.Id || request.CharacterIds is null || request.CharacterIds.Count is < 1 or > 5
             || request.CharacterIds.Distinct().Count()!=request.CharacterIds.Count)
             throw new ArgumentException("스냅샷과 중복 없는 1~5인 편성을 지정하세요.");
+        var profiles=ProfilesForConditions(request.Conditions.Combat);
         var reports=new List<StatReport>(); var members=new List<SkillReplayMember>();
         foreach (var id in request.CharacterIds)
         {
@@ -107,7 +108,7 @@ public sealed partial class RuntimeReplayService
             }
             var loadout=Loadout(id,levels);
             var weapon=catalog["characters"]![id]!["weapon"]!.Deserialize<WeaponDto>(Wire.Json)!;
-            members.Add(new(WithCombatProfile(new(id,weapon,report.BasicHit,report.PermanentBuffs),request.Conditions.Combat),report.NativeStats.HP,loadout));
+            members.Add(new(WithCombatProfile(new(id,weapon,report.BasicHit,report.PermanentBuffs),profiles),report.NativeStats.HP,loadout));
             reports.Add(report);
         }
         var result=SkillReplay.Run(members,Graph(),request.Conditions);

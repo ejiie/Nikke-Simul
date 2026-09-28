@@ -46,6 +46,7 @@ app.Use(async (context, next) =>
         if (context.Request.Method is not ("GET" or "HEAD") && context.Request.Headers["X-Nikke-Token"] != token) { context.Response.StatusCode = 403; return; }
     }
     try { await next(); }
+    catch (CombatProfileException ex) { context.Response.StatusCode = 409; await context.Response.WriteAsJsonAsync(ex.Error); }
     catch (KeyNotFoundException) { context.Response.StatusCode = 404; await context.Response.WriteAsJsonAsync(new { message = "항목을 찾을 수 없습니다." }); }
     catch (ArgumentException ex) { context.Response.StatusCode = 400; await context.Response.WriteAsJsonAsync(new { message = ex.Message }); }
     catch (OverflowException ex) { context.Response.StatusCode = 400; await context.Response.WriteAsJsonAsync(new { message = "integer_overflow: " + ex.Message }); }

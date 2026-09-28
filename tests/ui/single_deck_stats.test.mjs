@@ -386,6 +386,28 @@ await check('controller_no_baseline_is_not_an_outage', async () => {
   down.dispose();
 });
 
+// U-FIX-2: a 409 combat_profile_invalid on experiment creation is a data diagnostic, not an outage.
+await check('controller_combat_profile_invalid_is_not_an_outage', async () => {
+  const body = { code: 'combat_profile_invalid', message: 'combat_profile_invalid: combatProfiles.characters.5004.element: null',
+    characterId: '5004', field: 'combatProfiles.characters.5004.element', reason: 'null' };
+  assert.equal(adapter.classifyApiFailure(Object.assign(new Error(body.message), { status: 409, code: body.code, details: body })).code, 'combat_profile_invalid');
+  const api = async (path, method = 'GET') => {
+    if (path === adapter.COMPUTE_ROUTES.hardware) return hardware.cpuOnly;
+    if (path === adapter.COMPUTE_ROUTES.experiments && method === 'POST') throw Object.assign(new Error(body.message), { status: 409, code: body.code, details: body });
+    throw new Error('unexpected ' + path);
+  };
+  const controller = view.createSingleDeckStatsView({ api, getSnapshot: () => ({ id: 'snap-1' }), getMembersWithMeta: () => members,
+    getTacticSummary: () => '', status: () => {}, getConditions: () => ({ combat: { bossDistance: 35, bossWeakElement: 'Fire' } }),
+    storage: { getItem: () => null, setItem: () => {} } });
+  await controller.refreshHardware();
+  await controller.start();
+  const model = controller.getModel();
+  assert.equal(model.endpointStatus, 'connected');
+  assert.ok(model.errors.some(e => e.includes('사거리·속성 데이터 오류 · 앨리스(#5004) · 속성(element) · 값이 null')), model.errors.join(' | '));
+  assert.ok(!view.renderSingleDeckStats(model).includes('compute API 미연결'));
+  controller.dispose();
+});
+
 const failed = checks.filter(c => !c.passed);
 const summary = { kind: 'single_deck_stats_unit', contract: adapter.COMPUTE_CONTRACT_VERSION,
   passed: failed.length === 0, total: checks.length, failed: failed.length, checks };

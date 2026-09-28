@@ -7,6 +7,7 @@ import { createDamageLogViewer } from './damage-log.js';
 import { toServerTacticDto } from './damage-log-adapter.js';
 import { createSingleDeckStatsView } from './single-deck-stats.js';
 import { defaultPolicy, policyOptions } from './hit-policy.js';
+import { COND_WIRE, conditionWire, describeCombatProfileError, describeCompatibility, mountConditionControls } from './combat-conditions.js';
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -28,6 +29,13 @@ const active=j=>j&&['queued','running','cancelling'].includes(j.status);
 const formation=createFormation({api,getSnapshot:()=>snapshot,getItem:id=>state.presentationByCharacter.get(id),getBuild:build,status,
   showSelector:()=>{setPage('formation');window.scrollTo({top:0,behavior:'instant'});},
   showRaid:()=>{setPage('raid');window.scrollTo({top:0,behavior:'instant'});},renderCards:renderNikkeCards});
+let combatConditions=null;
+// Old deck-wide bools until the boss distance/weak element wire is confirmed; never both.
+const distanceElementFields=data=>COND_WIRE.confirmed&&combatConditions
+  ?conditionWire(combatConditions.getState())
+  :{properDistance:data.has('distance'),elementAdvantage:data.has('element')};
+const conditionMembers=()=>formation.members().map(id=>{const p=state.presentationByCharacter.get(id);
+  return {id,displayName:p?.displayName||build(id)?.name||id,weaponCode:p?.weaponCode??null,elementCode:p?.elementCode??null};});
 const getMembersWithMeta=()=>{
   const members=formation.members();
   const defaultSteps={'5011':1,'5008':2,'5009':3,'5004':3,'5044':3};
@@ -66,8 +74,7 @@ const statsView=createSingleDeckStatsView({api,getSnapshot:()=>snapshot,getMembe
         ...(Number.isFinite(defense)?{enemyDefense:defense}:{}),
         critMode:data.get('crit')??'off',
         core:data.has('core'),
-        properDistance:data.has('distance'),
-        elementAdvantage:data.has('element'),
+        ...distanceElementFields(data),
         pelletCoefficientPolicy:data.get('pellet')??'per_trigger',
         fullBurstWindows:[],
         trace:false,
@@ -84,7 +91,8 @@ async function api(path,method='GET',body){
   if(response.status===204)return null;
   const data=await response.json().catch(()=>({}));
   // status marks an HTTP answer; a rejected fetch (transport failure) carries none.
-  if(!response.ok)throw Object.assign(new Error(data.message??`요청 실패 (${response.status})`),{status:response.status});
+  // code/details keep structured error bodies (e.g. 409 combat_profile_invalid {characterId, field, reason}).
+  if(!response.ok)throw Object.assign(new Error(data.message??`요청 실패 (${response.status})`),{status:response.status,code:data.code??null,details:data});
   return data;
 }
 Object.defineProperty(api,'token',{get:()=>boot.token,configurable:true});
@@ -239,8 +247,16 @@ function renderDiagnostics(){
   $('advanced-content').innerHTML=`<div class="section-heading"><div><h2>고급 진단</h2><p>누락된 스펙과 저장 출처를 확인합니다.</p></div></div><article class="surface"><h3>수집 확인</h3>${issues.length?`<ul>${issues.map(i=>`<li>${esc(i.path)} · ${esc(i.message)}</li>`).join('')}</ul>`:'<p>검토할 항목이 없습니다.</p>'}</article><article class="surface"><h3>최근 변경</h3><ul>${(snapshot?.changes??[]).slice(0,30).map(v=>`<li>${esc(v)}</li>`).join('')}</ul></article><article class="surface"><h3>화면·이미지 출처</h3><p>화면: Nikke-Local-Lab · 이미지: 블라블라 및 사용자 제공 ZIP</p><p>캐릭터 ${state.presentation.characters.length}명 · ZIP 연결 ${state.presentation.importedPortraits??0}명 · 미수집 ${state.presentation.unresolved?.length??0}개</p></article>`;
 }
 function renderRaid(){
-  $('raid-content').innerHTML=`<div class="section-heading"><div><p class="eyebrow">SOLO RAID CHALLENGE</p><h2>솔로 레이드 검산</h2><p>평타·스킬 효과를 조건별로 검산합니다. 현재 검산 지원: 리타·블랑·누아르·앨리스·모더니아. 팀 게이지 충전부터 풀버스트 종료 후 재충전까지 자동으로 실행합니다. 게이지·타이밍은 실측 검증 전입니다.</p></div></div><form id="replay-form"><article class="surface"><h3>편성</h3><div id="raid-team" class="formation-slots" aria-label="저장된 편성"></div></article><article class="surface" id="burst-tactics-section"><div id="burst-tactics-container"></div></article><article class="surface"><h3>전투 조건</h3><div class="form-grid"><label>시간 (초)<input name="seconds" type="number" value="180" min="1" max="180" required></label><label>적 방어력<select name="defense"><option value="30925">30,925 · 누적 20억 전</option><option value="31784">31,784 · 누적 20억 후</option></select></label><label>크리티컬<select name="crit"><option value="off">끔</option><option value="sample">확률 적용</option><option value="on">항상 크리</option></select></label><label>대미지 정책<select name="rounding">${policyOptions().map(o=>`<option value="${o.value}"${o.selected?' selected':''}>${esc(o.label)}</option>`).join('')}</select></label><label>샷건 계수<select name="pellet"><option value="per_trigger">발사 1회</option><option value="per_pellet">펠릿마다</option></select></label></div><div class="action-row">${[['core','코어 명중'],['distance','적정 거리'],['element','우월 코드']].map(([v,l])=>`<label><input name="${v}" type="checkbox">${l}</label>`).join('')}</div><p class="microcopy">엔진 한도: 최대 180초. 방어력은 이번 검산 전체에 고정됩니다. 누적 대미지에 따른 자동 전환은 아직 적용하지 않습니다. 검산 스탯은 싱크로 레벨 400 고정입니다.</p></article><article class="surface"><h3>사격 조작</h3><div class="form-grid"><label>직접 조작<select name="manualCharacter"><option value="">모두 자동</option><option value="5011">리타</option><option value="5008">블랑</option><option value="5009">누아르</option><option value="5004">앨리스</option><option value="5044">모더니아</option></select></label><label>차지 방식<select name="manualStyle"><option value="full_charge">풀차지</option><option value="tap">톡톡이</option></select></label></div></article><div class="account-save-bar surface"><div><strong>검산 후 자동 저장</strong><span>편성·실제 스킬 레벨·조건·구성원별 효과 대미지를 보존합니다.</span></div><button id="run-replay" class="primary" type="submit">대미지 검산</button></div></form><div id="replay-result" aria-live="polite"></div>`;
+  $('raid-content').innerHTML=`<div class="section-heading"><div><p class="eyebrow">SOLO RAID CHALLENGE</p><h2>솔로 레이드 검산</h2><p>평타·스킬 효과를 조건별로 검산합니다. 현재 검산 지원: 리타·블랑·누아르·앨리스·모더니아. 팀 게이지 충전부터 풀버스트 종료 후 재충전까지 자동으로 실행합니다. 게이지·타이밍은 실측 검증 전입니다.</p></div></div><form id="replay-form"><article class="surface"><h3>편성</h3><div id="raid-team" class="formation-slots" aria-label="저장된 편성"></div></article><article class="surface" id="burst-tactics-section"><div id="burst-tactics-container"></div></article><article class="surface"><h3>전투 조건</h3><div class="form-grid"><label>시간 (초)<input name="seconds" type="number" value="180" min="1" max="180" required></label><label>적 방어력<select name="defense"><option value="30925">30,925 · 누적 20억 전</option><option value="31784">31,784 · 누적 20억 후</option></select></label><label>크리티컬<select name="crit"><option value="off">끔</option><option value="sample">확률 적용</option><option value="on">항상 크리</option></select></label><label>대미지 정책<select name="rounding">${policyOptions().map(o=>`<option value="${o.value}"${o.selected?' selected':''}>${esc(o.label)}</option>`).join('')}</select></label><label>샷건 계수<select name="pellet"><option value="per_trigger">발사 1회</option><option value="per_pellet">펠릿마다</option></select></label></div><div class="action-row">${[['core','코어 명중'],...(COND_WIRE.confirmed?[]:[['distance','적정 거리'],['element','우월 코드']])].map(([v,l])=>`<label><input name="${v}" type="checkbox">${l}</label>`).join('')}</div><p class="microcopy">엔진 한도: 최대 180초. 방어력은 이번 검산 전체에 고정됩니다. 누적 대미지에 따른 자동 전환은 아직 적용하지 않습니다. 검산 스탯은 싱크로 레벨 400 고정입니다.</p></article><article class="surface"><h3>사격 조작</h3><div class="form-grid"><label>직접 조작<select name="manualCharacter"><option value="">모두 자동</option><option value="5011">리타</option><option value="5008">블랑</option><option value="5009">누아르</option><option value="5004">앨리스</option><option value="5044">모더니아</option></select></label><label>차지 방식<select name="manualStyle"><option value="full_charge">풀차지</option><option value="tap">톡톡이</option></select></label></div></article><div class="account-save-bar surface"><div><strong>검산 후 자동 저장</strong><span>편성·실제 스킬 레벨·조건·구성원별 효과 대미지를 보존합니다.</span></div><button id="run-replay" class="primary" type="submit">대미지 검산</button></div></form><div id="replay-result" aria-live="polite"></div>`;
   formation.render();
+  if(COND_WIRE.confirmed){
+    combatConditions?.dispose();
+    const host=document.createElement('div');host.id='raid-conditions';
+    $('replay-form').querySelector('.action-row').after(host);
+    combatConditions=mountConditionControls(host,{getMembers:conditionMembers,
+      loadCatalog:()=>api(COND_WIRE.catalogRoute),
+      loadMembers:ids=>snapshot?api(COND_WIRE.membersRoute(snapshot.id,ids)):null});
+  }
   $('replay-form').onsubmit=async e=>{
     e.preventDefault();if(!snapshot){status('계정을 먼저 연결하세요.');return;}
     const form=new FormData(e.currentTarget),members=formation.members();
@@ -252,6 +268,11 @@ function renderRaid(){
     const targetDamageLogCharId = (typeof damageLogViewer !== 'undefined' && damageLogViewer?.getSelectedCharacterId?.()) || '5004';
     // Solo raid challenge always calculates at synchro level 400; the form has no level field.
     const SOLO_RAID_SCENARIO_LEVEL = 400;
+    // Kept inside this callback: tests/q3/check_ui_contract.mjs executes the callback body alone (see
+    // docs/solo-raid-challenge-level.ko.md). New mode sends only bossDistance/bossWeakElement (explicit null = unset).
+    const bossConditionFields = typeof combatConditions !== 'undefined' && combatConditions
+      ? conditionWire(combatConditions.getState())
+      : { properDistance: form.has('distance'), elementAdvantage: form.has('element') };
     const request = {
       snapshotId: snapshot.id,
       characterIds: members,
@@ -268,8 +289,7 @@ function renderRaid(){
           enemyDefense: Number(form.get('defense')),
           critMode: form.get('crit'),
           core: form.has('core'),
-          properDistance: form.has('distance'),
-          elementAdvantage: form.has('element'),
+          ...bossConditionFields,
           pelletCoefficientPolicy: form.get('pellet'),
           fullBurstWindows: [],
           trace: false,
@@ -279,14 +299,26 @@ function renderRaid(){
     };
     $('run-replay').disabled=true;$('replay-result').textContent='검산 중…';
     try{lastReplay=await api('/runtime/skill-replays','POST',request);renderReplay(lastReplay);status('검산 결과를 저장했습니다.');}
-    catch(error){$('replay-result').textContent=error.message;}
+    catch(error){
+      // Server data problems (combat profiles) get a Korean diagnostic; other errors keep the server message.
+      const profile=typeof describeCombatProfileError==='function'?describeCombatProfileError(error,new Map(getMembersWithMeta().map(m=>[m.id,m.displayName]))):null;
+      if(profile)$('replay-result').innerHTML=`<p class="compute-warning" data-profile-error="${esc(profile.code)}">${esc(profile.text)}</p><p class="microcopy">서버 원문: ${esc(profile.raw)}</p>`;
+      else $('replay-result').textContent=error.message;
+    }
     finally{$('run-replay').disabled=false;}
   };
 }
 function renderReplay(saved){
-  $('replay-result').innerHTML=`<article class="surface"><p class="eyebrow">검산 결과 · ${time(saved.createdAt)}</p><h2>총 대미지 ${num(saved.result.totalDamage)}</h2><p>실측 오차 검증 전 · 지정한 조건의 시뮬레이션 결과</p><div id="burst-timeline-comparison"></div>${renderBurstSummary(saved.result.teamBurst)}<div class="simul-result-grid">${saved.result.members.map(m=>`<article><h3>${esc(state.presentationByCharacter.get(m.characterId)?.displayName??m.characterId)}</h3><strong>${num(m.damage)}</strong><dl>${Object.entries(m.effects).map(([effect,dmg],index)=>`<div><dt>${esc(effectLabel(saved,m.characterId,effect,index))}</dt><dd>${num(dmg)}</dd></div>`).join('')}</dl></article>`).join('')}</div><div id="damage-log-container"></div><details><summary>저장 결과 원문</summary><pre>${esc(JSON.stringify(saved,null,2))}</pre></details></article>`;
+  $('replay-result').innerHTML=`<article class="surface"><p class="eyebrow">검산 결과 · ${time(saved.createdAt)}</p><h2>총 대미지 ${num(saved.result.totalDamage)}</h2><p>실측 오차 검증 전 · 지정한 조건의 시뮬레이션 결과</p>${COND_WIRE.confirmed?conditionModeLine(describeCompatibility(saved.conditionCompatibility)):''}<div id="burst-timeline-comparison"></div>${renderBurstSummary(saved.result.teamBurst)}<div class="simul-result-grid">${saved.result.members.map(m=>`<article><h3>${esc(state.presentationByCharacter.get(m.characterId)?.displayName??m.characterId)}</h3><strong>${num(m.damage)}</strong><dl>${Object.entries(m.effects).map(([effect,dmg],index)=>`<div><dt>${esc(effectLabel(saved,m.characterId,effect,index))}</dt><dd>${num(dmg)}</dd></div>`).join('')}</dl></article>`).join('')}</div><div id="damage-log-container"></div><details><summary>저장 결과 원문</summary><pre>${esc(JSON.stringify(saved,null,2))}</pre></details></article>`;
   tacticsManager.renderTimelineComparison($('burst-timeline-comparison'),saved.result?.teamBurst?.fullBursts,getMembersWithMeta());
   damageLogViewer.setReplay(saved);
+  // Records saved before conditionCompatibility existed are described by the read-only compatibility endpoint.
+  if(COND_WIRE.confirmed&&!saved.conditionCompatibility&&saved.id)api(COND_WIRE.replayCompatibilityRoute(saved.id))
+    .then(compat=>{const line=document.querySelector('#replay-result [data-cond-mode]');if(line&&lastReplay?.id===saved.id)line.outerHTML=conditionModeLine(describeCompatibility(compat));})
+    .catch(()=>{});
+}
+function conditionModeLine(mode){
+  return `<p class="cond-result-mode ${mode.mode==='legacy'?'warning':''}" data-cond-mode="${mode.mode}">${esc(mode.text)}</p>`;
 }
 function renderBurstSummary(team){
   if(!team)return '';
