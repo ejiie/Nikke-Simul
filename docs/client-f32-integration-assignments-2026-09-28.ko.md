@@ -27,6 +27,15 @@
   - 실제 격리 API(UI worktree Release, 새 dataRoot·합성 계정): web client 118,985 vs 과거 79,323/79,324/79,323(`statDamageRatio` 2, `defenceRatioRate` 0.25 — Director 산술 확인 79,323 × 2 × 0.75 ≈ 118,984.5), desktop replay 로그 전 항목 `client_f32`, 타격 #946 최종 1,711,007 = 저장값, 통계 batch schema 3·`cpu-summary.2-client-f32`·n=1, 1500/850/500px 넘침 0·JS 오류 0. mock·기존 회귀 통과.
   - 미실행: EXE 빌드·배포, Backend 전체 테스트 재실행, `hitOverrides` UI 입력(이번 범위 아님), 큰 정수·계산 불가 후보의 실제 브라우저 렌더(mock 단위만).
 - **Q-F32 B2 통지(2026-09-28):** UI `343877e` 기준 브라우저·UI 종단 수용 시작. 전달 `term_234e279b…` 요청 `04c61b1a-358e-4d74-903a-0483b85e8593`, accepted=true, `input_accepted`·`turn_started`. UI의 `check_client_f32_live.py`·mock을 판정 근거로 재사용하지 말고, UI가 mock으로만 본 큰 정수·계산 불가 후보 렌더를 실제 브라우저로 확인하라고 지시했다.
+- **Q-F32 B2: 전체 수용 보류, UI 결함 2건.** 검수 `c1cf869`(UI `343877e` 일반 merge `74a4225`), 보고서 최신 B2 절, 근거 검수 `artifacts/single-deck-qa/f32-b2-02a9eb8a5f02/`. 자체 Chromium + 실제 격리 API 77건 중 **75 통과 / 2 실패**(UI live 검사·mock·응답 mock 재사용 없음).
+  - 통과: 큰 홀수 exact `9845047699970465`와 과거 3개 계산 불가 이유의 실제 렌더, 기본·과거 정책, 두 실험 입력, raw 문자열·과정밀 거부, 400, v2(요청 쪽에서 schema 2로 보내 실제 응답 표시 — 자연 import 경로 보장은 아님), 409, replay 400·풀버스트·선택 audit·저장값 일치.
+  - **B2-STAT-1**: 정상 n=1 batch의 평균·중앙값·P5·P95(53,451,919)가 있는데 `unsupportedReason=mean_ci_requires_n_at_least_2`를 지표 전체 미지원으로 처리해 값을 숨긴다. Director 확인: `apps/desktop-ui/compute-adapter.js` `describeMetricStatistics`의 `unsupported = Boolean(unsupportedReason)`.
+  - **B2-STAT-2**: baseline 없는 완료 실험의 comparison 요청이 `400 baseline_required`인데 API 장애로 분류되어 "compute API 미연결"로 표시된다. Director 확인: `CONTRACT_ERROR_CODES`에 `baseline_required`가 없어 `single-deck-stats.js`의 `call()`이 `endpointStatus='unavailable'`로 둔다.
+  - 두 결함 모두 `abcd5b5`(통계 화면 최초 구현)부터 있던 코드이며 client_f32 산술과 무관하다. 도입 시점의 원인 판정은 하지 않는다.
+- **U-FIX-1 배정(2026-09-28):** I-UI 담당이 두 결함을 수정한다. 조건:
+  1. 지표별 지원 여부를 분리한다. CI처럼 n≥2가 필요한 항목만 사유를 표시하고, 계산된 점 추정값(평균·중앙값·분위수)은 표시한다. n=1 값이 API 값과 일치, n=0은 값을 만들지 않음, n≥2에서 CI 표시를 검증한다. Analysis/Backend 계약상 `unsupportedReason`의 의미가 "지표 전체 미지원"이라면 UI에서 임의로 재해석하지 말고 근거와 함께 Director에 보고한다(Analysis·Backend 코드 수정 금지).
+  2. `baseline_required` 같은 계약 응답(비교 대상 없음)을 transport 장애와 분리해 "비교 기준 없음"으로 표시하고 endpoint 상태를 바꾸지 않는다. 다른 4xx 계약 코드도 같은 기준으로 점검한다.
+  3. 실제 격리 API·브라우저로 두 시나리오와 기존 회귀를 재확인하고, 확정 커밋을 Director에 한 번 인계한다. 이후 Director가 Q-F32에 B2 재수용(두 결함 + 회귀)을 통지한다.
 
 ## 승인과 근거
 
