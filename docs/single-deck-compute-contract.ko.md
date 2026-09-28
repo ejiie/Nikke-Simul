@@ -1,4 +1,6 @@
-# 단일 덱 compute 계약 v1 — B-CPU
+# 단일 덱 compute 계약 — I-BE / client_f32 (2026-09-28)
+
+현재 hit wire는 아래 **I-BE schema 3** 절이다. 이전 B-CPU·B-TUNE-1 절은 변경 이력을 보존한다. `final_round_even`을 명시한 기존 요청은 해당 과거 정책을 계속 선택하며, 새 요청의 기본값은 `client_f32`다.
 
 기준 a5ccba6663241e61783b509fc69098ad3c9ecef2. C#의 확정 DTO 원본은 `src/Nikke.Contracts/Compute.cs`, JSON은 기존 Wire.Json camelCase다. 아래는 구현 연결 계약이며 GPU·통계 구현 완료 선언이 아니다. 추가 호환 필드는 허용하며 의미 변경은 버전 변경/보고가 필요하다.
 
@@ -54,3 +56,94 @@ ExecutionSelection의 optional `tuning`에 단계 관측을 추가한다. 기존
 - queued 상태의 warmup/candidate 및 취소된 튜닝 관측은 GET status로 조회한다. 최근64 종료 attempt의 중간/취소 관측은 프로세스 메모리에 보존하며 재시작 시 사라진다. 정상 선택의 최종 tuning은 기존 selection JSON과 함께 영속 저장된다. 저장소 schema 변경은 없다. warmup과 튜닝 전투는 정상 결과 DB/Statistics에 저장하지 않는다.
 
 실제 단독 benchmark 합의가 없는 진단은 선택·캐시 기능만 입증한다. scope=bounded_candidates_not_global_optimum이며 전역 최적 worker/속도 개선율/대량 수용을 뜻하지 않는다.
+
+## I-BE schema 3 — 단일 히트 wire
+
+확정 DTO는 `src/Nikke.Contracts/HitCalculation.cs`다. 모든 속성은 아래 camelCase 철자를 사용한다. 단일 히트는 성공 응답을 격리 또는 사용자 지정 `dataRoot/hit-calculations/{id}.json`에 저장한다. 자동으로 기존 파일을 덮어쓰거나 최신 공식으로 다시 저장하지 않는다.
+
+| 요청 | 동작 |
+|---|---|
+| POST /api/calculations/hit | 아래 요청 → `HitCalculationResponse`, HTTP 200 |
+| POST /api/calculations/hit/import | 저장된 artifact JSON → 새 ID의 변환·검산 기록, HTTP 200 |
+| GET /api/calculations/hit/{id} | 저장 당시 응답 그대로 조회; 없는 ID 404 |
+
+```json
+{
+  "inputSchemaVersion": 3,
+  "roundingPolicy": "client_f32",
+  "observedDamage": 150,
+  "input": {
+    "statAttack": 100,
+    "defense": 0,
+    "coefficient": 1,
+    "statDamageRatio": 2,
+    "defenceRatioRate": 0.25
+  }
+}
+```
+
+`inputSchemaVersion`은 필수이고 2 또는 3만 허용한다. `observedDamage`는 생략/null 가능, 양의 안전 정수 number만 허용한다. `roundingPolicy` 생략 시 `client_f32`; 선택지는 순서대로 `client_f32`, `legacy_term_floor`, `final_round_even`, `nested_floor`다. 마지막 세 정책은 기존 산술을 보존한 비교 후보이며 새 두 rate를 적용하지 않는다. 새 두 rate는 실험·원천 매핑 미확정 항목이다. `statDamageRatio`를 스킬 계수라고 확정하지 않는다. 생략 기본값은 각각 **1, 0**이고 임의의 추정값을 넣지 않는다. `coefficient`와 별도 필드다.
+
+응답은 과거 `{inputSchemaVersion, comparison:{...}}` 봉투 대신 **최상위 DTO**다. UI는 `response.candidates`와 `response.selectedCandidate.terms`를 읽는다. 필드:
+
+- `id`, `createdAt`, `inputSchemaVersion:3`, `rulesVersion:"p02.4-client-f32"`, `status:"provisional_rounding"`.
+- `input`: 중립값·생략 필드를 채운 실제 schema 3 입력. `originalInput`: 요청 원본 객체.
+- `conversion:{originalSchemaVersion,targetSchemaVersion,converted,method,appliedDefaults}`. v3는 `converted:false,method:"none"`; v2는 `originalSchemaVersion:2,targetSchemaVersion:3,converted:true,method:"v2_to_v3_neutral_rates",appliedDefaults:{statDamageRatio:1,defenceRatioRate:0}`.
+- `effectiveAttack`은 client 경로의 number 표시값, `exactEffectiveAttack`은 그 정수의 정확한 십진 문자열이다. 과거 후보의 공격력은 그 후보의 `terms` 중 `effectiveAttack.after`를 사용한다.
+- `selectedPolicy`, `selectedCandidate`, `candidates`(항상 위 순서의 4개), `observedDamage`, `limitations`, `sourceArtifact`(가져오기 원본; 일반 요청 null).
+- 후보는 `policy,damage,residual,relativeError,terms,status,errorCode,exactDamage`. `status:"available"`이면 계산값·audit를 사용한다. 큰 정수 등 과거 산술 한계에서는 해당 후보만 `status:"unavailable"`, `damage/residual/relativeError:null`, `terms:[]`, `errorCode`에 이유를 반환한다. 이를 피해 0으로 표시하지 않는다. 선택한 후보가 unavailable이면 요청 자체를 HTTP 400으로 거부한다.
+- client 후보 `exactDamage`는 정확한 십진 정수 문자열이다. 과거 후보는 안전한 number 범위만 지원하고 `exactDamage:null`이다. audit의 `before/after`와 일반 피해·잔차 number는 binary64 표시값이므로 큰 정수 표시는 exact 필드를 우선한다. 전체 덱 `RunSummary`의 합산 피해는 기존 double 규격을 유지한다.
+
+client audit term 순서는 `effectiveAttack,effectiveDefense,difference,base,B,extra,reduction,defenceRatio,product,final`이다. 각 항은 `name,before,after,operation`을 가진다. 과거 후보의 `charge,P,B2,B3,B4,B5` 등은 그대로 유지되며 하나의 설명을 모든 후보에 공통 적용하지 않는다.
+
+### v2 및 저장 파일 변환
+
+schema 2 요청의 원본에 새 rate가 들어 있으면 `schema2_cannot_contain_schema3_rates`로 거부한다. 두 필드가 없는 원본을 보존하고 (1,0)을 채워 schema 3 제약으로 검산한다. v2의 소수 native ATK/DEF/고정량도 임의 반올림하지 않고 오류다. 변환은 과거 관측 결과를 새로운 확정 사실로 승격하지 않는다.
+
+`/hit/import`는 옛 다운로드 `{inputSchemaVersion:2,comparison:{input:{...},observedDamage:...},...}`와 새 최상위 응답을 받는다. 명시 원본 schema가 필요하다. 선택 정책은 comparison/최상위의 `selectedPolicy`, 또는 artifact의 `roundingPolicy`를 사용하고 없으면 client 기본값이다. 과거 artifact 전체(당시 후보·관측·메모 포함)를 `sourceArtifact`에 남기고 새 계산을 새 ID로 저장한다. 기존 파일 일괄 재해석·덮어쓰기는 하지 않는다. GET은 계산 없이 저장 당시 내용을 돌려준다.
+
+### 공격력 정수와 raw wire
+
+`statAttack`, `defense`, `attackFlatBuffs[].amount`는 정수 number이며 Core의 입력 범위 검사도 적용한다. 소수는 절삭하지 않는다. 공격력 `attackBuffs`/`runtimeAttackBuffs`의 `rate`는 비율 number(14.5%=0.145), 정확한 1/10000 단위만 허용한다. 원문 숫자를 검사하므로 `0.01400000000000000001`, `1e-400`, 정수 뒤 극소 소수도 거부한다.
+
+| 필드 | 입력 | 출력/보존 |
+|---|---|---|
+| `rawRate10000` | signed long 십진 문자열 권장; ±9007199254740991 범위의 정수 number도 허용 | 항상 십진 문자열 또는 null |
+| `exactAmount` | 동일. 큰 long은 반드시 문자열 | 항상 십진 문자열 또는 null |
+| `rate` / `amount` | 일반 number. 대응 exact 필드가 있으면 생략 가능 | 표시용 number와 exact 필드를 함께 반환 |
+
+두 표현을 함께 주면 Core가 서로 일치하는지 검사한다. 문자열에 지수·소수·공백은 허용하지 않는다. long 범위는 -9223372036854775808~9223372036854775807이며 실제 공격력·피해 계산의 overflow/음수/범위 제한은 별도로 검사한다. 큰 JSON number를 반올림해서 받아들이지 않는다. `rawRate10000:"1450"`은 rate0.145, `exactAmount:"9007199254740993"`은 binary64로 표현할 수 없는 정확한 고정량이다. UI는 문자열을 `Number()`로 변환해 다시 전송하지 않는다.
+
+```json
+{
+  "inputSchemaVersion": 3,
+  "input": {
+    "statAttack": 100,
+    "attackBuffs": [{"source":"OL","rawRate10000":"1450","stacks":1}],
+    "attackFlatBuffs": [{"source":"experiment","exactAmount":"100"}]
+  }
+}
+```
+
+제약 위반은 HTTP 400 `{message:"..."}`다. 대표 메시지는 `*_must_be_integer_never_truncated`, `rate_requires_exact_1_per_10000_units`, `invalid_hit_json: ...exact_integer_requires_decimal_string_or_safe_integer_number`, `invalid_client_f32_input: ...`, `hit_integer_overflow: ...`. 입력 오류는 정상 피해나 다른 정책 자동 fallback으로 저장하지 않는다.
+
+## I-BE compute 준비·역사 분리
+
+`ExperimentRequest.conditions.roundingPolicy`는 같은 네 정책이며 생략 시 client 기본값이다. 선택 실험용 optional `hitOverrides`는 캐릭터 ID별 객체다. 허용 필드는 `statDamageRatio`, `defenceRatioRate`, `runtimeAttackBuffs`, `attackFlatBuffs`뿐이다. 위 raw/exact 규격을 사용한다. 선택한 5인 밖의 ID/다른 필드는 오류다. 배열을 지정하면 해당 기본 입력 배열을 교체하고, 엔진이 생성하는 실제 스킬 버프·고정 부여는 기존 로직대로 추가한다. snapshot 자체는 바꾸지 않는다.
+
+```json
+"hitOverrides": {
+  "5004": {
+    "statDamageRatio": 2,
+    "defenceRatioRate": 0.25,
+    "runtimeAttackBuffs": [{"source":"experiment","rawRate10000":"1450"}],
+    "attackFlatBuffs": [{"source":"experiment","exactAmount":"100"}]
+  }
+}
+```
+
+새 `BatchStatus.input`은 `inputSchemaVersion:3`, `roundingPolicy`, `summaryVersion:"cpu-summary.2-client-f32"`를 명시한다. engineVersion도 그 summary 버전이며 rulesVersion에는 SkillReplay/TeamBurst/HitCalculator/StatBuffCalculator 버전과 정책을 함께 기록한다. members 전체의 두 rate·raw/exact 표현, graph, 최종 조건·데이터 버전을 canonical fingerprint에 포함한다. 의미상 같은 rate라도 raw 존재 여부가 다른 원천 입력은 별도 fingerprint다. phase는 별도 집계 경계로 기존 유지한다.
+
+튜닝 키가 새 workload/engine/rules를 포함하므로 이전 캐시를 재사용하지 않는다. 구 기록에서 새 메타데이터가 빠지면 schema2/null로 읽어 조회 가능성을 유지한다. 복구 시 버전·schema·정책 및 저장 payload 재계산 fingerprint가 모두 일치해야 하며, 이전 버전 재개는 HTTP 409 `engine_or_rules_version_changed`, 변조 입력은 `prepared_input_fingerprint_mismatch`다. 구 결과 삭제나 새 버전 라벨 재부여는 없다. 현재 엔진에서 과거 정책을 명시한 **새 실험**은 실행 가능하다.
+
+통계는 experiment별 유효 결과만 읽고 저장 시 input fingerprint를 검사한다. baseline 후보 비교는 같은 rules/schema/policy/summary와 동일 hitOverrides를 요구한다. 정책 실험끼리는 별개 기록으로 조회하며 OL 비교 통계에 혼합하지 않는다. 이 변경은 Analysis 산술이나 통계 방법을 수정하지 않는다.

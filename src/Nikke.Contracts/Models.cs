@@ -7,7 +7,7 @@ namespace Nikke.Contracts;
 
 public static class Wire
 {
-    public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { WriteIndented = false };
+    public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { WriteIndented = false, TypeInfoResolver = HitWire.Resolver() };
     public static string Serialize<T>(T value) => JsonSerializer.Serialize(value, Json);
     public static T Read<T>(string text) => JsonSerializer.Deserialize<T>(text, Json) ?? throw new InvalidDataException("Empty JSON");
     public static string Hash(string value) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
