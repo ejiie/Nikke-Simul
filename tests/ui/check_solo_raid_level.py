@@ -96,12 +96,16 @@ def check_conditions(payload):
     problems = []
     conditions = payload.get('conditions', {})
     combat = conditions.get('combat', {})
-    expected = {'durationFrames': 7200, 'enemyDefense': 31784, 'critMode': 'on', 'core': True, 'properDistance': True,
-                'elementAdvantage': True, 'pelletCoefficientPolicy': 'per_pellet', 'manualCharacterId': '5004',
+    # F-COND-1: the deck-wide bools are replaced by boss distance / weak element (explicit null = unset).
+    expected = {'durationFrames': 7200, 'enemyDefense': 31784, 'critMode': 'on', 'core': True, 'bossDistance': None,
+                'bossWeakElement': None, 'pelletCoefficientPolicy': 'per_pellet', 'manualCharacterId': '5004',
                 'manualStyle': 'tap'}
     for key, value in expected.items():
-        if combat.get(key) != value:
-            problems.append(f'combat.{key}={combat.get(key)!r} expected {value!r}')
+        if key not in combat or combat.get(key) != value:
+            problems.append(f'combat.{key}={combat.get(key, "<absent>")!r} expected {value!r}')
+    for key in ('properDistance', 'elementAdvantage'):
+        if key in combat:
+            problems.append(f'combat.{key} must be omitted in the new condition mode')
     if conditions.get('roundingPolicy') != 'nested_floor':
         problems.append(f"roundingPolicy={conditions.get('roundingPolicy')!r}")
     if payload.get('characterIds') != IDS:
@@ -121,8 +125,7 @@ async def fill_and_submit(page, posts):
     await page.locator('[name="crit"]').select_option('on')
     await page.locator('[name="rounding"]').select_option('nested_floor')
     await page.locator('[name="pellet"]').select_option('per_pellet')
-    for flag in ('core', 'distance', 'element'):
-        await page.locator(f'[name="{flag}"]').check()
+    await page.locator('[name="core"]').check()
     await page.locator('[name="manualCharacter"]').select_option('5004')
     await page.locator('[name="manualStyle"]').select_option('tap')
     before = len(posts)

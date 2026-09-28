@@ -7,7 +7,7 @@ import { createDamageLogViewer } from './damage-log.js';
 import { toServerTacticDto } from './damage-log-adapter.js';
 import { createSingleDeckStatsView } from './single-deck-stats.js';
 import { defaultPolicy, policyOptions } from './hit-policy.js';
-import { COND_WIRE, conditionWire, describeConditionMode, mountConditionControls } from './combat-conditions.js';
+import { COND_WIRE, conditionWire, describeCompatibility, mountConditionControls } from './combat-conditions.js';
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -253,7 +253,8 @@ function renderRaid(){
     const host=document.createElement('div');host.id='raid-conditions';
     $('replay-form').querySelector('.action-row').after(host);
     combatConditions=mountConditionControls(host,{getMembers:conditionMembers,
-      loadRanges:()=>snapshot?api(COND_WIRE.rangesRoute(snapshot.id)):null});
+      loadCatalog:()=>api(COND_WIRE.catalogRoute),
+      loadMembers:ids=>snapshot?api(COND_WIRE.membersRoute(snapshot.id,ids)):null});
   }
   $('replay-form').onsubmit=async e=>{
     e.preventDefault();if(!snapshot){status('계정을 먼저 연결하세요.');return;}
@@ -266,6 +267,11 @@ function renderRaid(){
     const targetDamageLogCharId = (typeof damageLogViewer !== 'undefined' && damageLogViewer?.getSelectedCharacterId?.()) || '5004';
     // Solo raid challenge always calculates at synchro level 400; the form has no level field.
     const SOLO_RAID_SCENARIO_LEVEL = 400;
+    // Kept inside this callback: tests/q3/check_ui_contract.mjs executes the callback body alone (see
+    // docs/solo-raid-challenge-level.ko.md). New mode sends only bossDistance/bossWeakElement (explicit null = unset).
+    const bossConditionFields = typeof combatConditions !== 'undefined' && combatConditions
+      ? conditionWire(combatConditions.getState())
+      : { properDistance: form.has('distance'), elementAdvantage: form.has('element') };
     const request = {
       snapshotId: snapshot.id,
       characterIds: members,
@@ -282,7 +288,7 @@ function renderRaid(){
           enemyDefense: Number(form.get('defense')),
           critMode: form.get('crit'),
           core: form.has('core'),
-          ...distanceElementFields(form),
+          ...bossConditionFields,
           pelletCoefficientPolicy: form.get('pellet'),
           fullBurstWindows: [],
           trace: false,
@@ -297,9 +303,16 @@ function renderRaid(){
   };
 }
 function renderReplay(saved){
-  $('replay-result').innerHTML=`<article class="surface"><p class="eyebrow">검산 결과 · ${time(saved.createdAt)}</p><h2>총 대미지 ${num(saved.result.totalDamage)}</h2><p>실측 오차 검증 전 · 지정한 조건의 시뮬레이션 결과</p>${COND_WIRE.confirmed?(()=>{const mode=describeConditionMode(saved.conditions?.combat);return `<p class="cond-result-mode ${mode.mode==='legacy'?'warning':''}" data-cond-mode="${mode.mode}">${esc(mode.text)}</p>`;})():''}<div id="burst-timeline-comparison"></div>${renderBurstSummary(saved.result.teamBurst)}<div class="simul-result-grid">${saved.result.members.map(m=>`<article><h3>${esc(state.presentationByCharacter.get(m.characterId)?.displayName??m.characterId)}</h3><strong>${num(m.damage)}</strong><dl>${Object.entries(m.effects).map(([effect,dmg],index)=>`<div><dt>${esc(effectLabel(saved,m.characterId,effect,index))}</dt><dd>${num(dmg)}</dd></div>`).join('')}</dl></article>`).join('')}</div><div id="damage-log-container"></div><details><summary>저장 결과 원문</summary><pre>${esc(JSON.stringify(saved,null,2))}</pre></details></article>`;
+  $('replay-result').innerHTML=`<article class="surface"><p class="eyebrow">검산 결과 · ${time(saved.createdAt)}</p><h2>총 대미지 ${num(saved.result.totalDamage)}</h2><p>실측 오차 검증 전 · 지정한 조건의 시뮬레이션 결과</p>${COND_WIRE.confirmed?conditionModeLine(describeCompatibility(saved.conditionCompatibility)):''}<div id="burst-timeline-comparison"></div>${renderBurstSummary(saved.result.teamBurst)}<div class="simul-result-grid">${saved.result.members.map(m=>`<article><h3>${esc(state.presentationByCharacter.get(m.characterId)?.displayName??m.characterId)}</h3><strong>${num(m.damage)}</strong><dl>${Object.entries(m.effects).map(([effect,dmg],index)=>`<div><dt>${esc(effectLabel(saved,m.characterId,effect,index))}</dt><dd>${num(dmg)}</dd></div>`).join('')}</dl></article>`).join('')}</div><div id="damage-log-container"></div><details><summary>저장 결과 원문</summary><pre>${esc(JSON.stringify(saved,null,2))}</pre></details></article>`;
   tacticsManager.renderTimelineComparison($('burst-timeline-comparison'),saved.result?.teamBurst?.fullBursts,getMembersWithMeta());
   damageLogViewer.setReplay(saved);
+  // Records saved before conditionCompatibility existed are described by the read-only compatibility endpoint.
+  if(COND_WIRE.confirmed&&!saved.conditionCompatibility&&saved.id)api(COND_WIRE.replayCompatibilityRoute(saved.id))
+    .then(compat=>{const line=document.querySelector('#replay-result [data-cond-mode]');if(line&&lastReplay?.id===saved.id)line.outerHTML=conditionModeLine(describeCompatibility(compat));})
+    .catch(()=>{});
+}
+function conditionModeLine(mode){
+  return `<p class="cond-result-mode ${mode.mode==='legacy'?'warning':''}" data-cond-mode="${mode.mode}">${esc(mode.text)}</p>`;
 }
 function renderBurstSummary(team){
   if(!team)return '';

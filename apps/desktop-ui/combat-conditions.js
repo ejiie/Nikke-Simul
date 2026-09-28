@@ -2,42 +2,52 @@
  * Boss distance and boss weak element conditions (F-COND-1, UI part F-COND-U).
  *
  * Replaces the deck-wide "적정 거리" / "우월 코드" checkboxes with two per-member conditions:
- * - bossDistance: integer 0-100 or unset. A member gets the proper-distance bonus when its own weapon range
- *   [min, max] contains the distance (both ends inclusive, provisional). Range 0-0 (RL in the source data) means
+ * - bossDistance: integer 0-100 or null. A member gets the proper-distance bonus when its own weapon range
+ *   [min, max] contains the distance (both ends inclusive, provisional). RL 0-0 in the source data means
  *   "no proper-distance bonus" and is flagged for confirmation.
- * - bossWeakElement: one of five elements or none. A member gets the element-advantage bonus when its element is
- *   the boss's weak element. No element matchup chart is used; the user states the weakness.
- * Decisions are the Director's provisional defaults (boss-distance-element-assignments-2026-09-28.ko.md).
+ * - bossWeakElement: Fire/Water/Wind/Iron/Electronic or null. A member gets the element-advantage bonus when its
+ *   element is the boss's weak element. No element matchup chart is used; the user states the weakness.
+ * Rules are the Director's provisional defaults; the engine decides, the UI only previews.
  *
- * The Backend wire is not published yet. COND_WIRE.confirmed stays false: the live form keeps the old checkboxes
- * and requests. The new controls run against mock data until the Director announces the confirmed wire.
- * Every provisional wire detail (route, field names, element spelling) lives in this file only.
+ * Wire: Backend 796eec3, docs/single-deck-compute-contract.ko.md "F-COND-B".
+ * - GET /api/runtime/combat-conditions: weapon-group table, elements with icon URLs, source.
+ * - GET /api/snapshots/{id}/combat-conditions?characterIds=...: member profiles in request order.
+ * - conditions.combat.bossDistance / bossWeakElement; in the new mode properDistance/elementAdvantage are omitted
+ *   (mixing is HTTP 400) and "all unset" sends both new fields as explicit null.
+ * - Saved replay (top level) and compute BatchStatus.input carry conditionCompatibility {mode, label, ...};
+ *   old records are read through .../condition-compatibility. Old values are displayed, never reinterpreted.
+ * `confirmed: false` reproduces the pre-wire form (old checkboxes) for comparison tests only.
  */
 
 export const COND_WIRE = Object.freeze({
-  confirmed: false,
-  // Provisional until Backend F-COND-B publishes the contract.
-  rangesRoute: snapshotId => `/runtime/combat-ranges?snapshotId=${encodeURIComponent(snapshotId)}`
+  confirmed: true,
+  catalogRoute: '/runtime/combat-conditions',
+  membersRoute: (snapshotId, ids) => `/snapshots/${encodeURIComponent(snapshotId)}/combat-conditions?characterIds=${ids.map(encodeURIComponent).join(',')}`,
+  replayCompatibilityRoute: id => `/runtime/skill-replays/${encodeURIComponent(id)}/condition-compatibility`,
+  experimentCompatibilityRoute: id => `/compute/experiments/${encodeURIComponent(id)}/condition-compatibility`
 });
 
 export const DISTANCE_MIN = 0;
 export const DISTANCE_MAX = 100;
 
-// code = presentation elementCode / icon name; wire = provisional contract spelling (Director: Electronic).
+// code = presentation elementCode / icon name; wire = contract value (Electronic keeps its wire spelling).
 export const WEAK_ELEMENTS = Object.freeze([
   { code: 'fire', wire: 'Fire', label: '작열', en: 'Fire' },
   { code: 'water', wire: 'Water', label: '수냉', en: 'Water' },
   { code: 'wind', wire: 'Wind', label: '풍압', en: 'Wind' },
   { code: 'iron', wire: 'Iron', label: '철갑', en: 'Iron' },
-  { code: 'electric', wire: 'Electronic', label: '전격', en: 'Electric' }
+  { code: 'electric', wire: 'Electronic', label: '전격', en: 'Electronic' }
 ]);
-export const WEAPON_LABELS = Object.freeze({ shotgun: '샷건', submachine_gun: '기관단총', assault_rifle: '소총',
-  machine_gun: '머신건', sniper_rifle: '저격소총', rocket_launcher: '런처' });
-const WEAPON_ORDER = ['shotgun', 'submachine_gun', 'assault_rifle', 'machine_gun', 'sniper_rifle', 'rocket_launcher'];
+// Contract weaponType -> label; presentation weaponCode maps onto the same types.
+export const WEAPON_LABELS = Object.freeze({ SG: '샷건', SMG: '기관단총', AR: '소총', MG: '머신건', SR: '저격소총', RL: '런처' });
+const WEAPON_ORDER = ['SG', 'SMG', 'AR', 'MG', 'SR', 'RL'];
+const PRESENTATION_WEAPONS = { shotgun: 'SG', submachine_gun: 'SMG', assault_rifle: 'AR', machine_gun: 'MG', sniper_rifle: 'SR', rocket_launcher: 'RL' };
+const DIAGNOSTICS = { rl_zero_range_no_bonus_unverified: '데이터 0–0 · 보너스 없음 · 확인 필요' };
 
 const isInt = v => Number.isInteger(v);
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export const elementByCode = code => WEAK_ELEMENTS.find(e => e.code === code || e.wire === code) ?? null;
+const text = v => typeof v === 'string' && v.trim() ? v.trim() : null;
 
 export function createConditionState(initial = {}) {
   return { bossDistance: isInt(initial.bossDistance) ? initial.bossDistance : null,
@@ -45,13 +55,13 @@ export function createConditionState(initial = {}) {
 }
 
 /** Strict: '' means unset; anything else must be an integer 0-100 (never clamped or rounded). */
-export function parseDistance(text) {
-  const trimmed = String(text ?? '').trim();
+export function parseDistance(value) {
+  const trimmed = String(value ?? '').trim();
   if (trimmed === '') return null;
   if (!/^\d{1,3}$/.test(trimmed)) throw new Error('보스 거리는 0~100 사이 정수로 입력하세요.');
-  const value = Number(trimmed);
-  if (value < DISTANCE_MIN || value > DISTANCE_MAX) throw new Error('보스 거리는 0~100 사이 정수로 입력하세요.');
-  return value;
+  const number = Number(trimmed);
+  if (number < DISTANCE_MIN || number > DISTANCE_MAX) throw new Error('보스 거리는 0~100 사이 정수로 입력하세요.');
+  return number;
 }
 
 export const distanceSummary = state => state.bossDistance === null ? '미설정' : String(state.bossDistance);
@@ -60,122 +70,147 @@ export function elementSummary(state) {
   return element ? `${element.label}(${element.en})` : '없음';
 }
 
-/** Range status of one member at a distance. RL-style 0-0 is data, not an error, and needs confirmation. */
-export function rangeStatus(range, distance) {
-  if (!range || !isInt(range.min) || !isInt(range.max)) return { kind: 'unknown', text: '사거리 정보 없음' };
-  if (range.min === 0 && range.max === 0) return { kind: 'no_bonus', text: '보너스 없음(데이터 0–0, 확인 필요)' };
-  if (distance === null) return { kind: 'unset', text: `적정 ${range.min}–${range.max} · 거리 미설정` };
-  return distance >= range.min && distance <= range.max
-    ? { kind: 'in', text: `적정 거리 (${range.min}–${range.max})` }
-    : { kind: 'out', text: `범위 밖 (${range.min}–${range.max})` };
+/** Range status of one member profile at a distance. rangeBonusAvailable=false (RL 0-0) is data, not an error. */
+export function rangeStatus(profile, distance) {
+  if (!profile || !isInt(profile.min) || !isInt(profile.max)) return { kind: 'unknown', text: '사거리 정보 없음' };
+  if (profile.rangeBonusAvailable === false || (profile.min === 0 && profile.max === 0))
+    return { kind: 'no_bonus', text: '보너스 없음(데이터 0–0, 확인 필요)' };
+  if (distance === null) return { kind: 'unset', text: `적정 ${profile.min}–${profile.max} · 거리 미설정` };
+  return distance >= profile.min && distance <= profile.max
+    ? { kind: 'in', text: `적정 거리 (${profile.min}–${profile.max})` }
+    : { kind: 'out', text: `범위 밖 (${profile.min}–${profile.max})` };
 }
 
-/**
- * Normalises the range payload. Provisional shape (mock until the Backend contract):
- * { weaponRanges: [{ weaponCode, min, max, count, exceptions: [{ characterId, min, max }] }],
- *   members: { [characterId]: { min, max, element, weaponCode } }, source }
- */
-export function normalizeRanges(payload) {
+function normalizeProfile(p) {
+  if (!p || p.characterId == null) return null;
+  return { characterId: String(p.characterId), name: text(p.name), weaponType: text(p.weaponType),
+    min: isInt(p.bonusRangeMin) ? p.bonusRangeMin : null, max: isInt(p.bonusRangeMax) ? p.bonusRangeMax : null,
+    element: elementByCode(p.element)?.code ?? null,
+    rangeBonusAvailable: typeof p.rangeBonusAvailable === 'boolean' ? p.rangeBonusAvailable : null,
+    diagnostic: text(p.diagnostic) };
+}
+
+/** GET /api/runtime/combat-conditions -> view model. Nothing is filled in when a field is missing. */
+export function normalizeCatalog(payload) {
   const rows = Array.isArray(payload?.weaponRanges) ? payload.weaponRanges : [];
-  const weaponRanges = rows.filter(r => r && typeof r.weaponCode === 'string')
-    .map(r => ({ weaponCode: r.weaponCode, label: WEAPON_LABELS[r.weaponCode] ?? r.weaponCode,
-      min: isInt(r.min) ? r.min : null, max: isInt(r.max) ? r.max : null, count: isInt(r.count) ? r.count : null,
-      exceptions: (Array.isArray(r.exceptions) ? r.exceptions : []).filter(x => x && x.characterId != null)
-        .map(x => ({ characterId: String(x.characterId), min: isInt(x.min) ? x.min : null, max: isInt(x.max) ? x.max : null })) }))
-    .sort((a, b) => (WEAPON_ORDER.indexOf(a.weaponCode) + 1 || 99) - (WEAPON_ORDER.indexOf(b.weaponCode) + 1 || 99));
-  const members = {};
-  for (const [id, m] of Object.entries(payload?.members ?? {})) {
-    members[String(id)] = { min: isInt(m?.min) ? m.min : null, max: isInt(m?.max) ? m.max : null,
-      element: elementByCode(m?.element)?.code ?? null, weaponCode: typeof m?.weaponCode === 'string' ? m.weaponCode : null };
+  const weaponRanges = rows.filter(r => r && typeof r.weaponType === 'string').map(r => {
+    const ranges = (Array.isArray(r.ranges) ? r.ranges : []).filter(x => x && isInt(x.min) && isInt(x.max))
+      .map(x => ({ min: x.min, max: x.max, count: isInt(x.count) ? x.count : null, isTypical: x.isTypical === true }));
+    return { weaponType: r.weaponType, label: WEAPON_LABELS[r.weaponType] ?? r.weaponType,
+      characterCount: isInt(r.characterCount) ? r.characterCount : null,
+      typical: ranges.find(x => x.isTypical) ?? null, ranges,
+      exceptions: (Array.isArray(r.exceptions) ? r.exceptions : []).map(normalizeProfile).filter(Boolean),
+      rangeBonusAvailable: typeof r.rangeBonusAvailable === 'boolean' ? r.rangeBonusAvailable : null,
+      diagnostics: (Array.isArray(r.diagnostics) ? r.diagnostics : []).map(String) };
+  }).sort((a, b) => (WEAPON_ORDER.indexOf(a.weaponType) + 1 || 99) - (WEAPON_ORDER.indexOf(b.weaponType) + 1 || 99));
+  const icons = {};
+  for (const e of Array.isArray(payload?.elements) ? payload.elements : []) {
+    const element = elementByCode(e?.value);
+    if (element && text(e.iconUrl)) icons[element.code] = e.iconUrl;
   }
-  return { weaponRanges, members, source: typeof payload?.source === 'string' ? payload.source : null };
+  const source = payload?.source && typeof payload.source === 'object'
+    ? [text(payload.source.path), text(payload.source.version)].filter(Boolean).join(' · ') : null;
+  return { weaponRanges, icons, source, runtimeDataId: text(payload?.runtimeDataId), gameVerified: payload?.gameVerified === true };
 }
 
-/** Per-member preview. Element comes from the range payload, else from presentation (elementCode). */
-export function memberPreview(members, ranges, state) {
+/** GET /api/snapshots/{id}/combat-conditions -> { [characterId]: profile }. */
+export function normalizeMembers(payload) {
+  const members = {};
+  for (const profile of (Array.isArray(payload?.members) ? payload.members : []).map(normalizeProfile).filter(Boolean))
+    members[profile.characterId] = profile;
+  return members;
+}
+
+/** Per-member preview from API profiles; presentation elementCode is only a fallback when profiles are absent. */
+export function memberPreview(members, profiles, state) {
   return (members ?? []).map(m => {
-    const data = ranges?.members?.[m.id] ?? null;
-    const element = data?.element ?? elementByCode(m.elementCode)?.code ?? null;
+    const profile = profiles?.[m.id] ?? null;
+    const element = profile?.element ?? elementByCode(m.elementCode)?.code ?? null;
     return {
-      id: m.id, name: m.displayName ?? m.id,
-      weaponCode: data?.weaponCode ?? m.weaponCode ?? null,
-      distance: rangeStatus(data && { min: data.min, max: data.max }, state.bossDistance),
+      id: m.id, name: m.displayName ?? profile?.name ?? m.id,
+      weaponType: profile?.weaponType ?? PRESENTATION_WEAPONS[m.weaponCode] ?? null,
+      distance: rangeStatus(profile, state.bossDistance),
       element,
       elementMatch: element === null ? null : state.bossWeakElement !== null && element === state.bossWeakElement
     };
   });
 }
 
-/** Condition fields for a request. Confirmed wire only; otherwise null and the caller keeps the legacy bools. */
+/** New-mode combat fields. Both are always sent (explicit null = unset/none); the old bools are never added. */
 export function conditionWire(state, confirmed = COND_WIRE.confirmed) {
   if (!confirmed) return null;
   return { bossDistance: state.bossDistance, bossWeakElement: elementByCode(state.bossWeakElement)?.wire ?? null };
 }
 
 /**
- * Describes saved conditions. New fields -> per-member mode; old bools only -> "이전 방식(전원 적용)", shown as
- * stored and never reinterpreted as a distance or an element.
+ * conditionCompatibility (saved replay top level / BatchStatus.input / condition-compatibility endpoint) ->
+ * display. The Backend label is shown as given; values are described, never converted between modes.
  */
-export function describeConditionMode(combat) {
-  if (!combat || typeof combat !== 'object') return { mode: 'unknown', text: '전투 조건 기록 없음' };
-  const hasNew = 'bossDistance' in combat || 'bossWeakElement' in combat;
-  const hasOld = typeof combat.properDistance === 'boolean' || typeof combat.elementAdvantage === 'boolean';
-  if (hasNew) {
-    const state = createConditionState(combat);
-    return { mode: 'per_member', text: `보스 거리 ${distanceSummary(state)} · 약점 ${elementSummary(state)} (멤버별 판정)` };
+export function describeCompatibility(compat) {
+  if (!compat || typeof compat !== 'object' || !text(compat.mode)) return { mode: 'unknown', text: '전투 조건 모드 기록 없음' };
+  const label = text(compat.label);
+  if (compat.mode === 'per_member') {
+    const state = createConditionState(compat);
+    return { mode: 'per_member', label, text: `${label ?? '보스 거리·약점(멤버별)'} · 보스 거리 ${distanceSummary(state)} · 약점 ${elementSummary(state)}` };
   }
-  if (hasOld) {
+  if (compat.mode === 'legacy_global') {
     const on = v => v === true ? '적용' : v === false ? '미적용' : '기록 없음';
-    return { mode: 'legacy', text: `이전 방식(전원 적용) · 적정 거리 ${on(combat.properDistance)} · 우월 코드 ${on(combat.elementAdvantage)}` };
+    return { mode: 'legacy', label, text: `${label ?? '이전 방식(전원 적용)'} · 적정 거리 ${on(compat.legacyProperDistance)} · 우월 코드 ${on(compat.legacyElementAdvantage)}` };
   }
-  return { mode: 'unknown', text: '거리·속성 조건 기록 없음' };
+  return { mode: 'unknown', label, text: `${label ?? '알 수 없는 조건 모드'} (${compat.mode})` };
 }
 
-const icon = code => `/editor/assets/ui/${code}.png`;
+/** Summary of the conditions the form will send (statistics screen, before a batch exists). */
+export function describePlannedConditions(state) {
+  return `보스 거리 ${distanceSummary(state)} · 약점 ${elementSummary(state)} (멤버별 판정)`;
+}
 
-export function renderConditionControls(state, { legacy = null } = {}) {
+const defaultIcon = code => `/editor/assets/ui/code-${code}.png`;
+const iconFor = (catalog, code) => catalog?.icons?.[code] ?? defaultIcon(code);
+
+export function renderConditionControls(state, { legacy = null, catalog = null } = {}) {
   const element = elementByCode(state.bossWeakElement);
   return `<div class="cond-controls" role="group" aria-label="보스 거리·약점 속성">
     <div class="cond-control"><button type="button" class="cond-icon-btn" data-cond-open="distance" aria-haspopup="dialog" aria-label="보스 거리 설정"><span aria-hidden="true">↔</span></button>
       <span class="cond-value" data-cond-value="distance">적정 거리 · ${esc(distanceSummary(state))}</span></div>
     <div class="cond-control"><button type="button" class="cond-icon-btn" data-cond-open="element" aria-haspopup="dialog" aria-label="보스 약점 속성 설정">${element
-      ? `<img src="${icon(`code-${element.code}`)}" alt="">` : '<span aria-hidden="true">◇</span>'}</button>
+      ? `<img src="${esc(iconFor(catalog, element.code))}" alt="">` : '<span aria-hidden="true">◇</span>'}</button>
       <span class="cond-value" data-cond-value="element">약점 · ${esc(elementSummary(state))}</span></div>
     ${legacy ? `<span class="status-pill warning cond-legacy">${esc(legacy)}</span>` : ''}
   </div>`;
 }
 
-export function renderDistanceDialog(state, ranges, preview) {
-  const table = ranges?.weaponRanges?.length ? `<div class="table-scroll"><table class="cond-range-table">
-      <thead><tr><th>무기군</th><th>적정 사거리</th><th>인원</th><th>예외</th></tr></thead><tbody>${ranges.weaponRanges.map(r => {
-        const range = r.min === 0 && r.max === 0 ? '0–0 · 보너스 없음(확인 필요)' : r.min === null ? '미확인' : `${r.min}–${r.max}`;
-        const exceptions = r.exceptions.length ? r.exceptions.map(x => `${esc(x.characterId)}: ${x.min}–${x.max}`).join(', ') : '—';
-        return `<tr data-weapon="${esc(r.weaponCode)}"><td>${esc(r.label)}</td><td>${esc(range)}</td><td>${r.count ?? '—'}</td><td>${exceptions}</td></tr>`;
-      }).join('')}</tbody></table></div>` : '<p class="microcopy">무기군별 적정 사거리를 불러오지 못했습니다.</p>';
+export function renderDistanceDialog(state, catalog, preview, { error = null } = {}) {
+  const rangeText = r => r.rangeBonusAvailable === false || (r.typical && r.typical.min === 0 && r.typical.max === 0)
+    ? '0–0 · 보너스 없음(확인 필요)' : r.typical ? `${r.typical.min}–${r.typical.max}` : '미확인';
+  const exceptionText = x => `${esc(x.name ?? x.characterId)} (#${esc(x.characterId)}): ${x.min ?? '?'}–${x.max ?? '?'}`;
+  const table = catalog?.weaponRanges?.length ? `<div class="table-scroll"><table class="cond-range-table">
+      <thead><tr><th>무기군</th><th>적정 사거리(다수)</th><th>인원</th><th>예외</th></tr></thead><tbody>${catalog.weaponRanges.map(r => `<tr data-weapon="${esc(r.weaponType)}"><td>${esc(r.label)}</td><td>${esc(rangeText(r))}</td><td>${r.characterCount ?? '—'}</td><td>${r.exceptions.length ? r.exceptions.map(exceptionText).join(', ') : '—'}</td></tr>`).join('')}</tbody></table></div>`
+    : `<p class="microcopy cond-load-error">무기군별 적정 사거리를 불러오지 못했습니다.${error ? ` ${esc(error)}` : ''}</p>`;
   const members = preview.length ? `<ul class="cond-member-list">${preview.map(m =>
-    `<li data-member="${esc(m.id)}" data-distance-kind="${m.distance.kind}"><strong>${esc(m.name)}</strong> <span>${esc(WEAPON_LABELS[m.weaponCode] ?? '무기 미확인')}</span> <em>${esc(m.distance.text)}</em></li>`).join('')}</ul>` : '';
+    `<li data-member="${esc(m.id)}" data-distance-kind="${m.distance.kind}"><strong>${esc(m.name)}</strong> <span>${esc(WEAPON_LABELS[m.weaponType] ?? '무기 미확인')}</span> <em>${esc(m.distance.text)}</em></li>`).join('')}</ul>` : '';
   const value = state.bossDistance ?? '';
   return `<form method="dialog" class="cond-dialog-body" data-cond-form="distance">
     <h3 id="cond-distance-title">보스 거리</h3>
     <p class="microcopy">0~100 정수. 각 니케는 자기 무기의 적정 사거리 안에 거리가 들어가면 적정 거리 보너스를 받습니다(평타만, 양끝 포함 · 잠정). 미설정이면 전원 보너스 없음.</p>
     <div class="cond-distance-inputs">
-      <input type="range" name="distanceRange" min="${DISTANCE_MIN}" max="${DISTANCE_MAX}" step="1" value="${value === '' ? 50 : value}" aria-label="보스 거리 슬라이더" ${value === '' ? 'data-unset="true"' : ''}>
+      <input type="range" name="distanceRange" min="${DISTANCE_MIN}" max="${DISTANCE_MAX}" step="1" value="${value === '' ? 50 : value}" aria-label="보스 거리 슬라이더">
       <input type="number" name="distance" min="${DISTANCE_MIN}" max="${DISTANCE_MAX}" step="1" inputmode="numeric" value="${value}" placeholder="미설정" aria-label="보스 거리">
       <button type="button" data-cond-unset>미설정</button>
     </div>
     <p class="cond-error" role="alert" hidden></p>
     <h4>현재 덱</h4>${members}
     <h4>무기군별 적정 사거리</h4>${table}
-    <p class="microcopy">무기군 표는 참고용이며 판정은 캐릭터별 값을 씁니다(예외 캐릭터 반영).${ranges?.source ? ` 원천 ${esc(ranges.source)}` : ''}</p>
+    <p class="microcopy">무기군 표는 참고용이며 판정은 캐릭터별 값을 씁니다(예외 캐릭터 반영).${catalog?.source ? ` 원천 ${esc(catalog.source)}` : ''}${catalog && !catalog.gameVerified ? ' · 실게임 검증 전' : ''}</p>
     <div class="cond-actions"><button type="button" data-cond-cancel>취소</button><button type="submit" class="primary" value="apply">적용</button></div>
   </form>`;
 }
 
-export function renderElementDialog(state, preview) {
+export function renderElementDialog(state, preview, catalog = null) {
   const buttons = WEAK_ELEMENTS.map(e => {
     const members = preview.filter(m => m.element === e.code).map(m => m.name);
     return `<button type="button" class="cond-element ${state.bossWeakElement === e.code ? 'selected' : ''}" data-cond-element="${e.code}" aria-pressed="${state.bossWeakElement === e.code}">
-      <img src="${icon(`code-${e.code}`)}" alt=""><span>${esc(e.label)} <small>${esc(e.en)}</small></span><small class="cond-element-members">${members.length ? `덱: ${esc(members.join(', '))}` : '덱에 없음'}</small></button>`;
+      <img src="${esc(iconFor(catalog, e.code))}" alt=""><span>${esc(e.label)} <small>${esc(e.en)}</small></span><small class="cond-element-members">${members.length ? `덱: ${esc(members.join(', '))}` : '덱에 없음'}</small></button>`;
   }).join('');
   return `<div class="cond-dialog-body" data-cond-form="element">
     <h3 id="cond-element-title">보스의 약점 속성</h3>
@@ -188,36 +223,45 @@ export function renderElementDialog(state, preview) {
 }
 
 /**
- * Mounts the controls inside `container` and owns the two dialogs. No hidden form inputs: the request builder
- * reads getState(). ESC and the close buttons dismiss a dialog without applying.
+ * Mounts the controls inside `container` and owns the dialogs. No hidden form inputs: the request builder reads
+ * getState(). ESC and the close buttons dismiss without applying. loadCatalog()/loadMembers(ids) call the API.
  */
-export function mountConditionControls(container, { getMembers = () => [], loadRanges = async () => null, onChange = () => {}, legacy = null } = {}) {
+export function mountConditionControls(container, { getMembers = () => [], loadCatalog = async () => null,
+  loadMembers = async () => null, onChange = () => {}, legacy = null } = {}) {
   let state = createConditionState();
-  let ranges = null;
-  let rangesPromise = null;
-  let lastTrigger = null;
+  let catalog = null, catalogError = null, catalogPromise = null;
+  let profiles = null, profilesKey = null, lastTrigger = null;
   const doc = container.ownerDocument;
   const dialog = doc.createElement('dialog');
   dialog.className = 'cond-dialog';
   doc.body.append(dialog);
-  const preview = () => memberPreview(getMembers(), ranges, state);
-  const paint = () => { container.innerHTML = renderConditionControls(state, { legacy }); };
-  const ensureRanges = () => rangesPromise ??= Promise.resolve(loadRanges()).then(r => { ranges = r ? normalizeRanges(r) : null; return ranges; })
-    .catch(() => { ranges = null; rangesPromise = null; return null; });
+  const preview = (s = state) => memberPreview(getMembers(), profiles, s);
+  const paint = () => { container.innerHTML = renderConditionControls(state, { legacy, catalog }); };
+  const ensureCatalog = () => catalogPromise ??= Promise.resolve(loadCatalog())
+    .then(payload => { catalog = payload ? normalizeCatalog(payload) : null; catalogError = null; return catalog; })
+    .catch(error => { catalog = null; catalogError = error?.message ?? String(error); catalogPromise = null; return null; });
+  const ensureProfiles = () => {
+    const ids = getMembers().map(m => m.id);
+    const key = ids.join(',');
+    if (!ids.length) { profiles = null; profilesKey = key; return Promise.resolve(null); }
+    if (key === profilesKey && profiles) return Promise.resolve(profiles);
+    return Promise.resolve(loadMembers(ids)).then(payload => { profiles = payload ? normalizeMembers(payload) : null; profilesKey = key; return profiles; })
+      .catch(() => { profiles = null; profilesKey = null; return null; });
+  };
   const set = next => { state = { ...state, ...next }; legacy = null; paint(); onChange(state); };
 
   function openDistance(trigger) {
     lastTrigger = trigger;
+    let draft = state.bossDistance;
     const render = () => {
       dialog.setAttribute('aria-labelledby', 'cond-distance-title');
-      dialog.innerHTML = renderDistanceDialog(state, ranges, preview());
+      dialog.innerHTML = renderDistanceDialog({ ...state, bossDistance: draft }, catalog, preview({ ...state, bossDistance: draft }), { error: catalogError });
       const form = dialog.querySelector('form');
       const number = form.elements.distance, slider = form.elements.distanceRange, error = form.querySelector('.cond-error');
-      let draft = state.bossDistance;
       const refresh = () => {
         const list = dialog.querySelector('.cond-member-list');
         if (!list) return;
-        for (const m of memberPreview(getMembers(), ranges, { ...state, bossDistance: draft })) {
+        for (const m of preview({ ...state, bossDistance: draft })) {
           const li = list.querySelector(`[data-member="${CSS.escape(m.id)}"]`);
           if (li) { li.dataset.distanceKind = m.distance.kind; li.querySelector('em').textContent = m.distance.text; }
         }
@@ -239,19 +283,31 @@ export function mountConditionControls(container, { getMembers = () => [], loadR
     };
     render();
     dialog.showModal();
-    if (!ranges) ensureRanges().then(() => { if (dialog.open && dialog.querySelector('[data-cond-form="distance"]')) render(); });
+    Promise.all([ensureCatalog(), ensureProfiles()]).then(() => {
+      if (dialog.open && dialog.querySelector('[data-cond-form="distance"]')) {
+        const typed = dialog.querySelector('[name="distance"]')?.value;
+        try { draft = parseDistance(typed); } catch { /* keep draft */ }
+        render();
+      }
+    });
   }
 
   function openElement(trigger) {
     lastTrigger = trigger;
-    dialog.setAttribute('aria-labelledby', 'cond-element-title');
-    dialog.innerHTML = renderElementDialog(state, preview());
-    dialog.querySelectorAll('[data-cond-element]').forEach(button => button.onclick = () => {
-      dialog.close(); set({ bossWeakElement: button.dataset.condElement || null });
-    });
-    dialog.querySelector('[data-cond-cancel]').onclick = () => dialog.close();
+    const render = () => {
+      dialog.setAttribute('aria-labelledby', 'cond-element-title');
+      dialog.innerHTML = renderElementDialog(state, preview(), catalog);
+      dialog.querySelectorAll('[data-cond-element]').forEach(button => button.onclick = () => {
+        dialog.close(); set({ bossWeakElement: button.dataset.condElement || null });
+      });
+      dialog.querySelector('[data-cond-cancel]').onclick = () => dialog.close();
+      (dialog.querySelector('.cond-element.selected') ?? dialog.querySelector('.cond-element'))?.focus();
+    };
+    render();
     dialog.showModal();
-    (dialog.querySelector('.cond-element.selected') ?? dialog.querySelector('.cond-element'))?.focus();
+    Promise.all([ensureCatalog(), ensureProfiles()]).then(() => {
+      if (dialog.open && dialog.querySelector('[data-cond-form="element"]')) render();
+    });
   }
 
   container.addEventListener('click', event => {
@@ -270,7 +326,7 @@ export function mountConditionControls(container, { getMembers = () => [], loadR
     getState: () => ({ ...state }),
     setState: next => { state = createConditionState(next); paint(); },
     isLegacy: () => legacy !== null,
-    loadRanges: ensureRanges,
+    loadCatalog: ensureCatalog,
     dispose: () => dialog.remove()
   };
 }

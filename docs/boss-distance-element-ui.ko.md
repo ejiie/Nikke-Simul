@@ -1,6 +1,6 @@
 # 보스 거리·약점 속성 조건 — UI (F-COND-U)
 
-2026-09-28. **mock 단계 완료**: 솔로 레이드 전투 조건의 적정 거리·우월 코드 체크박스를 대체할 아이콘 버튼·팝업 두 개를 만들고 mock 데이터와 브라우저로 검증했다. **Backend 확정 wire 연결·실제 격리 API 검증은 Director 통지 대기**다. 이 문서는 UI 구현·mock 검증 보고이며 실제 API 종단·독립 QA·원본 배포 보고가 아니다.
+2026-09-28. **mock 단계 완료**(1~5절, 당시 기록) → **단계 B 완료**(Backend 확정 `796eec3` merge, 확정 wire 연결, 실제 격리 API·브라우저 검증 — 6절). 이 문서는 UI 구현·검증 보고이며 독립 QA 수용·원본 배포 보고가 아니다. 1~5절과 6절이 다르면 6절이 우선한다.
 
 배정: [F-COND-1 지시서](C:/Users/user/orca/workspaces/Nikke-Simul/Director/docs/boss-distance-element-assignments-2026-09-28.ko.md)의 "결정한 기본값"·"공통 기준"·"F-COND-U" 절. 공통 기준은 [client_f32 통합 지시서](C:/Users/user/orca/workspaces/Nikke-Simul/Director/docs/client-f32-integration-assignments-2026-09-28.ko.md)의 "공통 기준·보존"을 따른다. Director 문서는 읽기만 했다.
 
@@ -10,11 +10,11 @@
 - 편집: `apps/desktop-ui/{combat-conditions.js(신규), app.js, single-deck-stats.js, simul.css}`, `tests/ui/{combat_conditions.test.mjs, check_combat_conditions_mock.py, fixtures/combat-ranges-mock.json}`(신규), 이 문서. 엔진·Backend·QA 파일 수정 없음. 단일 히트 검산(web `/legacy/`)은 바꾸지 않았다.
 - API 서버를 띄우지 않았다. 원본 배포본 사용 중이므로 5180/5181·원본 경로 프로세스·EXE·원본 계정/캐시는 읽지도 건드리지도 않았다. 새 Run/Dispatch/워커·push·배포 없음.
 
-## 2. 구현 (mock 단계)
+## 2. 구현 (mock 단계 — 당시 기록)
 
 ### 2.1 flag와 live 보존
 
-`combat-conditions.js`의 `COND_WIRE.confirmed = false`. **false인 동안 live 화면·요청은 기존과 같다**(체크박스 `distance`/`element`, `combat.properDistance`/`elementAdvantage` bool). 새 컨트롤·요청 필드·결과 모드 표시·통계 카드는 모두 `confirmed`일 때만 나온다. 잠정 wire 세부(경로 `GET /api/runtime/combat-ranges?snapshotId=`, 필드 `combat.bossDistance`/`combat.bossWeakElement`, 속성 철자 `Fire/Water/Wind/Iron/Electronic`, 사거리 응답 형태)는 이 파일 한 곳에만 있어 Backend 계약 확정 후 교체한다.
+mock 단계 당시 `combat-conditions.js`의 `COND_WIRE.confirmed = false`였고 **그동안 live 화면·요청은 기존과 같았다**(체크박스 `distance`/`element`, `combat.properDistance`/`elementAdvantage` bool). 새 컨트롤·요청 필드·결과 모드 표시·통계 카드는 모두 `confirmed`일 때만 나온다. 잠정 wire 세부(경로 `GET /api/runtime/combat-ranges?snapshotId=`, 사거리 응답 형태 등)는 이 파일 한 곳에만 두었고, 단계 B에서 확정 계약으로 교체했다(잠정 경로는 Backend가 채택하지 않음).
 
 ### 2.2 화면
 
@@ -30,7 +30,7 @@
 
 판정 규칙은 Director 잠정 기본값을 그대로 표시한다: 캐릭터별 `min ≤ 거리 ≤ max`(양끝 포함, 잠정), 평타만, RL 0–0은 보너스 없음·확인 필요, 미설정 = 전원 없음, 약점 = 멤버 속성 일치. UI의 멤버별 표시는 **미리보기**이며 실제 판정은 엔진이 한다. 사거리 데이터가 없는 멤버는 추정하지 않고 `사거리 정보 없음`. 멤버 속성은 사거리 응답 값을 쓰고, 없으면 presentation `elementCode`를 쓴다. presentation의 `weaponCode` 기본값(`sniper_rifle`)은 미리보기에 쓰지 않는다.
 
-## 3. 검증 — 모두 mock
+## 3. mock 단계 검증 — 모두 mock (당시 기록)
 
 | 명령 | 증거 종류 | 결과 |
 |---|---|---|
@@ -39,16 +39,67 @@
 | `node tests/ui/{single_deck_stats,client_f32_mock,damage_audit}.test.mjs`, vitest | 기존 회귀 | 통과 (17/17, 13/13, 19/19, 13/13) |
 | `check_solo_raid_level.py`(flag false: 기존 체크박스·bool 요청), `check_single_deck_stats_browser.py`, `check_client_f32_mock_browser.py`, `check_damage_audit_browser.py --real-replay <Director 저장 replay>` | 기존 회귀 | 통과. damage audit 브라우저는 첫 실행이 로컬 정적 서버 `ERR_CONNECTION_REFUSED` 콘솔 오류 1건으로 실패했고, 코드 변경 없이 2회 재실행 모두 통과 — 일시 연결 문제로 판단하나 재현 원인은 확정하지 않았다 |
 
-mock 사거리 fixture(`tests/ui/fixtures/combat-ranges-mock.json`): 무기군 범위·인원은 Director 집계를 옮긴 값, 멤버별 값은 경계·0–0 사례를 만들기 위한 **합성 배정**이며 실제 캐릭터 데이터가 아니다.
+mock 사거리 fixture(당시 `tests/ui/fixtures/combat-ranges-mock.json`, 단계 B에서 확정 형태의 `combat-conditions-mock.json`으로 대체): 무기군 범위·인원은 Director 집계를 옮긴 값, 멤버별 값은 경계·0–0 사례를 만들기 위한 **합성 배정**이며 실제 캐릭터 데이터가 아니다.
 
-## 4. 확정 wire 연결 시 할 일 (Director 통지 후)
+## 4. 확정 wire 연결 시 할 일 (당시 계획 — 모두 수행, 6절)
 
 1. Backend 확정 커밋 merge, 계약 문서의 조건 필드·사거리 API 경로·응답 형태·속성 철자에 맞춰 `COND_WIRE`와 `normalizeRanges`·`conditionWire` 교체 후 `confirmed:true`.
 2. 이전 bool 저장본 호환 응답 형태(명시 표시 필드가 있으면 그것을 사용)와 새·옛 필드 동시 지정 오류 문구 연결.
 3. 실제 격리 API·브라우저: 사거리 표·멤버 판정이 API 값과 일치, replay·통계 요청 새 필드, 결과·로그의 멤버별 적정 거리/우월 코드, 이전 방식 표시, 기존 회귀. EXE 배포 안 함.
 
-## 5. 미실행·한계
+## 5. mock 단계 미실행·한계 (당시 기록)
 
-- 실제 API 연결·종단 검증 없음(Backend wire 미확정). 사거리 경로·필드 이름은 잠정이다.
+- mock 단계에서는 실제 API 연결·종단 검증이 없었다(6절에서 수행).
 - 저장된 조건을 폼으로 다시 여는 기능은 현재 UI에 없어 "이전 방식" 표시는 결과 카드에서만 한다. 통계 화면은 실험 요청 조건을 응답에서 다시 받지 않으므로 복원 실험의 조건 모드는 표시하지 않는다(Backend가 조건을 돌려주면 연결 가능).
 - 적정 거리·우월 코드 판정 규칙(양끝 포함, RL 0–0)은 Director 잠정 가설이며 실측 검증 전이다.
+
+## 6. 단계 B — 확정 wire 연결·실제 격리 API 검증
+
+Director 통지(2026-09-28): Backend 확정 `796eec3bd4c6852c8dba7618c2b8584c142ad4c1`(엔진 `f374c1d` 포함) merge, 확정 wire는 Backend `docs/single-deck-compute-contract.ko.md` F-COND-B 절, 배경 `docs/boss-distance-element-backend.ko.md`.
+
+### 6.1 merge
+
+일반 merge `e3dc7b8`, 충돌 0. 자기 커밋 `cc24bc9` 보존.
+
+### 6.2 연결 (확정 wire)
+
+| 항목 | 연결 |
+|---|---|
+| flag | `COND_WIRE.confirmed = true`. 솔로 레이드 폼에서 옛 체크박스 `distance`/`element`가 사라지고 아이콘 컨트롤이 기본이 됐다 |
+| 무기군 표 | `GET /api/runtime/combat-conditions`: `weaponRanges[].{weaponType, characterCount, ranges[isTypical], exceptions[profile], rangeBonusAvailable, diagnostics}` → 대표 구간(`isTypical`)·인원·예외 캐릭터(`이름 (#ID): min–max`). `rangeBonusAvailable:false`(RL)는 `0–0 · 보너스 없음(확인 필요)`. 속성 아이콘은 `elements[].iconUrl`. `source`(path·version)와 `실게임 검증 전`(gameVerified=false) 표시. 409 `combat_profile_catalog_missing` 등 오류는 표 자리에 메시지로 표시 |
+| 멤버 판정 미리보기 | `GET /api/snapshots/{id}/combat-conditions?characterIds=…`(덱 순서). profile의 `bonusRangeMin/Max`·`element`·`rangeBonusAvailable`로 표시. 편성이 바뀌면 다시 조회 |
+| 요청 | `conditions.combat.bossDistance`(0–100/null)·`bossWeakElement`(`Fire/Water/Wind/Iron/Electronic`/null)를 **항상 둘 다** 보낸다(모두 미설정도 명시 null). `properDistance`/`elementAdvantage`는 보내지 않는다. 솔로 레이드 replay와 단일 덱 통계 실험 모두 |
+| 저장 모드 표시 | replay 응답 최상위·`BatchStatus.input`의 `conditionCompatibility`(`per_member`/`legacy_global`, `label`)의 label을 그대로 쓰고 값만 덧붙인다: `보스 거리·약점(멤버별) · 보스 거리 35 · 약점 작열(Fire)`, `이전 방식(전원 적용) · 적정 거리 적용 · 우월 코드 미적용`(경고색). 필드가 없는 과거 기록은 `…/condition-compatibility` 읽기 전용 endpoint로 표시한다. compatibility 객체를 combat에 다시 합치지 않는다 |
+| 통계 화면 | 실행 전에는 폼의 예정 조건, 실험이 있으면 저장된 `conditionCompatibility`를 `보스 거리·약점` 카드에 표시(`저장된 실험 조건`) |
+| Q3 하니스 호환 | `tests/q3/check_ui_contract.mjs`는 `app.js`의 submit 콜백 본문만 VM에서 실행한다. mock 단계 `cc24bc9`에서 콜백이 모듈 수준 헬퍼를 호출해 이 검사가 **23/26으로 깨져 있었다**(mock 단계 회귀 목록에 이 검사를 넣지 않아 놓침). 새 조건 필드 계산을 콜백 안으로 옮겨 26/26 복구 |
+
+### 6.3 검증 — 증거 종류 구분
+
+**실제 격리 API + Chromium**: `python tests/ui/check_combat_conditions_live.py --dotnet <SDK dotnet.exe> --source-data <Backend I-BE 격리 run의 data> --source-roster <Nikke-Dmg-Simulator/Database/raw/blabla_roledata.json> --assets <Backend image-catalog 격리 사본 assets/ui>` → **통과** `artifacts/ui/combat-conditions-live/run-7e01729b52f5`(최종 코드; 앞선 `run-f205cb15a298`·`run-3b7aa39eaa24`도 통과).
+
+- 격리: 이 worktree Release API(경고 0·오류 0), 임의 포트, run 폴더 안 새 dataRoot·새 합성 계정. 공개 카탈로그 allowlist 복사 후 **그 격리 runtime에만** `tools/data-pipeline/prepare_combat_conditions.py --runtime-root <격리>/runtime --source-roster <공개 roster>` 실행(원본 `data/local` 미실행). 새 runtime `9c98c91c…71cd`(Backend 보고와 같은 ID). 속성 아이콘은 격리 사본에서 복사. 원천·roster·아이콘 해시 전후 동일. 합성 HTTP는 bootstrap 연결 추가·combat-powers `{}`뿐이고, 이전 방식 시나리오 한 건만 **나가는 요청**을 옛 bool로 바꿔 실제 API로 보냈다(응답은 실제).
+- 표·미리보기 = API: 무기군 6행(SG 0–25/26, SMG 15–35/30, AR 25–45/35, MG 35–55/24, SR 45–100/36·예외 Harran #5042 25–45, RL 0–0 보너스 없음/41)이 API 응답과 일치. 합성 덱 profile(리타 SMG 15–35 Iron, 블랑 AR 25–45 Wind, 앨리스 SR 45–100 Fire, 누아르 SG 0–25 Wind, 모더니아 MG 35–55 Fire)로 거리 35 판정 in/in/out/out/in. 약점 팝업 5속성 이미지 로드, 속성별 덱 멤버 표시가 API 속성과 일치.
+- 거리 35·약점 Fire replay: 요청 `bossDistance:35, bossWeakElement:"Fire"`, 옛 bool 없음, 200, `conditionCompatibility.mode=per_member`, 결과 문구가 API label로 시작. **엔진 결과**: 피해 로그 대상 앨리스의 평타 12발 전부 `properDistance=false, elementAdvantage=true`(거리 범위 밖·Fire 일치 기대와 일치).
+- 모두 미설정 replay: 요청 두 필드 명시 null, 200, `per_member`, `보스 거리 미설정 · 약점 없음`.
+- 이전 방식 replay(요청만 옛 bool로 변경): 실제 응답 `legacy_global`/`이전 방식(전원 적용)` → 화면 `이전 방식(전원 적용) · 적정 거리 적용 · 우월 코드 미적용`, `condition-compatibility` endpoint 값 동일.
+- 통계 runs 1: 요청 같은 두 필드, batch completed, `input.conditionCompatibility` per_member, `summaryVersion cpu-summary.3-boss-conditions`, 카드 `보스 거리·약점(멤버별) · 보스 거리 35 · 약점 작열(Fire)` / `저장된 실험 조건`.
+- 혼용 요청(API 직접, UI는 보내지 않음): 400 `boss_conditions_mixed_with_legacy`.
+- 1500/850/500px: 두 팝업 뷰포트 안·가로 넘침 0, 통계 넘침 0, JS 오류 0. 실제 데이터 스크린샷에서 원천 sha 문구가 대화상자 오른쪽으로 잘리는 것을 발견해 줄바꿈 CSS를 추가했다.
+
+**mock·기존 회귀** (최종 코드):
+
+| 명령 | 증거 종류 | 결과 |
+|---|---|---|
+| `node tests/ui/combat_conditions.test.mjs` | mock 단위(확정 형태 fixture) | 9/9 |
+| `python tests/ui/check_combat_conditions_mock.py --assets …` | mock 브라우저(모든 /api 합성, 확정 route) | 통과 `run-cbf4851eadab`: 기존 항목 + compatibility 없는 기록의 endpoint 조회 |
+| `node tests/q3/check_ui_contract.mjs <검수 Q3 engine-example result.json>` | Q3 하니스(읽기 전용 입력) | 26/26 (수정 전 23/26) |
+| `python tests/ui/check_client_f32_live.py …` | 실제 격리 API 회귀(client_f32·U-FIX-1) | 통과 `run-6a6e9cfb2848`. summary 버전을 하드코딩 `cpu-summary.2-client-f32` 대신 API 값으로 확인하도록 검사 수정(Backend가 `cpu-summary.3-boss-conditions`로 올림) |
+| `check_solo_raid_level.py` | 합성 HTTP 회귀 | 통과. 기대값을 새 조건(두 필드 명시 null, 옛 bool 부재)으로 갱신 |
+| `single_deck_stats`·`client_f32_mock`·`damage_audit` 단위, vitest, `check_single_deck_stats_browser.py`, `check_client_f32_mock_browser.py`, `check_damage_audit_browser.py --real-replay` | 기존 회귀 | 모두 통과 (17/17, 13/13, 19/19, 13/13) |
+
+### 6.4 미실행·한계
+
+- EXE 빌드·배포 없음. 원본 경로·5180/5181·원본 data/local 미접촉. **배포 시 원본 dataRoot runtime에도 `prepare_combat_conditions.py` 준비가 필요**하다(Backend 보고와 같음). 준비 전 runtime에서는 사거리 API가 409 `combat_profile_catalog_missing`이며, UI는 표 자리에 오류를 표시한다(실제 409 화면은 이번에 확인하지 않음 — mock 단위만).
+- 합성 덱에 RL 멤버가 없어 실제 API의 멤버 `보너스 없음` 표시는 무기군 표로만 확인했다(멤버 행은 mock 단위·브라우저에서 확인).
+- 판정 규칙(양끝 포함, RL 0–0, 평타만 거리)은 잠정 가설이며 실측 전이다. 엔진 멤버별 플래그는 피해 로그 대상 1명(앨리스)만 UI 검사에서 대조했다. 전 멤버 엔진 검증은 엔진·Backend·QA 범위다.
+- 저장 조건을 폼으로 다시 여는 기능은 없어 이전 방식 표시는 결과 카드·통계 카드에서만 한다.

@@ -1,10 +1,10 @@
 """F-COND-U browser check of the boss distance / weak element controls. Evidence type: MOCK ONLY.
 
 The real desktop app (apps/desktop-ui) is served statically; every /api route is synthetic HTTP (the same style as
-check_solo_raid_level.py) and the range data comes from tests/ui/fixtures/combat-ranges-mock.json. Because the
-Backend wire is not confirmed, combat-conditions.js is served with COND_WIRE.confirmed=true for this run only
-(the file on disk stays false). Element icons are read from an isolated copy passed with --assets (read only);
-without it the icons 404 and only a warning is recorded. No API server, no account data, no 5180/5181.
+check_solo_raid_level.py) in the confirmed F-COND-B shape (tests/ui/fixtures/combat-conditions-mock.json).
+Replay responses carry conditionCompatibility (per_member, then legacy_global); a third response omits it to exercise
+the read-only condition-compatibility endpoint. Element icons are read from an isolated copy passed with --assets
+(read only). No API server, no account data, no 5180/5181. Real API: check_combat_conditions_live.py.
 Output: artifacts/ui/combat-conditions-mock/run-<id>/ (git-ignored). Exit 1 means NOT accepted.
 """
 import argparse
@@ -22,8 +22,9 @@ ROOT = Path(__file__).resolve().parents[2]
 WIDTHS = [1500, 850, 500]
 ELEMENTS = {'5011': 'fire', '5008': 'water', '5009': 'fire', '5004': 'electric', '5044': 'wind'}
 WEAPONS = {'5011': 'submachine_gun', '5008': 'machine_gun', '5009': 'rocket_launcher', '5004': 'sniper_rifle', '5044': 'sniper_rifle'}
-RANGES = json.loads((ROOT / 'tests/ui/fixtures/combat-ranges-mock.json').read_text(encoding='utf-8'))
-LEGACY = {'properDistance': True, 'elementAdvantage': False}
+MOCK = json.loads((ROOT / 'tests/ui/fixtures/combat-conditions-mock.json').read_text(encoding='utf-8'))
+LEGACY_COMPAT = {'mode': 'legacy_global', 'label': '이전 방식(전원 적용)', 'legacyProperDistance': True,
+                 'legacyElementAdvantage': False, 'bossDistance': None, 'bossWeakElement': None}
 
 
 async def route_api(page, captured, assets):
@@ -33,11 +34,15 @@ async def route_api(page, captured, assets):
     async def skill_replays(route):
         body = route.request.post_data_json
         captured['replays'].append(body)
-        # The second response imitates a saved result from the old deck-wide bool conditions.
-        conditions = body['conditions'] if len(captured['replays']) == 1 else {**body['conditions'], 'combat': {
-            k: v for k, v in body['conditions']['combat'].items() if k not in ('bossDistance', 'bossWeakElement')} | LEGACY}
-        await route.fulfill(json={'id': f"replay-{len(captured['replays'])}", 'createdAt': '2026-09-28T00:00:00Z',
-            'inputs': [{'weapon': {'characterId': i}, 'skills': {'slots': {}}} for i in IDS], 'conditions': conditions,
+        n = len(captured['replays'])
+        combat = body['conditions']['combat']
+        # 1: new record (per_member); 2: old deck-wide record (legacy_global); 3: record without the field.
+        compat = ({'mode': 'per_member', 'label': '보스 거리·약점(멤버별)', 'legacyProperDistance': False, 'legacyElementAdvantage': False,
+                   'bossDistance': combat.get('bossDistance'), 'bossWeakElement': combat.get('bossWeakElement')} if n == 1
+                  else LEGACY_COMPAT if n == 2 else None)
+        extra = {'conditionCompatibility': compat} if compat else {}
+        await route.fulfill(json={'id': f"replay-{n}", 'createdAt': '2026-09-28T00:00:00Z', **extra,
+            'inputs': [{'weapon': {'characterId': i}, 'skills': {'slots': {}}} for i in IDS], 'conditions': body['conditions'],
             'result': {'totalDamage': 1, 'members': [{'characterId': i, 'damage': 1, 'effects': {'normal_attack': 1}} for i in IDS],
                        'teamBurst': {'fullBursts': [], 'timeline': [], 'fullBurstFrames': 0,
                                      'acceptedGaugeByMember': {i: 0 for i in IDS}, 'sourceConstants': {'capacityRaw': 1000000}},
@@ -51,9 +56,17 @@ async def route_api(page, captured, assets):
         else:
             await route.fulfill(status=404, json={'message': 'not found'})
 
-    async def ranges(route):
+    async def catalog(route):
         captured['rangeCalls'].append(route.request.url)
-        await route.fulfill(json=RANGES)
+        await route.fulfill(json=MOCK['catalog'])
+
+    async def members(route):
+        captured['rangeCalls'].append(route.request.url)
+        await route.fulfill(json=MOCK['members'])
+
+    async def compatibility(route):
+        captured['compatibilityCalls'].append(route.request.url)
+        await route.fulfill(json=LEGACY_COMPAT)
 
     async def asset(route):
         name = route.request.url.rsplit('/', 1)[-1]
@@ -64,12 +77,6 @@ async def route_api(page, captured, assets):
             captured['missingAssets'].append(name)
             await route.fulfill(status=404, body='')
 
-    async def conditions_module(route):
-        source = (ROOT / 'apps/desktop-ui/combat-conditions.js').read_text(encoding='utf-8')
-        assert source.count('confirmed: false,') == 1
-        await route.fulfill(body=source.replace('confirmed: false,', 'confirmed: true,', 1), content_type='text/javascript')
-
-    await page.route('**/editor/combat-conditions.js', conditions_module)
     await page.route('**/editor/assets/ui/*', asset)
     await page.route('**/api/bootstrap', lambda r: fulfil(r, {'token': 't', 'testMode': True, 'jobs': [],
         'connections': [{'id': 'c1', 'accountId': 'acc', 'nickname': '검증용', 'status': 'ready', 'choices': [{'area': 1, 'label': 'synthetic'}]}]}))
@@ -82,10 +89,12 @@ async def route_api(page, captured, assets):
     await page.route('**/api/accounts/*/formation', lambda r: fulfil(r, {'accountId': 'acc', 'slots': IDS}))
     await page.route('**/api/accounts/*/burst-tactic', lambda r: fulfil(r, {'saved': None, 'stale': False, 'executionStatus': 'legacy'}))
     await page.route('**/api/snapshots/*/combat-powers', lambda r: fulfil(r, {i: 1 for i in IDS}))
-    await page.route('**/api/runtime/combat-ranges**', ranges)
+    await page.route('**/api/runtime/combat-conditions', catalog)
+    await page.route('**/api/snapshots/*/combat-conditions**', members)
     await page.route('**/api/runtime/skill-replays/*/damage-log**', lambda r: fulfil(r, {'exportSchemaVersion': 1,
         'collectionStatus': 'not_collected', 'replay': {'id': 'replay-1', 'result': {}}}))
     await page.route('**/api/runtime/skill-replays', skill_replays)
+    await page.route('**/api/runtime/skill-replays/*/condition-compatibility', compatibility)
     await page.route('**/api/compute/hardware', lambda r: fulfil(r, {'present': True, 'gpus': []}))
     await page.route('**/api/compute/experiments', experiments)
 
@@ -107,7 +116,7 @@ async def run(args):
     out = ROOT / 'artifacts/ui/combat-conditions-mock' / f'run-{uuid.uuid4().hex[:12]}'
     out.mkdir(parents=True)
     server, base = serve(ROOT / 'apps/desktop-ui')
-    captured = {'replays': [], 'experiments': [], 'rangeCalls': [], 'missingAssets': []}
+    captured = {'replays': [], 'experiments': [], 'rangeCalls': [], 'compatibilityCalls': [], 'missingAssets': []}
     problems, errors, report = [], [], {}
     assets = Path(args.assets) if args.assets else None
     try:
@@ -207,8 +216,17 @@ async def run(args):
             await page.locator('#run-replay').click()
             await page.wait_for_function("document.querySelector('[data-cond-mode]')?.dataset.condMode === 'legacy'")
             legacy_text = await page.locator('[data-cond-mode]').inner_text()
+            # A record saved without conditionCompatibility is described through the read-only endpoint.
+            await page.locator('#run-replay').click()
+            for _ in range(50):
+                if captured['compatibilityCalls']:
+                    break
+                await page.wait_for_timeout(100)
+            await page.wait_for_function("document.querySelector('[data-cond-mode]')?.dataset.condMode === 'legacy'")
             report['replay'] = {'combat': {k: combat.get(k, '<absent>') for k in ('bossDistance', 'bossWeakElement', 'properDistance', 'elementAdvantage')},
-                                'firstMode': mode1, 'legacyText': legacy_text}
+                                'firstMode': mode1, 'legacyText': legacy_text, 'compatibilityCalls': captured['compatibilityCalls']}
+            if len(captured['compatibilityCalls']) != 1 or not captured['compatibilityCalls'][0].endswith('/replay-3/condition-compatibility'):
+                problems.append(f"compatibility endpoint calls {captured['compatibilityCalls']}")
             if combat.get('bossDistance') != 35 or combat.get('bossWeakElement') != 'Fire' or 'properDistance' in combat or 'elementAdvantage' in combat:
                 problems.append(f'replay combat fields {report["replay"]["combat"]}')
             if mode1 != 'per_member' or legacy_text != '이전 방식(전원 적용) · 적정 거리 적용 · 우월 코드 미적용':

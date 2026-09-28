@@ -234,6 +234,7 @@ pre{max-height:400px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;}
 .cond-dialog{width:min(640px,calc(100vw - 32px));max-height:calc(100vh - 48px);padding:0;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 20px 50px rgba(15,23,42,.25);}
 .cond-dialog::backdrop{background:rgba(15,23,42,.45);}
 .cond-dialog-body{padding:18px 20px;display:flex;flex-direction:column;gap:10px;}
+.cond-dialog-body .microcopy{overflow-wrap:anywhere;}
 .cond-dialog-body h3{margin:0;font-size:1.15rem;}.cond-dialog-body h4{margin:6px 0 0;font-size:.9rem;color:#334155;}
 .cond-emphasis{margin:0;padding:8px 10px;border-left:4px solid #f59e0b;background:#fffbeb;font-weight:800;color:#92400e;}
 .cond-distance-inputs{display:grid;grid-template-columns:1fr 90px auto;gap:10px;align-items:center;}

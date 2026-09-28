@@ -1,5 +1,5 @@
-// F-COND-U: boss distance / weak element condition model checks. Evidence type: MOCK ONLY
-// (fixtures/combat-ranges-mock.json, provisional wire). No browser, no network.
+// F-COND-U: boss distance / weak element condition model checks against the confirmed F-COND-B wire shape.
+// Evidence type: MOCK ONLY (fixtures/combat-conditions-mock.json). No browser, no network.
 // Usage: node tests/ui/combat_conditions.test.mjs
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -8,8 +8,9 @@ import { pathToFileURL } from 'node:url';
 
 const root = path.resolve(import.meta.dirname, '../..');
 const cond = await import(pathToFileURL(path.join(root, 'apps/desktop-ui/combat-conditions.js')));
-const mock = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, 'fixtures/combat-ranges-mock.json'), 'utf8'));
-const ranges = cond.normalizeRanges(mock);
+const mock = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, 'fixtures/combat-conditions-mock.json'), 'utf8'));
+const catalog = cond.normalizeCatalog(mock.catalog);
+const profiles = cond.normalizeMembers(mock.members);
 const members = [
   { id: '5011', displayName: '리타' }, { id: '5008', displayName: '블랑' }, { id: '5009', displayName: '누아르' },
   { id: '5004', displayName: '앨리스' }, { id: '5044', displayName: '모더니아' }
@@ -21,12 +22,19 @@ async function check(name, fn) {
   catch (error) { checks.push({ name, passed: false, error: String(error.message).split('\n').slice(0, 6).join(' | ') }); }
 }
 
-await check('wire_unconfirmed_keeps_live_requests', () => {
-  assert.equal(cond.COND_WIRE.confirmed, false);
-  assert.equal(cond.conditionWire({ bossDistance: 35, bossWeakElement: 'fire' }), null);
-  assert.deepEqual(cond.conditionWire({ bossDistance: 35, bossWeakElement: 'fire' }, true), { bossDistance: 35, bossWeakElement: 'Fire' });
-  assert.deepEqual(cond.conditionWire(cond.createConditionState(), true), { bossDistance: null, bossWeakElement: null });
-  assert.equal(cond.conditionWire({ bossDistance: 0, bossWeakElement: 'electric' }, true).bossWeakElement, 'Electronic');
+await check('confirmed_wire_routes_and_fields', () => {
+  assert.equal(cond.COND_WIRE.confirmed, true);
+  assert.equal(cond.COND_WIRE.catalogRoute, '/runtime/combat-conditions');
+  assert.equal(cond.COND_WIRE.membersRoute('snap 1', ['5011', '5008']), '/snapshots/snap%201/combat-conditions?characterIds=5011,5008');
+  assert.equal(cond.COND_WIRE.replayCompatibilityRoute('r1'), '/runtime/skill-replays/r1/condition-compatibility');
+  assert.equal(cond.COND_WIRE.experimentCompatibilityRoute('e1'), '/compute/experiments/e1/condition-compatibility');
+  assert.deepEqual(cond.conditionWire({ bossDistance: 35, bossWeakElement: 'fire' }), { bossDistance: 35, bossWeakElement: 'Fire' });
+  // "All unset" is the new mode with both fields explicitly null; the old bools never appear.
+  const unset = cond.conditionWire(cond.createConditionState());
+  assert.deepEqual(unset, { bossDistance: null, bossWeakElement: null });
+  assert.ok(!('properDistance' in unset) && !('elementAdvantage' in unset));
+  assert.equal(cond.conditionWire({ bossDistance: 0, bossWeakElement: 'electric' }).bossWeakElement, 'Electronic');
+  assert.equal(cond.conditionWire({ bossDistance: 0, bossWeakElement: null }, false), null);
 });
 
 await check('distance_parse_is_strict_integer_0_100', () => {
@@ -36,45 +44,55 @@ await check('distance_parse_is_strict_integer_0_100', () => {
   for (const bad of ['-1', '101', '35.5', '1e2', 'abc', '3 5']) assert.throws(() => cond.parseDistance(bad), /0~100/, bad);
 });
 
-await check('range_status_boundaries_inclusive_and_rl_zero', () => {
-  const r = { min: 15, max: 35 };
+await check('range_status_boundaries_inclusive_and_rl', () => {
+  const r = { min: 15, max: 35, rangeBonusAvailable: true };
   assert.equal(cond.rangeStatus(r, 14).kind, 'out');
   assert.equal(cond.rangeStatus(r, 15).kind, 'in');
   assert.equal(cond.rangeStatus(r, 35).kind, 'in');
   assert.equal(cond.rangeStatus(r, 36).kind, 'out');
   assert.equal(cond.rangeStatus(r, null).kind, 'unset');
-  const rl = cond.rangeStatus({ min: 0, max: 0 }, 0);
-  assert.equal(rl.kind, 'no_bonus'); assert.match(rl.text, /보너스 없음\(데이터 0–0, 확인 필요\)/);
+  assert.equal(cond.rangeStatus(profiles['5009'], 0).kind, 'no_bonus');
+  assert.match(cond.rangeStatus(profiles['5009'], 0).text, /보너스 없음\(데이터 0–0, 확인 필요\)/);
   assert.equal(cond.rangeStatus(null, 30).kind, 'unknown');
-  assert.equal(cond.rangeStatus({ min: 1.5, max: 3 }, 2).kind, 'unknown');
+});
+
+await check('catalog_and_member_profiles', () => {
+  assert.deepEqual(catalog.weaponRanges.map(r => r.weaponType), ['SG', 'SMG', 'AR', 'MG', 'SR', 'RL']);
+  const sr = catalog.weaponRanges.find(r => r.weaponType === 'SR');
+  assert.deepEqual([sr.typical.min, sr.typical.max, sr.characterCount], [45, 100, 36]);
+  assert.deepEqual(sr.exceptions.map(x => [x.characterId, x.name, x.min, x.max, x.element]), [['5042', 'Harran', 25, 45, 'electric']]);
+  assert.equal(catalog.weaponRanges.find(r => r.weaponType === 'RL').rangeBonusAvailable, false);
+  assert.equal(catalog.icons.electric, '/editor/assets/ui/code-electric.png');
+  assert.equal(catalog.gameVerified, false);
+  assert.deepEqual(Object.keys(profiles).sort(), ['5004', '5008', '5009', '5011', '5044']); // display order comes from the deck
+  assert.equal(profiles['5004'].element, 'electric');
 });
 
 await check('member_preview_mixed_deck', () => {
-  const preview = cond.memberPreview(members, ranges, { bossDistance: 35, bossWeakElement: 'fire' });
+  const preview = cond.memberPreview(members, profiles, { bossDistance: 35, bossWeakElement: 'fire' });
   assert.deepEqual(preview.map(m => m.distance.kind), ['in', 'in', 'no_bonus', 'out', 'in']);
   assert.deepEqual(preview.map(m => m.elementMatch), [true, false, true, false, false]);
-  assert.equal(preview[3].element, 'electric');
-  const none = cond.memberPreview(members, ranges, cond.createConditionState());
+  assert.deepEqual(preview.map(m => m.weaponType), ['SMG', 'MG', 'RL', 'SR', 'SR']);
+  const none = cond.memberPreview(members, profiles, cond.createConditionState());
   assert.ok(none.every(m => m.elementMatch === false));
-  assert.ok(none.filter(m => m.distance.kind !== 'no_bonus').every(m => m.distance.kind === 'unset'));
-  // Unknown range data is never guessed; presentation element is a fallback only.
-  const unknown = cond.memberPreview([{ id: 'x', elementCode: 'iron' }], ranges, { bossDistance: 30, bossWeakElement: 'iron' });
-  assert.equal(unknown[0].distance.kind, 'unknown'); assert.equal(unknown[0].elementMatch, true);
+  // Without profiles nothing is guessed; presentation element/weapon only fill the display.
+  const unknown = cond.memberPreview([{ id: 'x', elementCode: 'iron', weaponCode: 'shotgun' }], null, { bossDistance: 30, bossWeakElement: 'iron' });
+  assert.equal(unknown[0].distance.kind, 'unknown'); assert.equal(unknown[0].elementMatch, true); assert.equal(unknown[0].weaponType, 'SG');
 });
 
-await check('weapon_table_order_exceptions_and_sources', () => {
-  assert.deepEqual(ranges.weaponRanges.map(r => r.weaponCode), ['shotgun', 'submachine_gun', 'assault_rifle', 'machine_gun', 'sniper_rifle', 'rocket_launcher']);
-  assert.deepEqual(ranges.weaponRanges[4].exceptions, [{ characterId: 'synthetic-sr-exception', min: 25, max: 45 }]);
-  const html = cond.renderDistanceDialog({ bossDistance: 35, bossWeakElement: null }, ranges, cond.memberPreview(members, ranges, { bossDistance: 35, bossWeakElement: null }));
+await check('distance_dialog_table', () => {
+  const html = cond.renderDistanceDialog({ bossDistance: 35, bossWeakElement: null }, catalog, cond.memberPreview(members, profiles, { bossDistance: 35, bossWeakElement: null }));
   assert.ok(html.includes('0–0 · 보너스 없음(확인 필요)'));
-  assert.ok(html.includes('synthetic-sr-exception: 25–45'));
+  assert.ok(html.includes('Harran (#5042): 25–45'));
   assert.equal((html.match(/data-weapon=/g) ?? []).length, 6);
-  assert.ok(cond.renderDistanceDialog(cond.createConditionState(), null, []).includes('불러오지 못했습니다'));
+  assert.ok(html.includes('실게임 검증 전'));
+  const failed = cond.renderDistanceDialog(cond.createConditionState(), null, [], { error: 'combat_profile_catalog_missing' });
+  assert.ok(failed.includes('불러오지 못했습니다. combat_profile_catalog_missing'));
 });
 
 await check('element_dialog_states_boss_weakness_explicitly', () => {
-  const preview = cond.memberPreview(members, ranges, { bossDistance: null, bossWeakElement: 'fire' });
-  const html = cond.renderElementDialog({ bossDistance: null, bossWeakElement: 'fire' }, preview);
+  const preview = cond.memberPreview(members, profiles, { bossDistance: null, bossWeakElement: 'fire' });
+  const html = cond.renderElementDialog({ bossDistance: null, bossWeakElement: 'fire' }, preview, catalog);
   assert.ok(html.includes('보스의 약점 속성 — 이 속성 니케가 우월 코드 보너스를 받습니다'));
   assert.ok(html.includes('니케 자신의 속성이나 보스 자신의 속성이 아닙니다'));
   assert.equal((html.match(/data-cond-element="/g) ?? []).length, 6);
@@ -83,27 +101,29 @@ await check('element_dialog_states_boss_weakness_explicitly', () => {
   assert.match(html, /data-cond-element="fire" aria-pressed="true"/);
 });
 
-await check('summaries_and_legacy_mode', () => {
-  assert.equal(cond.distanceSummary({ bossDistance: null }), '미설정');
-  assert.equal(cond.distanceSummary({ bossDistance: 0 }), '0');
-  assert.equal(cond.elementSummary({ bossWeakElement: 'fire' }), '작열(Fire)');
-  assert.equal(cond.elementSummary({ bossWeakElement: null }), '없음');
-  const legacy = cond.describeConditionMode({ properDistance: true, elementAdvantage: false });
+await check('compatibility_display_uses_backend_mode', () => {
+  const fresh = cond.describeCompatibility({ mode: 'per_member', label: '보스 거리·약점(멤버별)', legacyProperDistance: false,
+    legacyElementAdvantage: false, bossDistance: 35, bossWeakElement: 'Fire' });
+  assert.equal(fresh.mode, 'per_member');
+  assert.equal(fresh.text, '보스 거리·약점(멤버별) · 보스 거리 35 · 약점 작열(Fire)');
+  const unset = cond.describeCompatibility({ mode: 'per_member', label: '보스 거리·약점(멤버별)', bossDistance: null, bossWeakElement: null });
+  assert.equal(unset.text, '보스 거리·약점(멤버별) · 보스 거리 미설정 · 약점 없음');
+  const legacy = cond.describeCompatibility({ mode: 'legacy_global', label: '이전 방식(전원 적용)', legacyProperDistance: true,
+    legacyElementAdvantage: false, bossDistance: null, bossWeakElement: null });
   assert.equal(legacy.mode, 'legacy');
   assert.equal(legacy.text, '이전 방식(전원 적용) · 적정 거리 적용 · 우월 코드 미적용');
-  const fresh = cond.describeConditionMode({ bossDistance: 35, bossWeakElement: 'Fire' });
-  assert.equal(fresh.mode, 'per_member'); assert.match(fresh.text, /보스 거리 35 · 약점 작열\(Fire\)/);
-  assert.equal(cond.describeConditionMode({ bossDistance: null, bossWeakElement: null }).mode, 'per_member');
-  assert.equal(cond.describeConditionMode({}).mode, 'unknown');
-  const controls = cond.renderConditionControls({ bossDistance: 35, bossWeakElement: 'fire' }, { legacy: legacy.text });
+  assert.equal(cond.describeCompatibility(null).mode, 'unknown');
+  assert.equal(cond.describePlannedConditions({ bossDistance: 35, bossWeakElement: 'fire' }), '보스 거리 35 · 약점 작열(Fire) (멤버별 판정)');
+  const controls = cond.renderConditionControls({ bossDistance: 35, bossWeakElement: 'fire' }, { legacy: legacy.text, catalog });
   assert.ok(controls.includes('적정 거리 · 35') && controls.includes('약점 · 작열(Fire)') && controls.includes('이전 방식(전원 적용)'));
   assert.ok(!controls.includes('type="hidden"'));
 });
 
 await check('escaping', () => {
-  const html = cond.renderDistanceDialog(cond.createConditionState(), cond.normalizeRanges({
-    weaponRanges: [{ weaponCode: '<b>x</b>', min: 1, max: 2, exceptions: [{ characterId: '<img>', min: 1, max: 2 }] }] }),
-    [{ id: '"q', name: '<i>n</i>', weaponCode: null, distance: { kind: 'unset', text: '<s>' } }]);
+  const evil = cond.normalizeCatalog({ weaponRanges: [{ weaponType: '<b>x</b>', ranges: [{ min: 1, max: 2, isTypical: true }],
+    exceptions: [{ characterId: '<img>', name: '<i>n</i>', bonusRangeMin: 1, bonusRangeMax: 2 }] }] });
+  const html = cond.renderDistanceDialog(cond.createConditionState(), evil,
+    [{ id: '"q', name: '<i>n</i>', weaponType: null, distance: { kind: 'unset', text: '<s>' } }]);
   assert.ok(!html.includes('<b>x</b>') && !html.includes('<img>') && !html.includes('<i>n</i>') && !html.includes('<s>'));
 });
 
