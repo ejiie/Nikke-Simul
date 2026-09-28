@@ -34,7 +34,7 @@
   - 변경: `api()`가 오류 본문(code·details) 보존, `combat_profile_invalid`(캐릭터 이름/ID·필드·reason 8종 한국어)·`combat_profile_catalog_missing`·`combat_member_profile_missing`을 한국어 진단 + `prepare_combat_conditions.py` 준비 안내 + 서버 원문으로 거리·약점 팝업·솔로레이드 결과·통계 오류 목록에 표시. 409/400은 도달 응답이라 연결 상태 유지.
   - 추가 발견·수정: `09e27cb`부터 있던 팝업 포커스/close 경쟁(빠른 키보드 재열기 시 버튼 포커스 누락·새 팝업 내용 삭제). mock 브라우저 간헐 실패로 드러났고 동기 포커스 복귀·재열림 시 close 무시로 고쳐 5/5.
   - UI 보고 실제 격리 API + Chromium: 사례마다 새 dataRoot에 prepare 후 격리 runtime만 손상(5004 `bonusRangeMin` 삭제, 5011 element null, 미준비) → 실제 409와 네 화면의 기대 진단, 연결 정상, 넘침 0·JS 오류 0. 기존 회귀 통과. 한계: `combat_member_profile_missing` 400은 단위만, EXE 배포 없음.
-- **F-COND-Q 재수용 + 단계 2 통지(2026-09-29):** UI `77264bf` 기준으로 B-FIX-2 재수용(API)과 브라우저 단계 2를 한 번에 요청한다.
+- **F-COND-Q 재수용 + 단계 2 통지(2026-09-29):** UI `77264bf` 기준으로 B-FIX-2 재수용(API)과 브라우저 단계 2를 한 번에 요청한다. 전달 `term_234e279b…` 요청 `4bb3c6ad-05a2-4ef3-a516-ccbc19e04585`, accepted=true·`input_accepted`·`turn_started`.
 
 ### F-COND-Q — 독립 QA (검수 담당)
 
