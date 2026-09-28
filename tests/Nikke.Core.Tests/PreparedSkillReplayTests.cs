@@ -22,7 +22,7 @@ public class PreparedSkillReplayTests
                 FullBurst=(flags&2)!=0,Crit=(flags&4)!=0,Core=(flags&8)!=0,ProperDistance=(flags&16)!=0,
                 AttackBuffs=[new("OL",.014)],RuntimeAttackBuffs=[new("skill",.014)],AttackFlatBuffs=[new("caster",.5)],
                 AttackDamage=.121,DamageTaken=.15,ElementAdvantage=true };
-            Assert.Equal(HitCalculator.Compare(h).Candidates.Single(c=>c.Policy==policy).Damage,HitCalculator.Calculate(h,policy));
+            Assert.Equal(HitCalculator.Compare(h,includeClient:false).Candidates.Single(c=>c.Policy==policy).Damage,HitCalculator.Calculate(h,policy));
         }
     }
     [Fact]
@@ -54,7 +54,7 @@ public class PreparedSkillReplayTests
         Parallel.For(0,results.Length,new ParallelOptions { MaxDegreeOfParallelism=2 },i=>results[i]=prepared.Run());
         Assert.All(results,r=> {
             Assert.Equal(audit.TotalDamage,r.TeamDamage); Assert.Equal(audit.Members[0].Shots,r.Members[0].Shots);
-            Assert.Equal(audit.Members[0].Hits,r.Members[0].Hits); Assert.Equal("cpu-summary.1",r.ImplementationVersion);
+            Assert.Equal(audit.Members[0].Hits,r.Members[0].Hits); Assert.Equal("cpu-summary.2-client-f32",r.ImplementationVersion);
         });
         Assert.Equal(results[0].Members,prepared.Run().Members);
     }

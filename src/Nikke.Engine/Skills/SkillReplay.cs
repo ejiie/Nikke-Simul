@@ -8,7 +8,7 @@ namespace Nikke.Engine.Skills;
 // Prescribed measurements and the P04 controller share the same effect/weapon execution.
 public static class SkillReplay
 {
-    public const string Version = "p03.skills.2";
+    public const string Version = "p03.skills.3-client-f32";
     public static SkillReplayResult Run(IReadOnlyList<SkillReplayMember> members, SkillGraph graph,
         SkillReplayConditions conditions, IRandomSource random = null,
         ICombatEventSink events = null, ISkillBattleDriver driver = null)
@@ -88,13 +88,13 @@ public static class SkillReplay
         if (members is null || members.Count is < 1 or > 5 || members.Any(m => m is null || m.Weapon is null || m.Skills is null
             || !double.IsFinite(m.NativeHp) || m.NativeHp <= 0 || m.NativeHp > 1e12)
             || graph?.Functions is null || graph.CharacterSkills is null || c?.Combat is null
-            || c.RoundingPolicy is not ("legacy_term_floor" or "final_round_even" or "nested_floor")
+            || c.RoundingPolicy is not ("client_f32" or "legacy_term_floor" or "final_round_even" or "nested_floor")
             || c.Casts is null || c.HpObservations is null || c.InitialHpRatios is null || c.InitialCovers is null
             || c.LowestHpTargetBasis is not ("ratio" or "absolute") || c.LowestCoverTargetBasis is not ("ratio" or "absolute")
             || c.Casts.Count > 200 || c.HpObservations.Count > 500)
             throw new ArgumentException("스킬 검산 입력과 정수화 후보를 명시하세요.");
         // Reuse the weapon contract validation without executing a reference replay.
-        WeaponReplay.Validate(members.Select(m => m.Weapon).ToArray(), c.Combat);
+        WeaponReplay.Validate(members.Select(m => m.Weapon).ToArray(), c.Combat, c.RoundingPolicy);
         var ids = members.Select(m => m.Weapon.CharacterId).ToHashSet();
         if (c.DamageLog is { } log && (log.CharacterId is null || !ids.Contains(log.CharacterId)))
             throw new ArgumentException("Damage log character must belong to the current formation.");
@@ -149,6 +149,7 @@ public static class SkillReplay
         public int? Expires;
         public int NextTick;
         public double Value;
+        public long? AttackGrant;
         public string Basis;
         public long EventId;
         public int AppliedAtFrame;
@@ -415,9 +416,17 @@ public static class SkillReplay
                 _ => f.Rate
             };
             string basis = f.FunctionStandard == 1 ? "native_caster" : "native_recipient";
+            long? attackGrant = null;
             if (f.FunctionType == 1 && f.FunctionStandard == 1 && target != owner)
             {
-                value = StatBuffCalculator.Apply(owner.Input.Weapon.Hit.StatAttack, new StatRateBuff[] { new($"function:{f.Id}",f.Rate) }) - owner.Input.Weapon.Hit.StatAttack;
+                if(input.RoundingPolicy==HitCalculator.DefaultPolicy)
+                {
+                    long native=StatBuffCalculator.RequireInteger(owner.Input.Weapon.Hit.StatAttack);
+                    attackGrant=checked(StatBuffCalculator.ApplyAttack(native,
+                        new StatRateBuff[] { StatRateBuff.FromRaw($"function:{f.Id}",f.FunctionValue) })-native);
+                    value=attackGrant.Value;
+                }
+                else value = StatBuffCalculator.Apply(owner.Input.Weapon.Hit.StatAttack, new StatRateBuff[] { new($"function:{f.Id}",f.Rate) }) - owner.Input.Weapon.Hit.StatAttack;
                 basis = "native_caster_flat_at_application";
             }
             if (f.FunctionType == 61 && f.FunctionStandard == 1 && target != owner)
@@ -433,7 +442,7 @@ public static class SkillReplay
             var e = existing ?? new Effect { Source=owner, Target=target, Function=f };
             if (existing is null) effects.Add(e); else e.Stacks = Math.Min(f.FullCount, e.Stacks+1);
             e.Expires = f.DurationType == 3 ? null : frame + Math.Max(1,SkillUnits.Frames(f.DurationValue));
-            e.Value=value; e.Basis=basis; e.Function=f;
+            e.Value=value; e.AttackGrant=attackGrant; e.Basis=basis; e.Function=f;
             e.AppliedAtFrame=frame; e.BurstCastId=currentBurstCast;
             e.NextTick = frame + 60;
             e.EventId=Log(existing is null ? "buff_on" : "buff_refresh",owner.Id,target?.Id ?? "boss",$"function:{f.Id}",parent,f.Id,
@@ -506,7 +515,8 @@ public static class SkillReplay
             IEnumerable<Actor> available = body.PreferTargetCondition == 1 ? team.Where(a=>a!=owner) : team;
             return (body.PreferTarget switch
             {
-                17 => available.OrderByDescending(a=>EffectiveAttack(a)),
+                17 => input.RoundingPolicy==HitCalculator.DefaultPolicy
+                    ? available.OrderByDescending(a=>IntegerEffectiveAttack(a)) : available.OrderByDescending(a=>EffectiveAttack(a)),
                 47 => available.OrderBy(a=>input.LowestCoverTargetBasis=="ratio" ? a.CoverRatio : a.CoverRatio*a.CoverMaxHp),
                 11 => available.OrderBy(a=>input.LowestHpTargetBasis=="ratio" ? Ratio(a) : a.Hp),
                 15 => available,
@@ -544,10 +554,14 @@ public static class SkillReplay
         }
 
         private IReadOnlyList<StatRateBuff> AttackRates(Actor a) => On(a,1).Where(e=>e.Basis!="native_caster_flat_at_application")
-            .Select(e=>new StatRateBuff(Key(e),e.Value,e.Stacks))
+            .Select(e=>StatRateBuff.FromRaw(Key(e),e.Function.FunctionValue,e.Stacks))
             .Concat(C.AttackBuffWindows.Where(w=>w.CharacterId==a.Id && w.StartFrame<=frame && frame<w.EndFrame).Select(w=>w.Buff)).ToArray();
         private IReadOnlyList<StatFlatBuff> AttackFlat(Actor a) => a.Input.Weapon.Hit.AttackFlatBuffs.Concat(On(a,1)
-            .Where(e=>e.Basis=="native_caster_flat_at_application").Select(e=>new StatFlatBuff(Key(e),e.Value*e.Stacks))).ToArray();
+            .Where(e=>e.Basis=="native_caster_flat_at_application").Select(e=>e.AttackGrant is { } grant
+                ? StatFlatBuff.FromInteger(Key(e),checked(grant*e.Stacks)) : new StatFlatBuff(Key(e),e.Value*e.Stacks))).ToArray();
+        private long IntegerEffectiveAttack(Actor a) => StatBuffCalculator.AddAttackFlat(
+            StatBuffCalculator.ApplyAttack(StatBuffCalculator.RequireInteger(a.Input.Weapon.Hit.StatAttack),
+                a.Input.Weapon.Hit.AttackBuffs,a.Input.Weapon.Hit.RuntimeAttackBuffs,AttackRates(a)),AttackFlat(a));
         private double EffectiveAttack(Actor a) => StatBuffCalculator.AddFlat(StatBuffCalculator.Apply(a.Input.Weapon.Hit.StatAttack,
             a.Input.Weapon.Hit.AttackBuffs,a.Input.Weapon.Hit.RuntimeAttackBuffs,AttackRates(a)),AttackFlat(a));
 
@@ -586,7 +600,7 @@ public static class SkillReplay
                 AttackDamage=a.Input.Weapon.Hit.AttackDamage+(input.InterruptionTarget ? On(a,96).Sum(e=>e.Value*e.Stacks) : 0)
             };
             var calculation=input.DamageLog?.CharacterId==a.Id
-                ? HitCalculator.Compare(h).Candidates.Single(p=>p.Policy==input.RoundingPolicy) : null;
+                ? HitCalculator.Evaluate(h,input.RoundingPolicy) : null;
             double damage=calculation?.Damage ?? HitCalculator.Calculate(h,input.RoundingPolicy);
             a.Damage[effect]=a.Damage.GetValueOrDefault(effect)+damage;
             if (crit) a.Crits++;
