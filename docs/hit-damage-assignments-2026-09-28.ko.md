@@ -1,5 +1,11 @@
 # 단일 히트 client_f32 구현·원천 조사 배정 — 2026-09-28
 
+## 최신 상태 — 2026-09-28
+
+- **H-SRC: 원천 조사 완료, Director 검토 수용.** [H-SRC 보고서](C:/Users/user/orca/workspaces/Nikke-Simul/Backend/docs/hit-damage-source-investigation.ko.md)(Backend `f4ab2fc`), 조사 스크립트 `tools/data-pipeline/investigate_hit_sources.py`, 증거 Backend `artifacts/hit-damage-source/evidence.json`(Git 제외). Director가 보고서 전문과 커밋 범위(보고서·스크립트 2파일, `src`/`apps` 변경 0)를 확인했다. 조사 스크립트 재실행은 하지 않았다. 결과 요약은 [클라이언트 공식 기록](hit-damage-client-formula.ko.md)의 H-SRC 절. 이는 읽기 전용 원천 조사 수용이며 실게임 대응 확정·실측 대조가 아니다. 클라이언트 질문 8개는 사용자 답변 대기.
+- **H-SRC → H-F32 영향:** 잠정 `breakRate = 1 + PartsDamage`는 의미 대응이 틀릴 가능성이 높으나 `extra`가 합이므로 **수치는 동일**하다. 진행 중인 H-F32를 중단하지 않고, 저지 입력 신설·96 중복 제거는 클라이언트 확인 후 별도 후속으로 둔다. `statDamageRatio` 1, `defenceRatioRate` 0 기본값은 조사 결과와 일치한다.
+- **H-F32:** 진행 중. 인계 미수신.
+
 ## 승인과 근거
 
 2026-09-28 사용자가 다음 두 작업의 배정을 승인했다. 근거는 [클라이언트 분석 공식·사용자 결정](hit-damage-client-formula.ko.md)이다. 반드시 그 문서 전체를 먼저 읽는다. 관련 이력: [P02 정정·09-18 결정](p02-buff-correction.ko.md), [P02 검증](p02-verification.ko.md).
