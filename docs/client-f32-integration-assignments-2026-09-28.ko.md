@@ -42,6 +42,12 @@
   - B2-STAT-2: `api()`가 HTTP status를 오류에 부착, 4xx는 도달한 API의 계약 응답(연결 유지), 5xx·transport는 장애. `baseline_required`는 OL 섹션 "비교 기준 없음"으로 표시.
   - UI 보고 검증(실제 격리 API + Chromium): n=1 API 26,392,278 = 화면 평균·중앙값·P5·P95와 니케별 5행 일치, SD·평균 CI만 미지원 표시; 실제 400 `baseline_required`에도 연결 유지·오류 0; runs 2에서 평균 CI·SD 표시; compute route 차단 시 "미연결". 기존 회귀 통과. 한계: n=0은 실제 API로 만들 수 없어 단위 테스트만.
 - **Q-F32 B2 재수용 통지(2026-09-28):** UI `0e83328` 기준으로 두 결함 재검 + B2 회귀. 전달 `term_234e279b…` 요청 `971a2fb0-fb21-4d77-a22f-955de8e90c70`, accepted=true, `input_accepted`·`turn_started`. UI live 검사·mock 재사용 금지.
+- **Q-F32 B2 재수용: 최종 통과.** 검수 `1abba9b`(UI `0e83328` 일반 merge `04a3a58`), 보고서 최신 U-FIX-1 절, 근거 검수 `artifacts/single-deck-qa/f32-b2-4484abbe01df/`. Director 확인: merge 이후 제품 변경 0, `1abba9b`는 엔진 `5ced15a`·Backend `74ca24f`·UI `0e83328`을 모두 포함한다.
+  - 자체 Chromium + 격리 API **91/91**: 기존 B2 77건(이전 75 + 결함 2) 전부 통과 + 신규 14. UI live 검사·mock 재사용 없음.
+  - B2-STAT-1 해소: n=1 평균·중앙값·P5·P95(각 53,285,096)와 5인 값 API = 화면, SD·평균 CI만 미지원. 실제 n=2(600프레임 2회) 독립 통계 검산 — SD 5,375.43, Student CI [32,642,198.72, 32,738,791.28] 화면 일치.
+  - B2-STAT-2 해소: 실제 400 `baseline_required`·`invalid_experiment_input`, 404, 409 warmup 모두 연결 유지. 로컬 HTTP 503 주입·connection refused 주입은 "미연결", 해제 후 복구.
+  - 미판정: 실제 n=0 API, 모든 4xx 개별 코드, 제품 자연 5xx, 실게임·실사용자 덱·성능·배포.
+- **결론: client_f32 통합 연결·독립 QA 수용 완료(B1·B2).** 남은 것은 Director 통합과 원본 배포(AGENTS.md 절차, 사용자 확인 후 별도 진행). 통합 기준 후보는 QA `1abba9b`(제품 전체 + QA 도구·보고서). Director HEAD와 merge 시 `README.md`만 내용 충돌이 예상되고(`git merge-tree` 확인), `main`과는 충돌 없음.
 
 ## 승인과 근거
 
