@@ -29,7 +29,7 @@
 - **B-FIX-2: 완료, Director 검토 수용.** Backend `97ba7bf`(`796eec3` 위), 보고서 마지막 B-FIX-2 절. Director 확인: Core/Engine/Analysis/apps 변경 0, UI `09e27cb`·QA `53d183d`와 충돌 없이 merge된다.
   - 수정: DTO 생성 전 필수 키·타입·범위 검사, 스탯·전투 계산 전 catalog 검증. **확정 오류 wire: HTTP 409 `{code: combat_profile_invalid, message, characterId, field, reason}`**(reason: missing/null/wrong_type/out_of_range/unsupported_value/id_mismatch/weapon_mismatch/hash_mismatch). 두 combat-conditions GET, skill/weapon replay POST, compute POST 공통. 멤버 전체 누락 400·구 catalog 자료 없음 409는 유지, 성공 wire·fingerprint 불변.
   - Backend 보고 검증: .NET 408/408, 잘못된 runtime 21종 × API 5개 = 105/105 모두 409, 실패 시 replay/compute 파일 불변·실험 0건. 정상 회귀(SG·RL min 0, RL 0–0, SR 예외, 구 bool replay 1,586,529·compute 1,847,281, 새 모드 결과·OL 후보) 유지.
-- **U-FIX-2 배정(2026-09-29, F-COND-U 담당):** UI에 `combat_profile_invalid`·`combat_profile_catalog_missing` 전용 표시가 없어 서버 원문 메시지만 노출된다(Director 확인: `apps/desktop-ui`에 해당 코드 매핑 없음). Backend `97ba7bf`를 merge하고 두 팝업·검산 결과·통계 화면에서 한국어 진단(어느 캐릭터·필드·사유, 데이터 준비 필요 안내)을 표시하며, 연결 장애로 분류하지 않는다. 격리 runtime을 일부러 손상시켜 실제 브라우저로 확인한다.
+- **U-FIX-2 배정(2026-09-29, F-COND-U 담당):** UI에 `combat_profile_invalid`·`combat_profile_catalog_missing` 전용 표시가 없어 서버 원문 메시지만 노출된다(Director 확인: `apps/desktop-ui`에 해당 코드 매핑 없음). Backend `97ba7bf`를 merge하고 두 팝업·검산 결과·통계 화면에서 한국어 진단(어느 캐릭터·필드·사유, 데이터 준비 필요 안내)을 표시하며, 연결 장애로 분류하지 않는다. 격리 runtime을 일부러 손상시켜 실제 브라우저로 확인한다. 전달 `term_c322a450…` 요청 `8321e00b-a9af-4c17-a1a1-e136e49b764f`, accepted=true·`input_accepted`·`turn_started`.
 - **이후 F-COND-Q:** U-FIX-2 인계 후 B-FIX-2 재수용(API) + 단계 2(브라우저)를 한 번에 통지한다.
 
 ### F-COND-Q — 독립 QA (검수 담당)
