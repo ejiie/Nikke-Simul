@@ -1,5 +1,7 @@
 # F-COND-B — 보스 거리·약점 Backend (2026-09-28)
 
+**후속 B-FIX-2:** 최초 인계 후 독립 QA가 malformed runtime의 누락값 처리 결함을 발견했다. 아래 최초 검증은 정상 카탈로그 범위의 역사 기록이며, 결함 수정·추가 검증은 문서 마지막 절을 따른다. Backend 수정 완료와 독립 재수용·원본 배포는 구분한다.
+
 ## 완료 범위
 
 기준 Director `cd004f1`을 Backend `74ca24f` 위로 일반 fast-forward merge했다. 기존 작업 이력과 미추적 root package-lock.json을 보존했다. 카탈로그·읽기 전용 API를 먼저 구현했고, **Director 통지 후** 엔진 `f374c1d`(구현 f9ce075, 기준 merge d21895b 포함)를 일반 fast-forward merge했다. 충돌0. Backend 연결·격리 API 검증 완료이며 UI·독립 QA·원본 배포 완료 선언은 아니다.
@@ -117,3 +119,29 @@ python tests/Nikke.Compute.Tests/check_boss_conditions_api.py --source-data '<�
 ```
 
 UI의 mock 잠정 `/api/runtime/combat-ranges?snapshotId=`와 다르다. **확정 경로는 위 두 combat-conditions GET**이다. Director가 이 wire와 커밋을 UI에 통지한 뒤 실제 UI 연결·독립 QA를 진행해야 한다. 원본에는 아직 profile catalog/code를 반영하지 않았으며 현재 사용자 실행 환경을 유지했다.
+
+## B-FIX-2 / F-COND-Q-1 — 불명 사거리·속성 거부
+
+QA `53d183d`의 `boss-distance-element-qa.ko.md`와 Director B-FIX-2 배정을 읽고 Backend `796eec3` 위에서 수정했다. 엔진/UI/QA 파일은 수정하지 않았다. 정상 prepare는 해당 필드를 공급하지만 hash-valid runtime 자체의 의미 검증에 누락 방어가 없었다. 특히 non-nullable int DTO 역직렬화가 누락 min을 0으로 채웠고, max·element 누락은 InvalidDataException이 API 오류 응답으로 변환되지 않았다.
+
+수정은 `CombatProfileCatalog`의 DTO 생성 전 필수 키·JSON 타입·범위 검증이다. missing/null/wrong_type을 구분하고 명시 정수0은 보존한다. source/characters 컨테이너와 필수 metadata도 명시적으로 검사한다. skill/weapon replay와 compute는 요청마다 한 번 검증한 catalog를 스탯 계산 전에 준비하고 같은 profile을 엔진 입력에 전달한다. 손상된 profile로 피해 계산·replay 저장·compute job 생성/결과 저장을 진행하지 않는다.
+
+**추가 오류 wire:** HTTP409 `{code:"combat_profile_invalid",message,characterId,field,reason}`. 예: `characterId:"5004",field:"combatProfiles.characters.5004.bonusRangeMin",reason:"missing"`. reason은 `missing/null/wrong_type/out_of_range/unsupported_value/id_mismatch/weapon_mismatch/hash_mismatch`. 전체 catalog/source 수준 오류의 characterId는 null이다. 두 combat-conditions GET, skill/weapon replay POST, compute POST에 공통이다. 자세한 계약은 [single-deck-compute-contract.ko.md](single-deck-compute-contract.ko.md)의 B-FIX-2 절이다. UI는 기존 message 표시를 유지할 수 있다.
+
+성공 응답·조건 필드·compatibility 표시·엔진 버전·정상 fingerprint는 변경하지 않았다. 멤버 전체 누락은 기존400 `combat_member_profile_missing:<id>`, old catalog 자료 없음은 기존409 `combat_profile_catalog_missing`를 유지한다. 자료 없는 old catalog의 metadata 불필요 bool 경로도 유지하되, 존재하는 combatProfiles가 손상된 경우 bool 요청으로 우회하지 않는다.
+
+### 수정 전 재현과 수정 후 검증
+
+모든 실행은 Backend artifacts의 기존 공개 fixture 파일만 복사하고 **새 합성 계정 DB**를 작성했다. 원본 data/local 및 QA dataRoot를 읽거나 수정하지 않았다. 원천 roster만 별도 공개 저장소의 기존 고정 파일을 읽었다. 실제 사용자 EXE·계정·세션·캐시·설정·바로가기·5180/5181은 그대로이며 실행한 격리 API 자식 프로세스만 종료했다.
+
+- 수정 전 `artifacts/boss-conditions/errors/83fa831763d0460294a3bf8cde1550c7/summary.json`: min/max/element 누락 각 hash-valid catalog에서 두 GET·skill/weapon replay 12응답 재현. min 누락은 200 및 잘못된 replay 저장, max/element 누락은500 빈 응답. compute job은 수정 전에는 실행하지 않았다.
+- 수정 후 `artifacts/boss-conditions/errors/fd15633cda0e43e19ee84bbabe492068/summary.json`: **21 catalog × 5 API = 105/105 HTTP409**. 세 필드 각각 누락/null/문자열↔숫자/bool/object/array/소수 검사. code·characterId·field·reason 일치, snapshot 불변, replay/compute 파일 hash 불변, experiments=0·batch_runs=0, 공개 source hash 변경0. 매 사례 별도 dataRoot/임의 포트 사용. 스크립트 `tests/Nikke.Compute.Tests/check_combat_profile_errors.py`.
+- Release 전체 빌드 경고0/오류0, **408/408 .NET tests** 통과(신규36, Sync148+Compute45+Core174+Analysis41, skip0). SG min0/RL0–0/SR25–45·45–100, 누락/null/타입/범위·컨테이너 진단 검사 포함. 로그 `artifacts/boss-conditions-bfix2-build.log`, `artifacts/boss-conditions-bfix2-tests.log`, TRX `artifacts/boss-conditions/bfix2-tests/`.
+- 정상 API 회귀 `artifacts/boss-conditions/api/ed5f062a108c4552b2bdd23d3a019746/summary.json`: passed, 포트60410, source hash 변경0. 192명 집계·SG/RL0·SR예외·멤버 flag·저장/GET·혼용/잘못된 사용자 조건400 유지. 최초 stage A old bool replay 전체 멤버 결과·총피해 **1,586,529** 정확 일치. 새 거리35/Fire replay1,294,453. compute 세 조건 각N=1의 총피해 **1,508,042 / 1,304,192 / 1,847,281** 및 위 표의 fingerprint 모두 동일. 모드별 캐시 분리·약점별 OL 후보도 유지.
+
+새 검사는 Backend 결함 회귀 근거이며 독립 QA 재수용을 대신하지 않는다. Python 원천 pipeline·엔진 산술은 수정하지 않았고 이 후속 작업에서 pipeline 검사는 재실행하지 않았다. package-lock.json SHA256은 위 보존 값과 동일하며 커밋에서 제외했다. 기존 커밋 보존, 원격 push/배포/새 Run/Dispatch/하위 워커 없음. Director에 커밋·wire·근거를 한 번 인계한 뒤 QA 재수용은 Director가 연결한다.
+
+```powershell
+python tests/Nikke.Compute.Tests/check_combat_profile_errors.py --source-data '<기존 격리 공개 fixture dataRoot>' --dotnet '<dotnet>'
+# --before-fix는 수정 전 DLL에서 QA 증상을 재현하는 옵션이다. 수정 DLL에는 사용하지 않는다.
+```
