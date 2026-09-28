@@ -7,6 +7,7 @@
  * damage or statistics, never shows a CPU run as a GPU success, and keeps an OL candidate
  * 우열 미확정 unless the difference interval excludes zero.
  */
+import { COND_WIRE, describeConditionMode } from './combat-conditions.js';
 import {
   COMPUTE_ROUTES,
   describeHardwareProfile,
@@ -54,6 +55,7 @@ function deckSection(model) {
         ${metricCard('DEF 정책', input.defPolicy ?? '현행 고정 DEF 정책', '자동 20억 전환 없음')}
         ${metricCard('버스트 전술', model.tacticSummary || UNKNOWN, '솔로 레이드 저장 설정')}
         ${metricCard('표본 단계', input.phase ?? model.phase, 'warmup은 표본으로 저장하지 않음')}
+        ${model.conditionSummary ? metricCard('보스 거리·약점', model.conditionSummary, '솔로 레이드 전투 조건에서 변경') : ''}
         ${metricCard('대미지 정책', input.present ? (input.roundingPolicy ?? '기록 없음 (client_f32 이전 기록)') : model.roundingPolicy ?? UNKNOWN,
           input.present ? [input.inputSchemaVersion ? `schema ${input.inputSchemaVersion}` : 'schema 기록 없음', input.summaryVersion].filter(Boolean).join(' · ') : '요청 예정 값')}
         ${metricCard('입력 fingerprint', input.fingerprint ?? UNKNOWN, input.rulesVersion ? `규칙 ${input.rulesVersion}` : '')}
@@ -263,7 +265,7 @@ export function renderSingleDeckStats(model) {
 /** Builds the view model from contract payloads; missing payloads degrade to explicit unknown states. */
 export function buildStatsModel({ hardware, batch, statistics, comparison, deckMembers = [], tacticSummary = '',
   requestedRuns = DEFAULT_RUNS, phase = 'final', cut = null, endpointStatus = 'unknown', analysisStatus = 'unknown',
-  errors = [], recovered = false, roundingPolicy = null, comparisonStatus = null } = {}) {
+  errors = [], recovered = false, roundingPolicy = null, comparisonStatus = null, conditionSummary = null } = {}) {
   const described = describeBatch(batch);
   const displayNames = new Map(deckMembers.map(m => [m.characterId, m.displayName ?? m.characterId]));
   return {
@@ -277,6 +279,7 @@ export function buildStatsModel({ hardware, batch, statistics, comparison, deckM
     tacticSummary,
     roundingPolicy: typeof roundingPolicy === 'string' && roundingPolicy ? roundingPolicy : null,
     comparisonStatus,
+    conditionSummary: typeof conditionSummary === 'string' ? conditionSummary : null,
     hardware: describeHardwareProfile(hardware),
     batch: described,
     statistics: describeStatistics(statistics, { memberOrder: described.input.characterIds, displayNames }),
@@ -303,7 +306,9 @@ export function createSingleDeckStatsView({ api, getSnapshot, getMembersWithMeta
 
   const deckMembers = () => (getMembersWithMeta?.() ?? []).map(m => ({ characterId: m.id, displayName: m.displayName, burstStep: m.burstStep }));
   const model = () => buildStatsModel({ ...state, deckMembers: deckMembers(), tacticSummary: getTacticSummary?.() ?? '',
-    roundingPolicy: getConditions?.()?.roundingPolicy ?? null });
+    roundingPolicy: getConditions?.()?.roundingPolicy ?? null,
+    // Boss distance / weak element come from the solo raid form (F-COND-1), shown once that wire is confirmed.
+    conditionSummary: COND_WIRE.confirmed ? describeConditionMode(getConditions?.()?.combat).text : null });
 
   async function call(path, method = 'GET', body) {
     try {
