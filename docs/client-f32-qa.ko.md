@@ -1,6 +1,40 @@
 # Q-F32 — 단계 A·B1 및 B2 독립 수용 (2026-09-28)
 
-## 최신 판정 — B2 전체 수용 보류: 통계 UI 결함 2건
+## 최신 판정 — U-FIX-1 반영 후 B2 재수용 통과
+
+**UI `0e83328` 기준 B2 수용 통과. 자체 검사 91/91: 기존 B2 77건(이전 통과75 + 결함2) 전부 통과, 신규 재수용14건 통과.** B2-STAT-1/2는 이번 범위에서 해소됐다. 배포·실게임 정확성 수용은 아니다. 아래 최초 B2 실패 기록과 B1/A 근거는 역사로 보존한다.
+
+시작 HEAD `c1cf869`, 미추적 package-lock.json만 존재. Director U-FIX-1 및 공통/Q-F32 범위, UI 보고서11절을 UTF-8로 읽고 `0e83328`을 일반 merge하여 **`04a3a5848d19d758eeeb843577d8a9a091fb0d8a`**가 됐다(충돌0, 자기 QA 보존). 제품 직접수정 없음. UI의 live 검사·mock을 실행/import/기대값으로 재사용하지 않았다. 자기 `check_f32_b2.py` 전체 회귀에 `f32_ufix_acceptance.py`를 연결했다. src/apps/web은 이전 B2와 동일함을 git diff로 확인해 자기 기존 API Release DLL·web dist를 재사용했다. desktop-ui는 새 merge의 실제 파일이다.
+
+### 재수용 결과와 증거 종류
+
+| 검사 | 결과·근거 |
+|---|---|
+| n=1 실제 API·Chromium | 평균/중앙값/P5/P95 각각 **53,285,096** = 화면의 해당 카드. 5인 행 점 추정값 모두 API와 일치. SD·평균CI만 미지원, 컷 미지정은 미확인. screenshot 직접 시각 확인 |
+| n=2 실제 API·Chromium | 새 600프레임 합성2회, n2·평균32,690,495·SD5,375.425750580134, 평균 CI **32,642,198.7157978 ~ 32,738,791.2842022**. 원결과로 독립 평균/SD/HF7/Student 수치 적분 검산 후 화면 SD/CI 수치 대조 통과(비영 SD) |
+| baseline 없는 실제400 | `baseline_required`에도 **실제 API 응답**, **비교 기준 없음** 표시. 오류가 API 불통으로 승격되지 않음 |
+| 다른 실제4xx | warmup 통계409 `warmup_excluded_from_statistics`, 없는 실험 GET404, runs0의400 `invalid_experiment_input`, 없는 snapshot POST404 모두 연결 유지. 잘못된 POST는 나가는 요청만 변경해 실제 API 검증을 통과시켰으며 응답 합성 없음 |
+| HTTP503 장애 주입 | 자기 별도 로컬 HTTP 서버(63710)가503을 반환하도록 compute 요청만 전달. 브라우저 실제503 수신과 **compute API 미연결** 표시 확인. 이는 제품 API가 자연적으로500/503을 낸 증거가 아니라 독립 네트워크 장애 주입이다 |
+| transport 장애 주입·복구 | compute 요청 connectionrefused 주입 시 미연결, 주입 해제 후 저장 n2 복구·실제 API 응답. 사용자 서버 종료 없음 |
+| n=0 보조 경계 | 실제 브라우저에서 제품 presentation adapter에 QA가 만든 null 지표를 넣어 값 미생성 확인. **실제 n0 배치/API 종단 검증은 아님**. UI mock fixture 재사용 없음 |
+| 기존 B2 회귀 | 기본/과거3정책·두 실험입력·raw문자열·과정밀 거부·exact 큰 홀수·불가 후보 이유·v2·400·409·레벨400·fullburst·선택audit·저장값·1500/850/500px 전부 재실행 통과. JS 예외0 |
+
+최종 근거 **`C:/Users/user/orca/workspaces/Nikke-Simul/검수/artifacts/single-deck-qa/f32-b2-4484abbe01df/`**:
+
+- `summary.json`: passed,91/91, 공개 입력 hash변경0. `traffic.json`: 실제 API 응답과 주입503 별도 코드.
+- `ufix-n1-cards.json`, `ufix-n1-members.json`, `ufix-n1.png`: 카드별/5인 값과 연결·비교 안내.
+- `ufix-n2.json`, `ufix-n2.png`: 배치 입력·저장 결과2행·통계·화면 카드. n2는 UI reload 후 core 기본값이므로 앞선 core n1과 효과/성능 비교하지 않는다.
+- `ufix-404.json`, `ufix-invalid-runs.json`, `ufix-missing-snapshot.json`, `ufix-503.json`, `ufix-transport.json/png`, `ufix-n0-boundary.json`, `trace.zip`, 기존 web/replay 증거, `preservation.json`.
+
+예비 재수용 실행 `f32-b2-6a1e7f38f3ff`은 reload 후 하드웨어/저장 복구를 고정1.6초만 기다린 QA 코드가 카드 생성 전에 읽어 중단했다. 정상 제품 실패로 분류하지 않았고, 실제 복구 완료 표시를 기다리도록 QA만 수정한 뒤 최종 전체91건을 재실행했다. 최종 exit0이며 예비 결과를 통과 건수에 합산하지 않는다.
+
+재현 명령은 위 기존 B2와 같고 추가 모듈을 자동 실행한다. 정상 compute는 n1+n2 및 별도 warmup1의 소규모 검사이며 제품 내부 자동튜닝은 표본과 별개다. screenshot의 reload 후 실행 입력 기본1000은 실제 수행1000이 아니다. 실제 요청/완료는 저장 배치1/2이고 잘못된 POST는400/404로 거부됐다. API **50534/PID21736** 종료·wait 완료, QA503 서버도 close/join 완료. 원천 공개12파일과 package-lock SHA256 `2ef4178aa07ddd9ac2e4d47422038d02d8adaadfb15586cee6a2f1995253c767` 불변. 사용자 원본 계정/세션/캐시/EXE/5180/5181 접근·수정·종료, 제품 직접수정, 배포/push, 새worker/Run/Dispatch/lifecycle 없음.
+
+**남은 범위:** 실제 n0 API 배치, 모든4xx 코드 개별 열거, 제품의 자연5xx 발생, 실게임·실사용자덱·부하/성능·EXE 배포는 미판정. B1 fingerprint/구이력 분리를 이번 UI 수정 때문에 다시 실행하지 않았으며 기존 독립 B1 근거로 구분한다. Q-CPU-10K 계속 보류. Director에 확정 QA 커밋/보고서/독립 근거/이 경계를 한 번 전달한 후 대기한다.
+
+---
+
+## 최초 B2 판정 — 당시 전체 수용 보류: 통계 UI 결함 2건
 
 **최종 실제 Chromium + 격리 API 자체 검사 77건 중 75 통과, 2 실패.** 단일 히트·replay·exact/불가 후보 렌더는 통과했으나 통계 저장값/화면 일치와 연결 상태 표시는 실패했다. 아래 B1/A는 당시 판정이며 B2 통과로 합산하지 않는다. 제품을 직접 수정하지 않았다.
 

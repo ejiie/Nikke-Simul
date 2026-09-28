@@ -173,6 +173,8 @@ def main():
         desktop.evaluate('(id)=>localStorage.setItem("nikke-single-deck-experiment",id)',warm['id']);desktop.reload();desktop.wait_for_selector('body[data-ready="true"]');desktop.locator('[data-tab="stats"]').click()
         desktop.wait_for_function('document.querySelector("#stats-content").innerText.includes("warmup_excluded_from_statistics")',timeout=30000)
         check('real 409 explained in stats', '워밍업' in desktop.locator('#stats-content').inner_text() or 'warmup' in desktop.locator('#stats-content').inner_text());shot(desktop,'desktop-409')
+        from f32_ufix_acceptance import verify
+        verify(desktop,call,check,save,shot,traffic,base,b,st,warm)
         check('no browser exceptions',not report['errors'],report['errors'])
         ctx.tracing.stop(path=str(run/'trace.zip'));browser.close()
         report['status']='passed' if all(x['passed'] for x in report['checks']) else 'failed'
