@@ -5,7 +5,11 @@
 - **F-COND-U mock 단계: 완료, Director 검토 수용.** UI `cc24bc9`(`cd004f1` ff 후), [보고서](C:/Users/user/orca/workspaces/Nikke-Simul/UI/docs/boss-distance-element-ui.ko.md). 변경은 `apps/desktop-ui`(app.js·새 `combat-conditions.js`·simul.css·single-deck-stats.js)·UI tests·UI 문서뿐. Director가 mock 캡처(거리·약점 팝업, 폼 1500px)를 확인했다: 32×32 아이콘 버튼 + 현재 값, 거리 슬라이더·숫자·미설정·멤버별 판정·무기군 표, 약점 팝업의 5속성 이미지·"보스의 약점 속성 — 이 속성 니케가 우월 코드 보너스를 받습니다" 경고·속성별 덱 멤버. 캡처의 멤버 무기·속성·예외 값은 **합성 mock 데이터**이며 실제 캐릭터 정보가 아니다.
   - `COND_WIRE.confirmed=false`라 실제 폼·요청은 아직 바뀌지 않았다. 잠정 wire(`GET /api/runtime/combat-ranges?snapshotId=`, `combat.bossDistance`/`bossWeakElement`, `Fire/Water/Wind/Iron/Electronic`)는 `combat-conditions.js` 한 곳에 모았다. Backend 확정 wire 통지 대기.
   - 검증은 mock만: 단위 8/8, mock Chromium, 기존 회귀 통과(audit 브라우저 첫 실행의 로컬 연결 거부 1건은 코드 변경 없이 재실행 2회 통과).
-- F-COND-E·F-COND-B: 진행 중.
+- **F-COND-E: 완료, Director 검토 수용.** 엔진 `d21895b`(`cd004f1` 일반 merge) → `f9ce075`(구현) → `f374c1d`(기록), [보고서](C:/Users/user/orca/workspaces/Nikke-Simul/시뮬레이션-엔진-담당/docs/boss-distance-element-engine.ko.md). 변경은 Engine·엔진 tests·보고서뿐. Director가 `BossConditionResolver`를 읽었다: 양끝 포함, RL 0–0 보너스 없음, 거리는 normal만·속성은 모든 피해, 사거리·속성 불명 멤버는 추정 없이 오류, 구 bool과 새 필드 혼용 거부(`boss_conditions_mixed_with_legacy`). `f374c1d`는 Backend와 충돌 없이 merge된다.
+  - 엔진 보고 검증: Release Core/Engine 174/174(기존 147 + 신규 27), 기존 5인 180초 client 1,346,863,834 / legacy 1,346,859,763 정확 재현.
+  - 내부 계약: `WeaponReplayConditions.BossDistance`(int?)·`BossWeakElement`(string, `Electronic` 철자), `WeaponReplayMember.BonusRangeMin/Max`(int?)·`Element`. 새 요청에서 이전 bool 기본 false를 채우면 혼용 오류가 난다.
+  - Backend 추가 의존: `ComputeOverloadCatalog`의 `IncElementDmg` 유효 후보 판단이 전역 `combat.ElementAdvantage`를 읽으므로 새 모드에서는 멤버별 약점 일치로 연결해야 한다.
+- **F-COND-B:** 진행 중. 엔진 `f374c1d` merge 통지(2026-09-28).
 
 ## 사용자 요청
 
