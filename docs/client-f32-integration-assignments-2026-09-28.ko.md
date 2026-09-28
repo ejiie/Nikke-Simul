@@ -36,6 +36,7 @@
   1. 지표별 지원 여부를 분리한다. CI처럼 n≥2가 필요한 항목만 사유를 표시하고, 계산된 점 추정값(평균·중앙값·분위수)은 표시한다. n=1 값이 API 값과 일치, n=0은 값을 만들지 않음, n≥2에서 CI 표시를 검증한다. Analysis/Backend 계약상 `unsupportedReason`의 의미가 "지표 전체 미지원"이라면 UI에서 임의로 재해석하지 말고 근거와 함께 Director에 보고한다(Analysis·Backend 코드 수정 금지).
   2. `baseline_required` 같은 계약 응답(비교 대상 없음)을 transport 장애와 분리해 "비교 기준 없음"으로 표시하고 endpoint 상태를 바꾸지 않는다. 다른 4xx 계약 코드도 같은 기준으로 점검한다.
   3. 실제 격리 API·브라우저로 두 시나리오와 기존 회귀를 재확인하고, 확정 커밋을 Director에 한 번 인계한다. 이후 Director가 Q-F32에 B2 재수용(두 결함 + 회귀)을 통지한다.
+  - 전달: `term_c322a450…` 요청 `3aa5365e-2134-4c66-8777-e3fc77639206`, accepted=true, `input_accepted`·`turn_started`. 검수 담당은 수정 통지 대기.
 
 ## 승인과 근거
 
