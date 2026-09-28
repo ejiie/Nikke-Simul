@@ -28,7 +28,10 @@ builder.Services.AddSingleton(new CollectorProcess(root, dataRoot, python));
 builder.Services.AddSingleton(new PresentationService(root, Path.Combine(dataRoot, "presentation"), python, dataRoot));
 builder.Services.AddHostedService(sp => sp.GetRequiredService<PresentationService>());
 builder.Services.AddSingleton<SyncCoordinator>(); builder.Services.AddHostedService(sp => sp.GetRequiredService<SyncCoordinator>());
-builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.PropertyNamingPolicy = Wire.Json.PropertyNamingPolicy);
+builder.Services.ConfigureHttpJsonOptions(options => {
+    options.SerializerOptions.PropertyNamingPolicy = Wire.Json.PropertyNamingPolicy;
+    options.SerializerOptions.TypeInfoResolver = HitWire.Resolver();
+});
 var app = builder.Build();
 var token = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
 var allowedOrigins = new[] { $"http://127.0.0.1:{port}", "http://127.0.0.1:5174" };
@@ -45,6 +48,7 @@ app.Use(async (context, next) =>
     try { await next(); }
     catch (KeyNotFoundException) { context.Response.StatusCode = 404; await context.Response.WriteAsJsonAsync(new { message = "항목을 찾을 수 없습니다." }); }
     catch (ArgumentException ex) { context.Response.StatusCode = 400; await context.Response.WriteAsJsonAsync(new { message = ex.Message }); }
+    catch (OverflowException ex) { context.Response.StatusCode = 400; await context.Response.WriteAsJsonAsync(new { message = "integer_overflow: " + ex.Message }); }
     catch (InvalidOperationException ex) { context.Response.StatusCode = 409; await context.Response.WriteAsJsonAsync(new { message = ex.Message }); }
 });
 app.MapGet("/api/bootstrap", () => new { token, connections = store.Connections(), jobs = store.Jobs().Take(30), connectionFailure = store.LastConnectionFailure(),
@@ -161,17 +165,10 @@ app.MapPost("/api/accounts/{id}/characters/{characterId}/edit", (string id,strin
     next.Id=Guid.NewGuid().ToString("N");
     return store.Commit(next,expectedId:request.ExpectedSnapshotId);
 });
-app.MapPost("/api/calculations/hit", (HitRequest request) =>
-{
-    if (request.InputSchemaVersion != HitCalculator.InputSchemaVersion)
-        throw new ArgumentException("계산 입력 형식이 변경되었습니다. 화면을 새로고침한 뒤 다시 계산하세요.");
-    if (request.Input is null || !request.Input.ContainsKey("statAttack"))
-        throw new ArgumentException("버프 적용 전 statAttack 입력이 필요합니다.");
-    HitContext input;
-    try { input = request.Input.Deserialize<HitContext>(new JsonSerializerOptions(Wire.Json) { UnmappedMemberHandling = System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow })!; }
-    catch (JsonException) { throw new ArgumentException("계산 입력 필드를 확인하세요. 기존 attack은 statAttack과 버프 목록으로 분리되었습니다."); }
-    return HitCalculator.Compare(input, request.ObservedDamage);
-});
+var hitCalculations = new HitCalculationService(Path.Combine(dataRoot,"hit-calculations"));
+app.MapPost("/api/calculations/hit", (HitCalculationRequest request) => hitCalculations.Calculate(request));
+app.MapPost("/api/calculations/hit/import", (JsonObject artifact) => hitCalculations.Import(artifact));
+app.MapGet("/api/calculations/hit/{id}", (string id) => hitCalculations.Read(id));
 var editor = Path.Combine(root, "apps/desktop-ui");
 if (Directory.Exists(editor))
 {
@@ -195,4 +192,3 @@ app.MapGet("/api/health", () => new { status = "ok", application = "nikke-simul"
 await app.RunAsync();
 record AreaSelection(int Area);
 record StartSync(string ConnectionId);
-record HitRequest(JsonObject Input, double? ObservedDamage, int InputSchemaVersion);

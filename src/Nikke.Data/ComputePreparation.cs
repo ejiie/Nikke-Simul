@@ -41,7 +41,8 @@ public sealed partial class RuntimeReplayService
     public IPreparedExperiment PrepareCompute(AccountSnapshot original,GameSnapshot game,ExperimentRequest request,CalculationService calculation)
     {
         if(request.SnapshotId!=original.Id || original.GameSnapshotId!=game.Id || request.CharacterIds is null || request.Conditions is null || request.CharacterIds.Count!=5 || request.CharacterIds.Distinct().Count()!=5
-            || request.OlChanges?.Any(c=>!request.CharacterIds.Contains(c.CharacterId))==true)throw new ArgumentException("compute_requires_five_members");
+            || request.OlChanges?.Any(c=>!request.CharacterIds.Contains(c.CharacterId))==true
+            || request.HitOverrides?.Keys.Any(id=>!request.CharacterIds.Contains(id))==true)throw new ArgumentException("compute_requires_five_members");
         var snapshot=VirtualOverload.Apply(original,game,request.OlChanges??[]);
         var conditions=request.Conditions.Deserialize<SkillReplayConditions>(Wire.Json)??throw new ArgumentException("missing_conditions");
         if(conditions.Combat is null)throw new ArgumentException("missing_combat");
@@ -57,7 +58,8 @@ public sealed partial class RuntimeReplayService
             foreach(var (slot,key) in new[]{("skill1","1"),("skill2","2"),("burst","3")})
                 levels[slot]=build.Skills.GetValueOrDefault(key)??throw new ArgumentException("skill_level_missing");
             var weapon=catalog["characters"]?[id]?["weapon"]?.Deserialize<WeaponDto>(Wire.Json)??throw new ArgumentException("unsupported_character");
-            members.Add(new(new(id,weapon,report.BasicHit,report.PermanentBuffs),report.NativeStats.HP,Loadout(id,levels)));reports.Add(report);
+            var hit=HitCalculationService.ApplyExperimentOverrides(report.BasicHit,request.HitOverrides?.GetValueOrDefault(id));
+            members.Add(new(new(id,weapon,hit,report.PermanentBuffs),report.NativeStats.HP,Loadout(id,levels)));reports.Add(report);
         }
         return PreparedCompute.Create(members,Graph(),conditions,original.Id,game.Id+":"+reports[0].CalculationDataId+":"+runtimeId,request.Phase);
     }
@@ -67,6 +69,8 @@ public sealed partial class RuntimeReplayService
 public sealed class PreparedCompute : IPreparedExperiment
 {
     public const string ImplementationVersion=PreparedSkillReplay.Version;
+    public static string RulesVersion(string policy)=>SkillReplay.Version+":"+TeamBurstController.Version+":"+
+        Nikke.Core.Combat.HitCalculator.Version+":"+Nikke.Core.Stats.StatBuffCalculator.Version+":"+policy;
     private sealed record Payload(ExperimentInput Input,IReadOnlyList<SkillReplayMember> Members,SkillGraph Graph,SkillReplayConditions Conditions);
     private readonly Payload payload;
     private readonly PreparedSkillReplay engine;
@@ -74,7 +78,12 @@ public sealed class PreparedCompute : IPreparedExperiment
     public string PersistedInput {get;}
     private PreparedCompute(string persisted)
     {PersistedInput=persisted;payload=Wire.Read<Payload>(persisted);
-        if(payload.Input.EngineVersion!=ImplementationVersion)throw new InvalidOperationException("engine_version_changed");
+        if(payload.Input.EngineVersion!=ImplementationVersion || payload.Input.SummaryVersion!=ImplementationVersion
+            || payload.Input.InputSchemaVersion!=HitWire.SchemaVersion
+            || payload.Input.RulesVersion!=RulesVersion(payload.Conditions.RoundingPolicy)
+            || payload.Input.RoundingPolicy!=payload.Conditions.RoundingPolicy)throw new InvalidOperationException("engine_or_rules_version_changed");
+        if(payload.Input.Fingerprint!=Fingerprint(payload.Members,payload.Graph,payload.Conditions,payload.Input.SnapshotId,payload.Input.DataVersion))
+            throw new InvalidOperationException("prepared_input_fingerprint_mismatch");
         engine=PreparedSkillReplay.Create(payload.Members,payload.Graph,payload.Conditions);}
     public static PreparedCompute Restore(string persisted)=>new(persisted);
     public static PreparedCompute Create(IReadOnlyList<SkillReplayMember> members,SkillGraph graph,SkillReplayConditions conditions,string snapshotId,string dataVersion,string phase)
@@ -82,13 +91,17 @@ public sealed class PreparedCompute : IPreparedExperiment
         if(members.Count!=5)throw new ArgumentException("compute_requires_five_members");
         conditions=conditions with {Combat=conditions.Combat with {Trace=false},DamageLog=null,
             AutoBurst=conditions.AutoBurst is {} auto?auto with {TimelineLimit=0}:null};
-        var hash=Wire.Hash(Wire.Canonical(JsonSerializer.SerializeToNode(new {members,graph,conditions,snapshotId,dataVersion,level=400,implementation=ImplementationVersion},Wire.Json)));
+        var hash=Fingerprint(members,graph,conditions,snapshotId,dataVersion);
         var input=new ExperimentInput(hash,snapshotId,dataVersion,ImplementationVersion,
-            SkillReplay.Version+":"+TeamBurstController.Version+":"+Nikke.Core.Combat.HitCalculator.Version+":"+conditions.RoundingPolicy,
+            RulesVersion(conditions.RoundingPolicy),
             members.Select(m=>m.Weapon.CharacterId).ToArray(),400,conditions.Combat.DurationFrames,phase,"summary",
-            "fixed:"+conditions.Combat.EnemyDefense.ToString("R",System.Globalization.CultureInfo.InvariantCulture));
+            "fixed:"+conditions.Combat.EnemyDefense.ToString("R",System.Globalization.CultureInfo.InvariantCulture))
+            {InputSchemaVersion=HitWire.SchemaVersion,RoundingPolicy=conditions.RoundingPolicy,SummaryVersion=ImplementationVersion};
         return new(Wire.Serialize(new Payload(input,members,graph,conditions)));
     }
+    private static string Fingerprint(IReadOnlyList<SkillReplayMember> members,SkillGraph graph,SkillReplayConditions conditions,string snapshotId,string dataVersion)
+        =>Wire.Hash(Wire.Canonical(JsonSerializer.SerializeToNode(new {members,graph,conditions,snapshotId,dataVersion,level=400,
+            implementation=ImplementationVersion,rules=RulesVersion(conditions.RoundingPolicy),inputSchemaVersion=HitWire.SchemaVersion},Wire.Json)));
     public RunSummary Run(string experimentId,int index,int attempt,CancellationToken cancellationToken)
     {
         var result=engine.Run(cancellationToken);

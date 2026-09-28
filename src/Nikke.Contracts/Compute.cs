@@ -26,10 +26,16 @@ public record OlCandidateCatalog(string CatalogVersion, IReadOnlyList<OlCandidat
 public record ExperimentRequest(string SnapshotId, IReadOnlyList<string> CharacterIds, JsonObject Conditions,
     int Runs = 1000, string Phase = "final", string RecordLevel = "summary",
     ComputeOptions? Execution = null, IReadOnlyList<OlChange>? OlChanges = null, string? BaselineExperimentId = null,
-    bool UseSavedTactic = true);
+    bool UseSavedTactic = true, IReadOnlyDictionary<string, JsonObject>? HitOverrides = null);
 public record ExperimentInput(string Fingerprint, string SnapshotId, string DataVersion, string EngineVersion,
     string RulesVersion, IReadOnlyList<string> CharacterIds, int SynchroLevel, int DurationFrames,
-    string Phase, string RecordLevel, string DefPolicy, bool GameVerified = false);
+    string Phase, string RecordLevel, string DefPolicy, bool GameVerified = false)
+{
+    // Missing on historical records. Do not retrofit current versions when reading old results.
+    public int InputSchemaVersion { get; init; } = 2;
+    public string? RoundingPolicy { get; init; }
+    public string? SummaryVersion { get; init; }
+}
 public record MemberRunSummary(string CharacterId, double Damage, long Shots, long Hits, long CriticalHits,
     long Reloads, long BurstCasts);
 public record RunSummary(string RunId, int Attempt, int Index, string ExperimentId, string InputFingerprint,
