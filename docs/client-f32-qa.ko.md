@@ -1,4 +1,54 @@
-# Q-F32 단계 A — 독립 엔진 수용 (2026-09-28)
+# Q-F32 — 단계 A 및 B1 독립 수용 (2026-09-28)
+
+## 최신 판정 — 단계 B1
+
+**B1 API·wire·저장·버전/캐시 분리 수용 통과. 자체 API 검사85/85, 후속 캐시·저장 입력 검사9/9. 차단 결함 발견0. B2 브라우저/UI는 Director 별도 통지 대기. Q-CPU-10K 및 부하 측정은 계속 보류.** 아래 단계 A 기록은 당시 근거로 보존하며 A 숫자를 B1 검사에 합산하지 않는다.
+
+시작 HEAD `cdca644`, status는 미추적 package-lock.json뿐. 최신 Director 배정서 전체, Backend 확정 wire의 I-BE schema3/compute 역사 분리 절 및 I-BE 보고서 전체를 UTF-8로 읽었다. Backend **`74ca24fc9b242b6268856f82a4c722f2e57f9b9c`**를 일반 merge해 이전 QA를 보존했다(충돌 없음). Backend의 `check_client_f32_api.py`와 Backend 테스트를 실행·import하거나 판정 기대값으로 재사용하지 않았다.
+
+새 QA `check_f32_b1.py`가 실제 HTTP 요청/응답·SQLite 저장을 검사한다. 단일 히트 기대값은 단계 A에서 만든 독립 Fraction/binary32 기준으로 원요청에서 계산했다. 통계는 자기 기존 독립 Student/HF7/Wilson 도구를 사용한다. `F32Boundary`는 실제 BatchStore 쓰기 거부와 동일 하드웨어의 버전별 tuning key, 실제 ExecutionPolicy 캐시 수용을 호출하는 QA 전용 probe다. 제품 메서드 반환은 검사 대상이며 그 값을 스스로 정답으로 삼지 않는다.
+
+격리 API 포트 **63740**, 자기 새 dataRoot `artifacts/single-deck-qa/f32-b1-88f22794209a/data`. 실행 PID19764→재시작8976, 둘 다 자기 스크립트에서 종료·wait 완료. 공개12파일은 원본을 다시 읽지 않고 기존 자기 `load1000-3db71912a601/data` allowlist에서 복사했다. **계정 DB는 새 합성5인으로 생성**했으며 원본/기존 계정DB나 세션을 복제하지 않았다. 새로운 API/QA probe Release 빌드는 각각 경고0/오류0이다.
+
+### B1 실제 결과
+
+| 범위 | 독립 근거와 판정 |
+|---|---|
+| v3 정상·기본·네 후보 | 100×2×(1−.25)=client150, 과거3개100; 각 정책 명시선택, 후보 순서·선택audit10항·원요청 일치. 2^24 선감산도 독립 일치 |
+| v2 명시 변환 | 원본 input 보존, schema2→3 및 method/defaults(1,0) 일치. 새 rate가 들어간 v2는400 |
+| import·저장·GET | 과거 comparison artifact의 원후보/관측/메모 전체 sourceArtifact 보존, 새ID·선택정책·conversion 확인. 새 응답 재import도 새ID이며 기존 기록 불변. 파일=GET=응답, API 재시작 후 v2/import 조회 동일 |
+| 십진 문자열 | raw1450·exact17 출력은 문자열, 공격력132. exactAmount9007199254740993을 무손실 공격력 문자열로 보존, client exactDamage 독립 일치 |
+| 불가 후보 | 큰 정수에서 과거3후보 unavailable, damage/residual/relativeError=null, terms=[], 이유 존재. 불가정책 선택은400이며 피해0/자동fallback/저장 없음 |
+| 제약 오류 | 소수ATK/DEF/flat, 과정밀rate, raw불일치, unsafe number, overflow, 알 수 없는 필드/정책/schema, decimal 문자열의 지수·소수·공백·범위초과 거부. 100.000000000000000001 / 1e−400 / rate0.01400000000000000001 원문도400. 오류요청 전후 저장 파일 수 불변 |
+| compute hitOverrides | 각조건1회: default/legacy/statDamageRatio2/defenceRatioRate.25/runtime raw1450/runtime rate.145/exact flat100. 정상7배치, schema3/summary2/level400/DEF30925/저장택틱 확인, override 실제 준비 payload 보존 |
+| fingerprint·튜닝 키 | 7물리 입력·7실행 키 각각 구분. 같은rate라도 raw존재 여부가 다르면 fingerprint 구분. 원조건 재요청은 동일 키·validated_policy_cache. 새7조건 모두cache miss |
+| 정상통계·튜닝 제외 | 각 배치 정상n1, 팀=5인합, 독립 팀·5인 통계 일치. warmup/후보튜닝 호출은 결과n에 미포함. 재시작 뒤도 각n1 유지 |
+| 역사·구결과 | 이전 자기 Q-LOAD-1000에서 실제 생성된 cpu-summary.1 calibration20개를 읽기 전용으로 읽어 **compute 행만** 격리DB에 이관. 구20개 payload 그대로 GET 조회, schema2/summary null 유지. resume409 engine_or_rules_version_changed |
+| 새 결과와 혼합 거부 | 구 RunSummary의 식별자만 신규배치에 맞춘 뒤 원래 구fingerprint로 실제 BatchStore.Write 호출→invalid_run_summary, 결과수0. 새 실제엔진1회 결과만 저장 후 API 통계n1. 구 통계는별도n20으로 독립 검산 |
+| baseline·오염 | override가 다른 baseline 연결400, 허용 외 override/5인 밖 ID400. 저장payload의 statDamageRatio만 변조하면 prepared_input_fingerprint_mismatch로 복구 거부 |
+| 구캐시·새캐시 | 실제 자기 구튜닝 cache파일을 별도 cache-probe에 복사한 상태에서 현재 prepared Select는miss/measured, 두 번째는validated_policy_cache. 구파일들 내용 일치·신규키와 분리. 동일 hw/자원에서 engine만/rules만/workload만 바꾼 키도 각기 다름 |
+
+새 실제 정상 전투 결과는 API7변형+동일입력 재요청1+저장경계 probe1 = **9개**다. 튜닝 호출은 별도이며 배치 통계에 넣지 않는다. 모두600프레임/10초 합성 전투, worker1이다. 구20개는 조회만 했고 재실행하지 않았다. 자동버스트 지연은 입력의 기존 기본범위(1~10프레임)를 유지했으므로 조건별 단일 피해 숫자를 효과 크기·성능 비교로 쓰지 않는다. 특히 raw/rate 물리값이 같아도 별도 호출의 전투 피해가 항상 같다는 주장을 하지 않는다.
+
+### B1 근거·재현·보존
+
+확정 근거 루트 **`C:/Users/user/orca/workspaces/Nikke-Simul/검수/artifacts/single-deck-qa/f32-b1-88f22794209a/`**:
+
+- `summary.json` API85건, `http.json` 원요청·응답·오류, `api-*.log`.
+- `supplemental-audit.json` 후속9건 및7배치별 실제피해/전체fingerprint/튜닝키/n. `*-prepared.json`, `*-batch.json`.
+- `old-history-source.json`, `old-run.json`, `boundary.json`: 구20개 provenance 및 실제쓰기 거부, 신규n1.
+- `cache-probe-result.json`, `cache-probe/`: 구캐시존재 하의 실제 miss→reuse와 변조복구 거부. `source-hashes.json`, `preservation.json`.
+- 빌드 로그: `artifacts/single-deck-qa/f32-b1-build/api.log`, `boundary.log`.
+
+재현: API와 `tests/single_deck_compute_qa/F32Boundary/F32Boundary.csproj`를 Release 빌드 후 `python tests/single_deck_compute_qa/check_f32_b1.py --dotnet <dotnet>` 실행. 현재 도구는 자기 기존 공개 fixture/구 calibration 경로를 명시적으로 고정하며 없으면 중단한다. 다른 PC에서 사용자 원본 자료를 추정해 찾거나 복제하지 않는다. 이 실행은 우선API85건을 완료한 뒤 캐시 probe/읽기 전용 추가판정9건을 수행했다. 최종 도구는 같은 순서를 한 번에 실행할 수 있도록 연결했고, 후속9건은 `--audit-existing <evidence>`로도 재검산한다. 최종 연결 이후 전체API를 불필요하게 다시 실행하지 않았다.
+
+추적 제품 src/apps/scripts/tools-data-pipeline 직접수정0(승인merge 수신 제외). 기존 QA/단계A artifacts 보존. package-lock SHA256 `2ef4178aa07ddd9ac2e4d47422038d02d8adaadfb15586cee6a2f1995253c767` 전후동일·커밋제외. 공개12파일 hash변경0, 실제 구합성compute DB 전후hash동일. 사용자 원본 계정·세션·캐시·EXE·바로가기·5180/5181 접근/변경/종료없음. 타worktree 편집/배포/push/새worker/Run/Dispatch/lifecycle없음.
+
+**미완료:** B2 브라우저/UI·피해로그/통계화면, 실게임·실측18점·실사용자덱·SW·GPU·성능/부하. Backend329통과나 이전A결과를 이번API 통과 수로 재사용하지 않았다. 제품 배포도 하지 않았다. Director에 B1 확정QA커밋/본보고서/독립근거/경계를 한 번 전달하고 B2 통지를 기다린다.
+
+---
+
+## 단계 A — 당시 독립 엔진 수용 기록
 
 **판정: 단계 A 합성 산술·과거 정책 보존·기본 replay·소규모 병렬/취소 수용. 차단 결함 발견 0. 실게임 정확성·API/UI 종단 수용 아님. 단계 B는 Director 통지 대기.**
 
