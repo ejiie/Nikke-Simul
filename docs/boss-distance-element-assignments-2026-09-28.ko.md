@@ -10,6 +10,19 @@
   - 내부 계약: `WeaponReplayConditions.BossDistance`(int?)·`BossWeakElement`(string, `Electronic` 철자), `WeaponReplayMember.BonusRangeMin/Max`(int?)·`Element`. 새 요청에서 이전 bool 기본 false를 채우면 혼용 오류가 난다.
   - Backend 추가 의존: `ComputeOverloadCatalog`의 `IncElementDmg` 유효 후보 판단이 전역 `combat.ElementAdvantage`를 읽으므로 새 모드에서는 멤버별 약점 일치로 연결해야 한다.
 - **F-COND-B:** 진행 중. 엔진 `f374c1d` merge 통지(2026-09-28). 전달 `term_e5d05982…` 요청 `d7835645-d743-4bfc-9d22-fe30b2806d5d`, accepted=true·`input_accepted`(작업 중 턴에 전달). 직후 화면에서 엔진 파일 merge 출력을 확인했다.
+- **F-COND-B: 완료, Director 검토 수용.** Backend `796eec3`(`cd004f1`·엔진 `f374c1d` ff 후), [보고서](C:/Users/user/orca/workspaces/Nikke-Simul/Backend/docs/boss-distance-element-backend.ko.md), 확정 wire는 [compute 계약](C:/Users/user/orca/workspaces/Nikke-Simul/Backend/docs/single-deck-compute-contract.ko.md) F-COND-B 절. Director 확인: `f374c1d..796eec3`에서 Core/Engine/Analysis/apps 변경 0, UI `cc24bc9`·QA `1abba9b`와 충돌 없이 merge된다. 재실행은 하지 않았다.
+  - wire: `GET /api/runtime/combat-conditions`(무기군 사거리 표·예외·속성·rangeRule·gameVerified), `GET /api/snapshots/{id}/combat-conditions?characterIds=…`(멤버 사거리·속성, 요청 순서). **UI mock의 `combat-ranges` 경로와 다르다.** replay/compute `conditions.combat.bossDistance`(0–100 또는 null)·`bossWeakElement`(Fire/Water/Wind/Iron/Electronic 또는 null), 새 모드에서는 `properDistance`/`elementAdvantage` 생략(혼용 400), 모두 미설정인 새 모드는 두 필드 null 명시. 저장 replay·batch.input에 `conditionCompatibility`(`per_member`/`legacy_global`, 표시 label, 구 bool 두 값, boss 두 값), 조회 `/api/runtime/skill-replays/{id}/condition-compatibility`·`/api/compute/experiments/{id}/condition-compatibility`(원래 GET·export·파일 재작성 없음). `IncElementDmg` OL 후보도 멤버별 약점 일치로 연결.
+  - 데이터: 공개 roster(SHA `8568963a…`) 192명에서 사거리 집계, 하란(5042) SR 예외 25–45·RL 0–0 원천 그대로.
+  - Backend 보고 검증: Release 경고 0/오류 0, .NET 372(Backend 157, Core 174, Analysis 41), Python 10. 격리 API: 192명·6무기군·예외, 기존 bool replay 1,586,529·멤버 결과 전환 전 정확 재현, 거리 35/Fire 멤버별 hit flag, null 모드 저장, 잘못된 입력 8종 400, 120프레임 batch 세 조건 fingerprint·캐시·통계 분리, Fire 속성 OL 후보는 앨리스·모더니아만.
+  - **배포 의존(중요):** Git 제외 runtime에 `combatProfiles`를 준비해야 한다 — `tools/data-pipeline/prepare_combat_conditions.py --runtime-root <대상>/runtime --source-roster <고정 blabla_roledata.json>`. 기존 graph·구 catalog 보존, 새 runtime ID `9c98c91c…`. 원본 `data/local`에는 아직 실행하지 않았다(배포 단계에서 사용자 확인 후 실행).
+- **통지(2026-09-28):** F-COND-U 실제 연결(단계 B), F-COND-Q 독립 수용 단계 1(API) 배정.
+
+### F-COND-Q — 독립 QA (검수 담당)
+
+소유·금지는 [client_f32 통합 지시서](client-f32-integration-assignments-2026-09-28.ko.md)의 Q-F32와 같다(제품 수정 금지, 담당 검사 스크립트·정답 재사용 금지, 합성 계정·격리 포트·격리 dataRoot, 부하·Q-CPU-10K 보류).
+
+- **단계 1(지금, API):** Backend `796eec3`를 일반 merge. 격리 dataRoot에 `prepare_combat_conditions.py`로 runtime을 준비하고 자체 검사로: 사거리 표·예외가 roster 원천과 일치(독립 집계), 멤버 프로필, 경계 min−1/min/max/max+1·RL 0–0·SR 예외·사거리/속성 불명 오류, 거리는 normal만·속성은 모든 피해, 섞인 덱에서 멤버별 hit flag와 독립 산술 피해, 구 bool replay·batch의 정확 재현과 `conditionCompatibility` 표시·조회(원본 파일 불변), 혼용·범위 밖·잘못된 속성 400, fingerprint·캐시·통계 분리, 속성 OL 후보의 멤버별 판단.
+- **단계 2(UI 인계 후 Director 통지):** 실제 브라우저로 아이콘 버튼·두 팝업·약점 경고 문구·멤버별 미리보기·이전 방식 표시·레이아웃·키보드/ESC·기존 회귀.
 
 ## 사용자 요청
 
