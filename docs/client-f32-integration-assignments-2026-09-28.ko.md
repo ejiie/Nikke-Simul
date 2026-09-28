@@ -1,5 +1,13 @@
 # client_f32 통합 연결·독립 QA 배정 — 2026-09-28
 
+## 최신 상태 — 2026-09-28
+
+- **Q-F32 단계 A: 합성 엔진 수용 통과, 차단 결함 0.** [Q-F32 보고서](C:/Users/user/orca/workspaces/Nikke-Simul/검수/docs/client-f32-qa.ko.md)(검수 `cdca644`), 엔진 `5ced15a` 일반 merge `adb7d05`(충돌 없음), 근거 검수 `artifacts/single-deck-qa/f32-stage-a/`(Git 제외). Director가 보고서와 커밋 범위를 확인했다: QA 커밋의 `src`·`apps`·`scripts`·`tools/data-pipeline` 변경 0. 전투·검사 재실행은 하지 않았다.
+  - 독립 기준: 엔진 golden/oracle 미사용. `Fraction` 정확 유리수 → binary32 nearest-even 자체 구현과 최종 half-away. 산술·경계·예외 **326/326**(중간 6항 비트, 공격력 `long`, 정밀도 거부, NaN/Inf, overflow).
+  - replay **54/54**: client 7,979히트 독립 재계산 일치, 팀 1,346,859,763 → 1,346,863,834(+4,071) 재현, 팀 = 구성원 = 히트 합, 발수·명중·풀버스트 9회 불변. 전환 전 `53b3d10^` 소스를 분리 빌드해 과거 3정책을 실행한 결과가 전환 후 명시 선택 결과와 히트별 frame·피해·누적까지 정확히 같다. 정책별 병렬 2회·취소·취소 후 prepared 재사용 통과.
+  - 미판정: API/UI·v2 변환·wire·fingerprint/캐시 종단(단계 B), 실게임 정확도, 실측 18점, SW, GPU, 성능. Q-CPU-10K 보류 유지, 재개 시 기준 재고정.
+- **I-BE:** 진행 중. **I-UI 단계 A:** 진행 중.
+
 ## 승인과 근거
 
 2026-09-28 사용자가 **통합 연결 작업과 독립 QA 수용** 착수를 승인했다. 대상은 엔진 브랜치의 H-F32 구현이다: 구현 `53b3d10`, 보고서 기록 `5ced15a`(브랜치 `시뮬레이션-엔진-담당`). 먼저 읽을 문서:
