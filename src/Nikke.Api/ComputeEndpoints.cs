@@ -39,6 +39,8 @@ public static class ComputeEndpoints
             var batch=await jobs.Create(prepared,request,ct,preparation.Elapsed.TotalMilliseconds);return Results.Accepted($"/api/compute/experiments/{batch.Id}",batch);
         });
         app.MapGet("/api/compute/experiments/{id}",(string id)=>jobs.Status(id));
+        app.MapGet("/api/compute/experiments/{id}/condition-compatibility",(string id)=>
+            CombatConditionWire.Inspect(CombatConditionWire.ReadCombat(store.Read(id).Request.Conditions)));
         app.MapGet("/api/compute/experiments/{id}/ol-candidates",(string id)=> {
             var experiment=store.Read(id);var snapshot=snapshots.Snapshot(experiment.Request.SnapshotId)??throw new KeyNotFoundException();
             var space=runtime.Value.ComputeCandidates(snapshot,game,experiment.Request);

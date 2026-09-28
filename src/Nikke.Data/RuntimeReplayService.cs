@@ -11,7 +11,10 @@ public record WeaponReplayRequest(string SnapshotId, IReadOnlyList<string> Chara
     WeaponReplayConditions Conditions);
 public record SavedWeaponReplay(string Id, string Kind, DateTimeOffset CreatedAt, string AccountSnapshotId,
     string GameSnapshotId, string CalculationDataId, string RuntimeDataId, string StatRulesVersion,
-    string HitRulesVersion, IReadOnlyDictionary<string, int> AppliedLevels, IReadOnlyList<WeaponReplayMember> Inputs, WeaponReplayResult Result);
+    string HitRulesVersion, IReadOnlyDictionary<string, int> AppliedLevels, IReadOnlyList<WeaponReplayMember> Inputs, WeaponReplayResult Result)
+{
+    public CombatConditionCompatibility? ConditionCompatibility { get; init; }
+}
 
 public sealed partial class RuntimeReplayService
 {
@@ -41,6 +44,7 @@ public sealed partial class RuntimeReplayService
 
     public SavedWeaponReplay Run(AccountSnapshot snapshot, WeaponReplayRequest request, CalculationService calculation)
     {
+        var compatibility=CombatConditionWire.FromConditions(request.Conditions);
         if (request.SnapshotId != snapshot.Id || request.CharacterIds is null || request.CharacterIds.Count is < 1 or > 5
             || request.CharacterIds.Distinct().Count() != request.CharacterIds.Count)
             throw new ArgumentException("저장 스냅샷과 중복 없는 1~5명 편성을 지정하세요.");
@@ -53,12 +57,12 @@ public sealed partial class RuntimeReplayService
             if (report.Status == "incomplete" || report.BasicHit is null)
                 throw new ArgumentException($"{report.Name}: 스탯 입력을 먼저 보완하세요.");
             var weapon = source["weapon"]!.Deserialize<WeaponDto>(Wire.Json)!;
-            reports.Add(report); members.Add(new(characterId, weapon, report.BasicHit, report.PermanentBuffs));
+            reports.Add(report); members.Add(WithCombatProfile(new(characterId, weapon, report.BasicHit, report.PermanentBuffs),request.Conditions));
         }
         var result = WeaponReplay.Run(members, request.Conditions);
         var saved = new SavedWeaponReplay(Guid.NewGuid().ToString("N"), "weapon_reference_replay", DateTimeOffset.UtcNow,
             snapshot.Id, snapshot.GameSnapshotId, reports[0].CalculationDataId, runtimeId, reports[0].StatRulesVersion,
-            Nikke.Core.Combat.HitCalculator.Version, reports.ToDictionary(r => r.CharacterId, r => r.AppliedLevel), members, result);
+            Nikke.Core.Combat.HitCalculator.Version, reports.ToDictionary(r => r.CharacterId, r => r.AppliedLevel), members, result) {ConditionCompatibility=compatibility};
         // Replays are immutable local artifacts, separate from account snapshots and future statistical run tables.
         Directory.CreateDirectory(replayRoot);
         string path = Path.Combine(replayRoot, saved.Id + ".json");
