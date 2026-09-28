@@ -20,6 +20,12 @@
   - 통과: 공개 192명 독립 집계·프로필·6무기군·SR 예외·RL 일치, 실제 5인 API 경계 18조건, 별도 resolver 1,253사례, 실제 2,087히트(비normal 614) 독립 Fraction/binary32 산술·멤버별 flag 일치, 구 bool replay·batch 정확 재현(이전 QA API DLL 직접 실행과 대조)·구 GET/export/hash 불변·compatibility·구 resume 409, 조건 5종 fingerprint·튜닝 키·통계 분리, 속성 OL 후보 멤버별 판정.
   - **F-COND-Q-1(Backend):** 격리 runtime에서 `combatProfiles.characters.5004.bonusRangeMin`만 제거하면 프로필 GET이 200으로 앨리스 SR을 min 0/max 100으로 내고, 거리 35·Fire replay도 200으로 저장된다(원천은 45–100). Director 확인: `src/Nikke.Contracts/CombatConditions.cs`의 `int BonusRangeMin`(non-nullable) 역직렬화가 누락을 0으로 채우고 `CombatProfileCatalog` 범위 검사를 통과해, 엔진의 불명 검사에 도달하지 못한다. max·element 누락은 500 빈 응답, 멤버 전체 누락은 400. 정상 prepare 산출물에는 누락이 없으므로 **비정상 runtime 방어 경로 결함**이며 실제 배포 손상은 아니다.
 - **B-FIX-2 배정(2026-09-28, F-COND-B 담당):** 필수 키·타입 누락을 보존해(0 채움 금지) 조회·replay·compute 모두 계산·저장 전에 명시적 400/409 진단을 반환한다. 500 빈 응답도 같은 진단으로 바꾼다. 유효한 min 0(SG·RL)·RL 0–0·SR 예외·구 bool 회귀를 유지한다. wire(오류 코드·필드)가 바뀌면 인계에 명시한다. 이후 QA가 이 결함과 회귀를 재수용한다. 전달 `term_e5d05982…` 요청 `5d8caf26-1230-46bf-946e-c0c7ec136f1c`, accepted=true·`input_accepted`(재전송 없음).
+- **F-COND-U 단계 B: 완료, Director 검토 수용.** UI `e3dc7b8`(Backend `796eec3` merge, 충돌 0) → `09e27cb`(확정 wire 연결·실제 검증), 보고서 6절. 변경은 `apps/desktop-ui`·UI tests·UI 문서뿐(제품 `src` 0). QA 소유 `tests/q3/check_ui_contract.mjs`는 수정하지 않았다.
+  - 연결: 옛 체크박스 제거, replay·통계 요청에 `bossDistance`/`bossWeakElement` 항상 전송(미설정은 명시 null, 옛 bool 미전송), 무기군 표·멤버 미리보기는 확정 API, `conditionCompatibility` label 표시, 통계 카드 저장 모드 표시.
+  - 발견·수정: mock 단계 `cc24bc9`부터 QA 계약 검사 `tests/q3/check_ui_contract.mjs`가 23/26 실패(submit 콜백이 모듈 헬퍼 호출) → 앱 코드의 콜백을 자기완결로 고쳐 26/26. 실제 데이터 sha 문구 팝업 잘림 → 줄바꿈.
+  - UI 보고 실제 격리 API + Chromium: 격리 runtime에만 `prepare_combat_conditions.py` 실행(원본 `data/local` 미실행), 표·멤버 판정 API 일치, 거리 35·Fire replay에서 앨리스 평타 12발 모두 properDistance=false·elementAdvantage=true(기대 일치), 모두 미설정 null → per_member, 이전 방식 legacy_global 라벨, 통계 batch per_member·`cpu-summary.3-boss-conditions`, 혼용 400, 1500/850/500 넘침 0·JS 오류 0. 기존 회귀 통과.
+  - 미실행: EXE 배포, 실제 409 `combat_profile_catalog_missing` 화면(mock 단위만), RL 멤버 포함 덱(표로만 확인).
+- **F-COND-Q 단계 2 통지는 B-FIX-2 인계 후 재수용과 묶어 한 번에 보낸다**(오류 진단 wire가 바뀔 수 있고 검수 세션 사용 한도가 낮음).
 
 ### F-COND-Q — 독립 QA (검수 담당)
 
