@@ -29,9 +29,13 @@ public static class ComputeEndpoints
             request=request with {Conditions=conditions};
             if(request.BaselineExperimentId is {} baseline) {
                 var existing=store.Read(baseline);if(existing.Status.Input.SnapshotId!=request.SnapshotId || !existing.Status.Input.CharacterIds.SequenceEqual(request.CharacterIds)
-                    || Wire.Canonical(existing.Request.Conditions)!=Wire.Canonical(conditions) || existing.Request.Phase!=request.Phase)throw new ArgumentException("baseline_input_mismatch");}
+                    || Wire.Canonical(existing.Request.Conditions)!=Wire.Canonical(conditions) || existing.Request.Phase!=request.Phase
+                    || Wire.Canonical(System.Text.Json.JsonSerializer.SerializeToNode(existing.Request.HitOverrides,Wire.Json))
+                       !=Wire.Canonical(System.Text.Json.JsonSerializer.SerializeToNode(request.HitOverrides,Wire.Json)))throw new ArgumentException("baseline_input_mismatch");}
             ct.ThrowIfCancellationRequested();var preparation=System.Diagnostics.Stopwatch.StartNew();
             var prepared=runtime.Value.PrepareCompute(snapshot,game,request,calculation.Value);preparation.Stop();ct.ThrowIfCancellationRequested();
+            if(request.BaselineExperimentId is {} baselineId)
+                RequireSameRules(store.Read(baselineId).Status.Input,prepared.Input);
             var batch=await jobs.Create(prepared,request,ct,preparation.Elapsed.TotalMilliseconds);return Results.Accepted($"/api/compute/experiments/{batch.Id}",batch);
         });
         app.MapGet("/api/compute/experiments/{id}",(string id)=>jobs.Status(id));
@@ -61,7 +65,14 @@ public static class ComputeEndpoints
             var analysis=app.Services.GetService<IComputeAnalysis>()??throw new InvalidOperationException("analysis_not_integrated");
             var candidate=store.Read(id);var baseline=candidate.Request.BaselineExperimentId??throw new ArgumentException("baseline_required");
             var a=store.AnalysisSnapshot(baseline);var b=store.AnalysisSnapshot(id);
+            RequireSameRules(a.Batch.Input,b.Batch.Input);
             return analysis.Compare(a.Batch,a.Runs,b.Batch,b.Runs,candidate.Request.OlChanges??[]);
         });
+    }
+    private static void RequireSameRules(ExperimentInput a,ExperimentInput b)
+    {
+        if(a.EngineVersion!=b.EngineVersion || a.RulesVersion!=b.RulesVersion || a.InputSchemaVersion!=b.InputSchemaVersion
+            || a.SummaryVersion!=b.SummaryVersion || a.RoundingPolicy!=b.RoundingPolicy)
+            throw new InvalidOperationException("comparison_rules_mismatch");
     }
 }

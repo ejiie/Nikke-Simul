@@ -70,7 +70,7 @@ public record HpObservation(int Frame, string CharacterId, double Ratio);
 public record SkillReplayConditions
 {
     public WeaponReplayConditions Combat { get; init; } = new();
-    public string RoundingPolicy { get; init; } = "";
+    public string RoundingPolicy { get; init; } = HitCalculator.DefaultPolicy;
     public IReadOnlyList<SkillCast> Casts { get; init; } = [];
     public TeamBurstOptions AutoBurst { get; init; }
     public DamageLogOptions DamageLog { get; init; }

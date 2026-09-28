@@ -1,5 +1,15 @@
 # B-CPU Backend 실행 기록
 
+## 최신 I-BE 연결 — 2026-09-28
+
+이 아래 B-CPU/B-TUNE-1 절은 당시 구현·검증 이력이다. 현재 client_f32 연결 결과는 [client-f32-integration.ko.md](client-f32-integration.ko.md), UI가 따를 wire는 [compute 계약의 I-BE schema 3 절](single-deck-compute-contract.ko.md)이다. 엔진 `5ced15a`를 일반 merge `f818f3b`로 보존했고 새 hit API·v2 명시 변환·정확한 정수 문자열·compute fingerprint/역사 분리를 연결했다.
+
+솔루션 Release 경고0/오류0, 전체329 tests(Backend141 포함) 통과. 새 합성 DB/동적 포트54516으로 v3/v2/저장 import/오류/네 후보 및 5인600프레임 1회 배치 세 조건을 검증했다. 각 통계 N=1, fingerprint·튜닝 키 분리, 공개 파일12개 hash·합성 snapshot 보존. 실게임 일치·UI·독립 QA 단계 B·GPU·대량 부하 수용은 아니다.
+
+실제 사용자 실행 경로는 `C:/Users/user/Documents/GitHub/Nikke-Simul/artifacts/desktop/win-x64/Nikke Simul.exe`다. 이번 worktree 검증은 원본 배포가 아니며 EXE/바로가기/계정/세션/캐시/5180/5181을 변경하지 않았다. root package-lock.json 보존·커밋제외. 확정 커밋·계약·검증 근거를 Director에만 한 번 인계한다.
+
+## 이전 B-CPU 기록 — 2026-09-15
+
 2026-09-15 사용자 승인 배정의 Backend 소유 범위. 전체 배정, AGENTS.md, README, implementation-plan(P06/P08/P09), p04-team-burst, damage-calibration-analysis를 UTF-8로 읽었다. 시작 HEAD `5b7685f`, 기존 untracked package-lock.json만 존재하고 이전 B-IMG 실행 작업은 종료 상태였다. 공통 기준 a5ccba6663241e61783b509fc69098ad3c9ecef2와 분기된 문서 커밋을 보존해 일반 merge `db5d9a5`로 반영했다.
 
 ## 선행 계약

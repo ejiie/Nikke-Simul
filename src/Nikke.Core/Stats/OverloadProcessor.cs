@@ -18,6 +18,29 @@ namespace Nikke.Simulator.Core.Stats
     /// </summary>
     public static class OverloadProcessor
     {
+        // Attack-only integer overload. HP/DEF/ammo and centisecond paths retain their existing contracts.
+        public static long CalculateFinalBaseStat(long nativeStat,
+            IReadOnlyDictionary<long, long> groupedRates10000, long olFlatSum = 0)
+        {
+            ArgumentNullException.ThrowIfNull(groupedRates10000);
+            if (nativeStat < 0) throw new ArgumentOutOfRangeException(nameof(nativeStat));
+            checked
+            {
+                long total = nativeStat;
+                foreach (var (rate, count) in groupedRates10000)
+                {
+                    if (count <= 0) throw new ArgumentOutOfRangeException(nameof(groupedRates10000));
+                    long numerator = nativeStat * rate * count;
+                    long delta = numerator / 10000, remainder = numerator % 10000;
+                    // Avoid numerator +/- 5000 overflow at the rounding step.
+                    if (remainder >= 5000) delta++;
+                    else if (remainder <= -5000) delta--;
+                    total += delta;
+                }
+                return total + olFlatSum;
+            }
+        }
+
         /// <summary>
         /// 기초 스탯(Native)과 오버로드(OL) 옵션을 합산하여 전투 진입 전 최종 기초 스탯을 계산합니다.
         /// 니케식 동일값 선합산 반올림 규칙 (ARCHITECTURE.md §4.4) 적용.
