@@ -10,7 +10,7 @@
   - 동작 변화: 소수 native/DEF/고정량과 1/10000보다 정밀한 공격력 비율은 절삭 없이 **명시 거부**한다. 장탄·HP·DEF 조립은 기존 double 유지(장탄 전환 안 함).
   - 알려진 통합 영향: 로컬 API `/api/calculations/hit`가 schema 상수를 비교하므로 **기존 schema2 요청은 통합 시 거부**된다. API/Contracts/UI의 schema3·새 입력 연결, compute fingerprint·캐시 분리(Backend CPU 튜닝·통계 결과와 혼합 금지)가 필요하다. 1만회 측정(Q-CPU-10K)은 이 전환 후 기준으로 다시 잡아야 한다.
   - H-SRC 차이: break/parts 잠정 분해는 수치 동일, 의미 수정은 후속.
-- **후속 배정:** 통합 연결(I-BE·I-UI)과 독립 QA(Q-F32) — [지시서](client-f32-integration-assignments-2026-09-28.ko.md). 2026-09-28 **모두 수용 완료**(QA `1abba9b`), Director 통합 완료, 원본 배포 전.
+- **후속 배정:** 통합 연결(I-BE·I-UI)과 독립 QA(Q-F32) — [지시서](client-f32-integration-assignments-2026-09-28.ko.md). 2026-09-28 **모두 수용 완료**(QA `1abba9b`), Director 통합·원본 배포 완료([2026-09-28 원본 배포 기록](desktop-release-original-2026-09-28.ko.md)).
 
 ## 승인과 근거
 
