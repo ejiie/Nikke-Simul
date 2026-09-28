@@ -12,3 +12,8 @@
 .hit-flags{display:flex;flex-wrap:wrap;gap:14px;margin:20px 0}.hit-flags label{flex-direction:row;align-items:center}.hit-flags input{width:16px;height:16px;accent-color:#4ce0d0}
 .calculation details{padding:14px 0;border-top:1px solid #27343c}.calculation summary{cursor:pointer;color:#b7cbd3}.calc-id{font-size:11px;overflow-wrap:anywhere}.calculation .notice{margin:12px 0}.hit-form{margin-top:26px}
 @media(max-width:600px){.calc-table td,.calc-table th{padding:8px;font-size:12px}.calculation .fields{grid-template-columns:1fr}.calculation{min-width:0}.final-stats{grid-template-columns:1fr}.final-stats>div{display:flex;align-items:center;justify-content:space-between}.final-stats dd{margin:0;font-size:20px}}
+.policy-tag { display: inline-block; margin-left: .35rem; padding: 0 .4rem; border: 1px solid currentColor; border-radius: 999px; font-size: .75em; opacity: .75; }
+.policy-tag.default { opacity: 1; font-weight: 600; }
+.policy-tag.unknown { color: #b45309; }
+.experimental-inputs { border: 1px dashed #b45309; border-radius: 6px; padding: .5rem .75rem; margin: .5rem 0; }
+.experimental-inputs small { display: block; opacity: .75; }

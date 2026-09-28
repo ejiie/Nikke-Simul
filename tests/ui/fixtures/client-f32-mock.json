@@ -1,0 +1,2006 @@
+{
+  "kind": "ui_mock_not_engine_output",
+  "generator": "tests/ui/fixtures/make_client_f32_mock.py (Python struct binary32, engine 5ced15a order)",
+  "wireStatus": "provisional_until_backend_contract",
+  "legacySource": "hit-calculator-cases.json (HitCalculator.Compare p02.3)",
+  "cases": {
+    "crit_core_fullburst_distance": {
+      "hit": {
+        "statAttack": 144863,
+        "attackBuffs": [
+          {
+            "source": "overload:syn:head:1:StatAtk",
+            "rate": 0.1111,
+            "stacks": 1
+          }
+        ],
+        "runtimeAttackBuffs": [
+          {
+            "source": "skill:5011:108231001",
+            "rate": 0.66,
+            "stacks": 1
+          }
+        ],
+        "attackFlatBuffs": [
+          {
+            "source": "skill:5009:227110701",
+            "amount": 17191
+          }
+        ],
+        "defense": 30925,
+        "coefficient": 0.6904,
+        "damageType": "normal",
+        "attackStatBasis": "native_caster_attack",
+        "snapshotTiming": "explicit_single_hit",
+        "canCrit": true,
+        "canCore": true,
+        "crit": true,
+        "core": true,
+        "chargeApplicable": true,
+        "fullCharge": true,
+        "chargeBase": 3.5,
+        "chargeMultiplierBonus": 0.0947,
+        "chargeAdd": 0.07,
+        "properDistance": true,
+        "distanceBonus": 0.3,
+        "fullBurst": true,
+        "burstBonus": 0.5,
+        "critBonus": 0.6246,
+        "coreBonus": 1,
+        "pierce": true,
+        "parts": false,
+        "attackDamage": 0.1,
+        "pierceDamage": 0,
+        "partsDamage": 0,
+        "dotDamage": 0,
+        "sequentialDamage": 0,
+        "trueDamage": 0,
+        "damageTaken": 0.3926,
+        "distributionDamage": 0,
+        "elementAdvantage": true,
+        "elementBase": 0.1,
+        "elementBonus": 0.2,
+        "statDamageRatio": 1,
+        "defenceRatioRate": 0
+      },
+      "comparison": {
+        "rulesVersion": "p02.4-client-f32",
+        "status": "provisional_rounding",
+        "input": {
+          "statAttack": 144863,
+          "attackBuffs": [
+            {
+              "source": "overload:syn:head:1:StatAtk",
+              "rate": 0.1111,
+              "stacks": 1
+            }
+          ],
+          "runtimeAttackBuffs": [
+            {
+              "source": "skill:5011:108231001",
+              "rate": 0.66,
+              "stacks": 1
+            }
+          ],
+          "attackFlatBuffs": [
+            {
+              "source": "skill:5009:227110701",
+              "amount": 17191
+            }
+          ],
+          "defense": 30925,
+          "coefficient": 0.6904,
+          "damageType": "normal",
+          "attackStatBasis": "native_caster_attack",
+          "snapshotTiming": "explicit_single_hit",
+          "canCrit": true,
+          "canCore": true,
+          "crit": true,
+          "core": true,
+          "chargeApplicable": true,
+          "fullCharge": true,
+          "chargeBase": 3.5,
+          "chargeMultiplierBonus": 0.0947,
+          "chargeAdd": 0.07,
+          "properDistance": true,
+          "distanceBonus": 0.3,
+          "fullBurst": true,
+          "burstBonus": 0.5,
+          "critBonus": 0.6246,
+          "coreBonus": 1,
+          "pierce": true,
+          "parts": false,
+          "attackDamage": 0.1,
+          "pierceDamage": 0,
+          "partsDamage": 0,
+          "dotDamage": 0,
+          "sequentialDamage": 0,
+          "trueDamage": 0,
+          "damageTaken": 0.3926,
+          "distributionDamage": 0,
+          "elementAdvantage": true,
+          "elementBase": 0.1,
+          "elementBonus": 0.2,
+          "statDamageRatio": 1,
+          "defenceRatioRate": 0
+        },
+        "effectiveAttack": 273758,
+        "observedDamage": null,
+        "candidates": [
+          {
+            "policy": "legacy_term_floor",
+            "damage": 4460732,
+            "residual": null,
+            "relativeError": null,
+            "terms": [
+              {
+                "name": "effectiveAttack",
+                "before": 144863,
+                "after": 273758,
+                "operation": "native + grouped rounded native * (OL + passive + active skill rates) + caster-based flat grants"
+              },
+              {
+                "name": "effectiveDefense",
+                "before": 30925,
+                "after": 30925,
+                "operation": "identity"
+              },
+              {
+                "name": "charge",
+                "before": 3.5,
+                "after": 3.90145,
+                "operation": "base * (1 + multiplierBonus) + add; gated by fullCharge"
+              },
+              {
+                "name": "P",
+                "before": 242833,
+                "after": 654085.51773964,
+                "operation": "attackDefenseDifference * coefficient * charge"
+              },
+              {
+                "name": "base",
+                "before": 654085.51773964,
+                "after": 654085,
+                "operation": "floor"
+              },
+              {
+                "name": "distance",
+                "before": 196225.65532189197,
+                "after": 196225,
+                "operation": "floor"
+              },
+              {
+                "name": "fullBurst",
+                "before": 327042.75886982,
+                "after": 327042,
+                "operation": "floor"
+              },
+              {
+                "name": "critical",
+                "before": 408541.81438017916,
+                "after": 408541,
+                "operation": "floor"
+              },
+              {
+                "name": "core",
+                "before": 654085.51773964,
+                "after": 654085,
+                "operation": "floor"
+              },
+              {
+                "name": "B2",
+                "before": 654085.51773964,
+                "after": 2239978,
+                "operation": "sum of floored base and active bonus terms"
+              },
+              {
+                "name": "B3",
+                "before": 2239978,
+                "after": 2463975.8000000003,
+                "operation": "multiply 1.1"
+              },
+              {
+                "name": "B4",
+                "before": 2463975.8000000003,
+                "after": 3431332.6990800006,
+                "operation": "multiply 1.3926"
+              },
+              {
+                "name": "B5",
+                "before": 3431332.6990800006,
+                "after": 4460732.508804001,
+                "operation": "multiply 1.3"
+              },
+              {
+                "name": "final",
+                "before": 4460732.508804001,
+                "after": 4460732,
+                "operation": "floor"
+              }
+            ]
+          },
+          {
+            "policy": "final_round_even",
+            "damage": 4460739,
+            "residual": null,
+            "relativeError": null,
+            "terms": [
+              {
+                "name": "effectiveAttack",
+                "before": 144863,
+                "after": 273758,
+                "operation": "native + grouped rounded native * (OL + passive + active skill rates) + caster-based flat grants"
+              },
+              {
+                "name": "effectiveDefense",
+                "before": 30925,
+                "after": 30925,
+                "operation": "identity"
+              },
+              {
+                "name": "charge",
+                "before": 3.5,
+                "after": 3.90145,
+                "operation": "base * (1 + multiplierBonus) + add; gated by fullCharge"
+              },
+              {
+                "name": "P",
+                "before": 242833,
+                "after": 654085.51773964,
+                "operation": "attackDefenseDifference * coefficient * charge"
+              },
+              {
+                "name": "B2",
+                "before": 654085.51773964,
+                "after": 2239981.264051171,
+                "operation": "P * (1 + active bonuses)"
+              },
+              {
+                "name": "B3",
+                "before": 2239981.264051171,
+                "after": 2463979.390456288,
+                "operation": "multiply 1.1"
+              },
+              {
+                "name": "B4",
+                "before": 2463979.390456288,
+                "after": 3431337.699149427,
+                "operation": "multiply 1.3926"
+              },
+              {
+                "name": "B5",
+                "before": 3431337.699149427,
+                "after": 4460739.008894255,
+                "operation": "multiply 1.3"
+              },
+              {
+                "name": "final",
+                "before": 4460739.008894255,
+                "after": 4460739,
+                "operation": "round ties-to-even; min 1"
+              }
+            ]
+          },
+          {
+            "policy": "nested_floor",
+            "damage": 4460730,
+            "residual": null,
+            "relativeError": null,
+            "terms": [
+              {
+                "name": "effectiveAttack",
+                "before": 144863,
+                "after": 273758,
+                "operation": "native + grouped rounded native * (OL + passive + active skill rates) + caster-based flat grants"
+              },
+              {
+                "name": "effectiveDefense",
+                "before": 30925,
+                "after": 30925,
+                "operation": "identity"
+              },
+              {
+                "name": "charge",
+                "before": 3.5,
+                "after": 3.90145,
+                "operation": "base * (1 + multiplierBonus) + add; gated by fullCharge"
+              },
+              {
+                "name": "P",
+                "before": 242833,
+                "after": 654085.51773964,
+                "operation": "attackDefenseDifference * coefficient * charge"
+              },
+              {
+                "name": "base",
+                "before": 654085.51773964,
+                "after": 654085,
+                "operation": "floor"
+              },
+              {
+                "name": "distance",
+                "before": 196225.65532189197,
+                "after": 196225,
+                "operation": "floor"
+              },
+              {
+                "name": "fullBurst",
+                "before": 327042.75886982,
+                "after": 327042,
+                "operation": "floor"
+              },
+              {
+                "name": "critical",
+                "before": 408541.81438017916,
+                "after": 408541,
+                "operation": "floor"
+              },
+              {
+                "name": "core",
+                "before": 654085.51773964,
+                "after": 654085,
+                "operation": "floor"
+              },
+              {
+                "name": "B2",
+                "before": 654085.51773964,
+                "after": 2239978,
+                "operation": "sum of floored base and active bonus terms"
+              },
+              {
+                "name": "B3",
+                "before": 2239978,
+                "after": 2463975,
+                "operation": "multiply 1.1; floor"
+              },
+              {
+                "name": "B4",
+                "before": 2463975,
+                "after": 3431331,
+                "operation": "multiply 1.3926; floor"
+              },
+              {
+                "name": "B5",
+                "before": 3431331,
+                "after": 4460730,
+                "operation": "multiply 1.3; floor"
+              },
+              {
+                "name": "final",
+                "before": 4460730,
+                "after": 4460730,
+                "operation": "floor"
+              }
+            ]
+          },
+          {
+            "policy": "client_f32",
+            "damage": 4460740,
+            "residual": null,
+            "relativeError": null,
+            "terms": [
+              {
+                "name": "effectiveAttack",
+                "before": 144863,
+                "after": 273758,
+                "operation": "checked int64 grouped rate/10000, then flat grants"
+              },
+              {
+                "name": "effectiveDefense",
+                "before": 30925,
+                "after": 30925,
+                "operation": "true damage: 0; otherwise integer defence"
+              },
+              {
+                "name": "difference",
+                "before": 273758,
+                "after": 242833,
+                "operation": "checked int64 attack - defence; then cast float32"
+              },
+              {
+                "name": "base",
+                "before": 242833,
+                "after": 654085.5,
+                "operation": "float32 left-to-right damageRatio * statDamageRatio * chargeDamageRate"
+              },
+              {
+                "name": "B",
+                "before": 1,
+                "after": 3.4245998859405518,
+                "operation": "float32 critical -> core -> burst -> range, each rate - 1 then add"
+              },
+              {
+                "name": "extra",
+                "before": 0,
+                "after": 1.0999999046325684,
+                "operation": "float32 breakRate + addDamageRate - 1; provisional mapping"
+              },
+              {
+                "name": "reduction",
+                "before": 0,
+                "after": 1.3926000595092773,
+                "operation": "float32 1 - damageReductionRate; provisional mapping"
+              },
+              {
+                "name": "defenceRatio",
+                "before": 0,
+                "after": 1.0,
+                "operation": "float32 1 - defenceRatioRate"
+              },
+              {
+                "name": "product",
+                "before": 654085.5,
+                "after": 4460739.5,
+                "operation": "float32 left-to-right base * B * extra * reduction * defenceRatio * element"
+              },
+              {
+                "name": "final",
+                "before": 4460739.5,
+                "after": 4460740,
+                "operation": "MathF.Round AwayFromZero; max(1); checked int64"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "crit_core_fullburst_distance__defence_ratio_quarter": {
+      "hit": {
+        "statAttack": 144863,
+        "attackBuffs": [
+          {
+            "source": "overload:syn:head:1:StatAtk",
+            "rate": 0.1111,
+            "stacks": 1
+          }
+        ],
+        "runtimeAttackBuffs": [
+          {
+            "source": "skill:5011:108231001",
+            "rate": 0.66,
+            "stacks": 1
+          }
+        ],
+        "attackFlatBuffs": [
+          {
+            "source": "skill:5009:227110701",
+            "amount": 17191
+          }
+        ],
+        "defense": 30925,
+        "coefficient": 0.6904,
+        "damageType": "normal",
+        "attackStatBasis": "native_caster_attack",
+        "snapshotTiming": "explicit_single_hit",
+        "canCrit": true,
+        "canCore": true,
+        "crit": true,
+        "core": true,
+        "chargeApplicable": true,
+        "fullCharge": true,
+        "chargeBase": 3.5,
+        "chargeMultiplierBonus": 0.0947,
+        "chargeAdd": 0.07,
+        "properDistance": true,
+        "distanceBonus": 0.3,
+        "fullBurst": true,
+        "burstBonus": 0.5,
+        "critBonus": 0.6246,
+        "coreBonus": 1,
+        "pierce": true,
+        "parts": false,
+        "attackDamage": 0.1,
+        "pierceDamage": 0,
+        "partsDamage": 0,
+        "dotDamage": 0,
+        "sequentialDamage": 0,
+        "trueDamage": 0,
+        "damageTaken": 0.3926,
+        "distributionDamage": 0,
+        "elementAdvantage": true,
+        "elementBase": 0.1,
+        "elementBonus": 0.2,
+        "statDamageRatio": 1,
+        "defenceRatioRate": 0.25
+      },
+      "comparison": {
+        "rulesVersion": "p02.4-client-f32",
+        "status": "provisional_rounding",
+        "input": {
+          "statAttack": 144863,
+          "attackBuffs": [
+            {
+              "source": "overload:syn:head:1:StatAtk",
+              "rate": 0.1111,
+              "stacks": 1
+            }
+          ],
+          "runtimeAttackBuffs": [
+            {
+              "source": "skill:5011:108231001",
+              "rate": 0.66,
+              "stacks": 1
+            }
+          ],
+          "attackFlatBuffs": [
+            {
+              "source": "skill:5009:227110701",
+              "amount": 17191
+            }
+          ],
+          "defense": 30925,
+          "coefficient": 0.6904,
+          "damageType": "normal",
+          "attackStatBasis": "native_caster_attack",
+          "snapshotTiming": "explicit_single_hit",
+          "canCrit": true,
+          "canCore": true,
+          "crit": true,
+          "core": true,
+          "chargeApplicable": true,
+          "fullCharge": true,
+          "chargeBase": 3.5,
+          "chargeMultiplierBonus": 0.0947,
+          "chargeAdd": 0.07,
+          "properDistance": true,
+          "distanceBonus": 0.3,
+          "fullBurst": true,
+          "burstBonus": 0.5,
+          "critBonus": 0.6246,
+          "coreBonus": 1,
+          "pierce": true,
+          "parts": false,
+          "attackDamage": 0.1,
+          "pierceDamage": 0,
+          "partsDamage": 0,
+          "dotDamage": 0,
+          "sequentialDamage": 0,
+          "trueDamage": 0,
+          "damageTaken": 0.3926,
+          "distributionDamage": 0,
+          "elementAdvantage": true,
+          "elementBase": 0.1,
+          "elementBonus": 0.2,
+          "statDamageRatio": 1,
+          "defenceRatioRate": 0.25
+        },
+        "effectiveAttack": 273758,
+        "observedDamage": null,
+        "candidates": [
+          {
+            "policy": "client_f32",
+            "damage": 3345555,
+            "residual": null,
+            "relativeError": null,
+            "terms": [
+              {
+                "name": "effectiveAttack",
+                "before": 144863,
+                "after": 273758,
+                "operation": "checked int64 grouped rate/10000, then flat grants"
+              },
+              {
+                "name": "effectiveDefense",
+                "before": 30925,
+                "after": 30925,
+                "operation": "true damage: 0; otherwise integer defence"
+              },
+              {
+                "name": "difference",
+                "before": 273758,
+                "after": 242833,
+                "operation": "checked int64 attack - defence; then cast float32"
+              },
+              {
+                "name": "base",
+                "before": 242833,
+                "after": 654085.5,
+                "operation": "float32 left-to-right damageRatio * statDamageRatio * chargeDamageRate"
+              },
+              {
+                "name": "B",
+                "before": 1,
+                "after": 3.4245998859405518,
+                "operation": "float32 critical -> core -> burst -> range, each rate - 1 then add"
+              },
+              {
+                "name": "extra",
+                "before": 0,
+                "after": 1.0999999046325684,
+                "operation": "float32 breakRate + addDamageRate - 1; provisional mapping"
+              },
+              {
+                "name": "reduction",
+                "before": 0,
+                "after": 1.3926000595092773,
+                "operation": "float32 1 - damageReductionRate; provisional mapping"
+              },
+              {
+                "name": "defenceRatio",
+                "before": 0.25,
+                "after": 0.75,
+                "operation": "float32 1 - defenceRatioRate"
+              },
+              {
+                "name": "product",
+                "before": 654085.5,
+                "after": 3345554.5,
+                "operation": "float32 left-to-right base * B * extra * reduction * defenceRatio * element"
+              },
+              {
+                "name": "final",
+                "before": 3345554.5,
+                "after": 3345555,
+                "operation": "MathF.Round AwayFromZero; max(1); checked int64"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "crit_core_fullburst_distance__stat_damage_ratio_two": {
+      "hit": {
+        "statAttack": 144863,
+        "attackBuffs": [
+          {
+            "source": "overload:syn:head:1:StatAtk",
+            "rate": 0.1111,
+            "stacks": 1
+          }
+        ],
+        "runtimeAttackBuffs": [
+          {
+            "source": "skill:5011:108231001",
+            "rate": 0.66,
+            "stacks": 1
+          }
+        ],
+        "attackFlatBuffs": [
+          {
+            "source": "skill:5009:227110701",
+            "amount": 17191
+          }
+        ],
+        "defense": 30925,
+        "coefficient": 0.6904,
+        "damageType": "normal",
+        "attackStatBasis": "native_caster_attack",
+        "snapshotTiming": "explicit_single_hit",
+        "canCrit": true,
+        "canCore": true,
+        "crit": true,
+        "core": true,
+        "chargeApplicable": true,
+        "fullCharge": true,
+        "chargeBase": 3.5,
+        "chargeMultiplierBonus": 0.0947,
+        "chargeAdd": 0.07,
+        "properDistance": true,
+        "distanceBonus": 0.3,
+        "fullBurst": true,
+        "burstBonus": 0.5,
+        "critBonus": 0.6246,
+        "coreBonus": 1,
+        "pierce": true,
+        "parts": false,
+        "attackDamage": 0.1,
+        "pierceDamage": 0,
+        "partsDamage": 0,
+        "dotDamage": 0,
+        "sequentialDamage": 0,
+        "trueDamage": 0,
+        "damageTaken": 0.3926,
+        "distributionDamage": 0,
+        "elementAdvantage": true,
+        "elementBase": 0.1,
+        "elementBonus": 0.2,
+        "statDamageRatio": 2,
+        "defenceRatioRate": 0
+      },
+      "comparison": {
+        "rulesVersion": "p02.4-client-f32",
+        "status": "provisional_rounding",
+        "input": {
+          "statAttack": 144863,
+          "attackBuffs": [
+            {
+              "source": "overload:syn:head:1:StatAtk",
+              "rate": 0.1111,
+              "stacks": 1
+            }
+          ],
+          "runtimeAttackBuffs": [
+            {
+              "source": "skill:5011:108231001",
+              "rate": 0.66,
+              "stacks": 1
+            }
+          ],
+          "attackFlatBuffs": [
+            {
+              "source": "skill:5009:227110701",
+              "amount": 17191
+            }
+          ],
+          "defense": 30925,
+          "coefficient": 0.6904,
+          "damageType": "normal",
+          "attackStatBasis": "native_caster_attack",
+          "snapshotTiming": "explicit_single_hit",
+          "canCrit": true,
+          "canCore": true,
+          "crit": true,
+          "core": true,
+          "chargeApplicable": true,
+          "fullCharge": true,
+          "chargeBase": 3.5,
+          "chargeMultiplierBonus": 0.0947,
+          "chargeAdd": 0.07,
+          "properDistance": true,
+          "distanceBonus": 0.3,
+          "fullBurst": true,
+          "burstBonus": 0.5,
+          "critBonus": 0.6246,
+          "coreBonus": 1,
+          "pierce": true,
+          "parts": false,
+          "attackDamage": 0.1,
+          "pierceDamage": 0,
+          "partsDamage": 0,
+          "dotDamage": 0,
+          "sequentialDamage": 0,
+          "trueDamage": 0,
+          "damageTaken": 0.3926,
+          "distributionDamage": 0,
+          "elementAdvantage": true,
+          "elementBase": 0.1,
+          "elementBonus": 0.2,
+          "statDamageRatio": 2,
+          "defenceRatioRate": 0
+        },
+        "effectiveAttack": 273758,
+        "observedDamage": null,
+        "candidates": [
+          {
+            "policy": "client_f32",
+            "damage": 8921479,
+            "residual": null,
+            "relativeError": null,
+            "terms": [
+              {
+                "name": "effectiveAttack",
+                "before": 144863,
+                "after": 273758,
+                "operation": "checked int64 grouped rate/10000, then flat grants"
+              },
+              {
+                "name": "effectiveDefense",
+                "before": 30925,
+                "after": 30925,
+                "operation": "true damage: 0; otherwise integer defence"
+              },
+              {
+                "name": "difference",
+                "before": 273758,
+                "after": 242833,
+                "operation": "checked int64 attack - defence; then cast float32"
+              },
+              {
+                "name": "base",
+                "before": 242833,
+                "after": 1308171.0,
+                "operation": "float32 left-to-right damageRatio * statDamageRatio * chargeDamageRate"
+              },
+              {
+                "name": "B",
+                "before": 1,
+                "after": 3.4245998859405518,
+                "operation": "float32 critical -> core -> burst -> range, each rate - 1 then add"
+              },
+              {
+                "name": "extra",
+                "before": 0,
+                "after": 1.0999999046325684,
+                "operation": "float32 breakRate + addDamageRate - 1; provisional mapping"
+              },
+              {
+                "name": "reduction",
+                "before": 0,
+                "after": 1.3926000595092773,
+                "operation": "float32 1 - damageReductionRate; provisional mapping"
+              },
+              {
+                "name": "defenceRatio",
+                "before": 0,
+                "after": 1.0,
+                "operation": "float32 1 - defenceRatioRate"
+              },
+              {
+                "name": "product",
+                "before": 1308171.0,
+                "after": 8921479.0,
+                "operation": "float32 left-to-right base * B * extra * reduction * defenceRatio * element"
+              },
+              {
+                "name": "final",
+                "before": 8921479.0,
+                "after": 8921479,
+                "operation": "MathF.Round AwayFromZero; max(1); checked int64"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "non_full_charge_core": {
+      "hit": {
+        "statAttack": 144863,
+        "attackBuffs": [
+          {
+            "source": "overload:syn:head:1:StatAtk",
+            "rate": 0.1111,
+            "stacks": 1
+          }
+        ],
+        "runtimeAttackBuffs": [
+          {
+            "source": "skill:5011:108231001",
+            "rate": 0.66,
+            "stacks": 1
+          }
+        ],
+        "attackFlatBuffs": [
+          {
+            "source": "skill:5009:227110701",
+            "amount": 17191
+          }
+        ],
+        "defense": 30925,
+        "coefficient": 0.6904,
+        "damageType": "normal",
+        "attackStatBasis": "native_caster_attack",
+        "snapshotTiming": "explicit_single_hit",
+        "canCrit": true,
+        "canCore": true,
+        "crit": false,
+        "core": true,
+        "chargeApplicable": true,
+        "fullCharge": false,
+        "chargeBase": 3.5,
+        "chargeMultiplierBonus": 0.0947,
+        "chargeAdd": 0.07,
+        "properDistance": false,
+        "distanceBonus": 0.3,
+        "fullBurst": false,
+        "burstBonus": 0.5,
+        "critBonus": 0.6246,
+        "coreBonus": 1,
+        "pierce": true,
+        "parts": false,
+        "attackDamage": 0,
+        "pierceDamage": 0,
+        "partsDamage": 0,
+        "dotDamage": 0,
+        "sequentialDamage": 0,
+        "trueDamage": 0,
+        "damageTaken": 0.3926,
+        "distributionDamage": 0,
+        "elementAdvantage": false,
+        "elementBase": 0.1,
+        "elementBonus": 0,
+        "statDamageRatio": 1,
+        "defenceRatioRate": 0
+      },
+      "comparison": {
+        "rulesVersion": "p02.4-client-f32",
+        "status": "provisional_rounding",
+        "input": {
+          "statAttack": 144863,
+          "attackBuffs": [
+            {
+              "source": "overload:syn:head:1:StatAtk",
+              "rate": 0.1111,
+              "stacks": 1
+            }
+          ],
+          "runtimeAttackBuffs": [
+            {
+              "source": "skill:5011:108231001",
+              "rate": 0.66,
+              "stacks": 1
+            }
+          ],
+          "attackFlatBuffs": [
+            {
+              "source": "skill:5009:227110701",
+              "amount": 17191
+            }
+          ],
+          "defense": 30925,
+          "coefficient": 0.6904,
+          "damageType": "normal",
+          "attackStatBasis": "native_caster_attack",
+          "snapshotTiming": "explicit_single_hit",
+          "canCrit": true,
+          "canCore": true,
+          "crit": false,
+          "core": true,
+          "chargeApplicable": true,
+          "fullCharge": false,
+          "chargeBase": 3.5,
+          "chargeMultiplierBonus": 0.0947,
+          "chargeAdd": 0.07,
+          "properDistance": false,
+          "distanceBonus": 0.3,
+          "fullBurst": false,
+          "burstBonus": 0.5,
+          "critBonus": 0.6246,
+          "coreBonus": 1,
+          "pierce": true,
+          "parts": false,
+          "attackDamage": 0,
+          "pierceDamage": 0,
+          "partsDamage": 0,
+          "dotDamage": 0,
+          "sequentialDamage": 0,
+          "trueDamage": 0,
+          "damageTaken": 0.3926,
+          "distributionDamage": 0,
+          "elementAdvantage": false,
+          "elementBase": 0.1,
+          "elementBonus": 0,
+          "statDamageRatio": 1,
+          "defenceRatioRate": 0
+        },
+        "effectiveAttack": 273758,
+        "observedDamage": null,
+        "candidates": [
+          {
+            "policy": "legacy_term_floor",
+            "damage": 466941,
+            "residual": null,
+            "relativeError": null,
+            "terms": [
+              {
+                "name": "effectiveAttack",
+                "before": 144863,
+                "after": 273758,
+                "operation": "native + grouped rounded native * (OL + passive + active skill rates) + caster-based flat grants"
+              },
+              {
+                "name": "effectiveDefense",
+                "before": 30925,
+                "after": 30925,
+                "operation": "identity"
+              },
+              {
+                "name": "charge",
+                "before": 3.5,
+                "after": 1,
+                "operation": "base * (1 + multiplierBonus) + add; gated by fullCharge"
+              },
+              {
+                "name": "P",
+                "before": 242833,
+                "after": 167651.9032,
+                "operation": "attackDefenseDifference * coefficient * charge"
+              },
+              {
+                "name": "base",
+                "before": 167651.9032,
+                "after": 167651,
+                "operation": "floor"
+              },
+              {
+                "name": "distance",
+                "before": 0,
+                "after": 0,
+                "operation": "floor"
+              },
+              {
+                "name": "fullBurst",
+                "before": 0,
+                "after": 0,
+                "operation": "floor"
+              },
+              {
+                "name": "critical",
+                "before": 0,
+                "after": 0,
+                "operation": "floor"
+              },
+              {
+                "name": "core",
+                "before": 167651.9032,
+                "after": 167651,
+                "operation": "floor"
+              },
+              {
+                "name": "B2",
+                "before": 167651.9032,
+                "after": 335302,
+                "operation": "sum of floored base and active bonus terms"
+              },
+              {
+                "name": "B3",
+                "before": 335302,
+                "after": 335302,
+                "operation": "multiply 1"
+              },
+              {
+                "name": "B4",
+                "before": 335302,
+                "after": 466941.5652,
+                "operation": "multiply 1.3926"
+              },
+              {
+                "name": "B5",
+                "before": 466941.5652,
+                "after": 466941.5652,
+                "operation": "multiply 1"
+              },
+              {
+                "name": "final",
+                "before": 466941.5652,
+                "after": 466941,
+                "operation": "floor"
+              }
+            ]
+          },
+          {
+            "policy": "final_round_even",
+            "damage": 466944,
+            "residual": null,
+            "relativeError": null,
+            "terms": [
+              {
+                "name": "effectiveAttack",
+                "before": 144863,
+                "after": 273758,
+                "operation": "native + grouped rounded native * (OL + passive + active skill rates) + caster-based flat grants"
+              },
+              {
+                "name": "effectiveDefense",
+                "before": 30925,
+                "after": 30925,
+                "operation": "identity"
+              },
+              {
+                "name": "charge",
+                "before": 3.5,
+                "after": 1,
+                "operation": "base * (1 + multiplierBonus) + add; gated by fullCharge"
+              },
+              {
+                "name": "P",
+                "before": 242833,
+                "after": 167651.9032,
+                "operation": "attackDefenseDifference * coefficient * charge"
+              },
+              {
+                "name": "B2",
+                "before": 167651.9032,
+                "after": 335303.8064,
+                "operation": "P * (1 + active bonuses)"
+              },
+              {
+                "name": "B3",
+                "before": 335303.8064,
+                "after": 335303.8064,
+                "operation": "multiply 1"
+              },
+              {
+                "name": "B4",
+                "before": 335303.8064,
+                "after": 466944.08079264004,
+                "operation": "multiply 1.3926"
+              },
+              {
+                "name": "B5",
+                "before": 466944.08079264004,
+                "after": 466944.08079264004,
+                "operation": "multiply 1"
+              },
+              {
+                "name": "final",
+                "before": 466944.08079264004,
+                "after": 466944,
+                "operation": "round ties-to-even; min 1"
+              }
+            ]
+          },
+          {
+            "policy": "nested_floor",
+            "damage": 466941,
+            "residual": null,
+            "relativeError": null,
+            "terms": [
+              {
+                "name": "effectiveAttack",
+                "before": 144863,
+                "after": 273758,
+                "operation": "native + grouped rounded native * (OL + passive + active skill rates) + caster-based flat grants"
+              },
+              {
+                "name": "effectiveDefense",
+                "before": 30925,
+                "after": 30925,
+                "operation": "identity"
+              },
+              {
+                "name": "charge",
+                "before": 3.5,
+                "after": 1,
+                "operation": "base * (1 + multiplierBonus) + add; gated by fullCharge"
+              },
+              {
+                "name": "P",
+                "before": 242833,
+                "after": 167651.9032,
+                "operation": "attackDefenseDifference * coefficient * charge"
+              },
+              {
+                "name": "base",
+                "before": 167651.9032,
+                "after": 167651,
+                "operation": "floor"
+              },
+              {
+                "name": "distance",
+                "before": 0,
+                "after": 0,
+                "operation": "floor"
+              },
+              {
+                "name": "fullBurst",
+                "before": 0,
+                "after": 0,
+                "operation": "floor"
+              },
+              {
+                "name": "critical",
+                "before": 0,
+                "after": 0,
+                "operation": "floor"
+              },
+              {
+                "name": "core",
+                "before": 167651.9032,
+                "after": 167651,
+                "operation": "floor"
+              },
+              {
+                "name": "B2",
+                "before": 167651.9032,
+                "after": 335302,
+                "operation": "sum of floored base and active bonus terms"
+              },
+              {
+                "name": "B3",
+                "before": 335302,
+                "after": 335302,
+                "operation": "multiply 1; floor"
+              },
+              {
+                "name": "B4",
+                "before": 335302,
+                "after": 466941,
+                "operation": "multiply 1.3926; floor"
+              },
+              {
+                "name": "B5",
+                "before": 466941,
+                "after": 466941,
+                "operation": "multiply 1; floor"
+              },
+              {
+                "name": "final",
+                "before": 466941,
+                "after": 466941,
+                "operation": "floor"
+              }
+            ]
+          },
+          {
+            "policy": "client_f32",
+            "damage": 466944,
+            "residual": null,
+            "relativeError": null,
+            "terms": [
+              {
+                "name": "effectiveAttack",
+                "before": 144863,
+                "after": 273758,
+                "operation": "checked int64 grouped rate/10000, then flat grants"
+              },
+              {
+                "name": "effectiveDefense",
+                "before": 30925,
+                "after": 30925,
+                "operation": "true damage: 0; otherwise integer defence"
+              },
+              {
+                "name": "difference",
+                "before": 273758,
+                "after": 242833,
+                "operation": "checked int64 attack - defence; then cast float32"
+              },
+              {
+                "name": "base",
+                "before": 242833,
+                "after": 167651.90625,
+                "operation": "float32 left-to-right damageRatio * statDamageRatio * chargeDamageRate"
+              },
+              {
+                "name": "B",
+                "before": 1,
+                "after": 2.0,
+                "operation": "float32 critical -> core -> burst -> range, each rate - 1 then add"
+              },
+              {
+                "name": "extra",
+                "before": 0,
+                "after": 1.0,
+                "operation": "float32 breakRate + addDamageRate - 1; provisional mapping"
+              },
+              {
+                "name": "reduction",
+                "before": 0,
+                "after": 1.3926000595092773,
+                "operation": "float32 1 - damageReductionRate; provisional mapping"
+              },
+              {
+                "name": "defenceRatio",
+                "before": 0,
+                "after": 1.0,
+                "operation": "float32 1 - defenceRatioRate"
+              },
+              {
+                "name": "product",
+                "before": 167651.90625,
+                "after": 466944.09375,
+                "operation": "float32 left-to-right base * B * extra * reduction * defenceRatio * element"
+              },
+              {
+                "name": "final",
+                "before": 466944.09375,
+                "after": 466944,
+                "operation": "MathF.Round AwayFromZero; max(1); checked int64"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "minimum_damage": {
+      "hit": {
+        "statAttack": 100,
+        "attackBuffs": [],
+        "runtimeAttackBuffs": [],
+        "attackFlatBuffs": [],
+        "defense": 30925,
+        "coefficient": 0.6904,
+        "damageType": "normal",
+        "attackStatBasis": "native_caster_attack",
+        "snapshotTiming": "explicit_single_hit",
+        "canCrit": true,
+        "canCore": true,
+        "crit": false,
+        "core": false,
+        "chargeApplicable": true,
+        "fullCharge": true,
+        "chargeBase": 3.5,
+        "chargeMultiplierBonus": 0.0947,
+        "chargeAdd": 0.07,
+        "properDistance": false,
+        "distanceBonus": 0.3,
+        "fullBurst": false,
+        "burstBonus": 0.5,
+        "critBonus": 0.6246,
+        "coreBonus": 1,
+        "pierce": true,
+        "parts": false,
+        "attackDamage": 0,
+        "pierceDamage": 0,
+        "partsDamage": 0,
+        "dotDamage": 0,
+        "sequentialDamage": 0,
+        "trueDamage": 0,
+        "damageTaken": 0.3926,
+        "distributionDamage": 0,
+        "elementAdvantage": false,
+        "elementBase": 0.1,
+        "elementBonus": 0,
+        "statDamageRatio": 1,
+        "defenceRatioRate": 0
+      },
+      "comparison": {
+        "rulesVersion": "p02.4-client-f32",
+        "status": "provisional_rounding",
+        "input": {
+          "statAttack": 100,
+          "attackBuffs": [],
+          "runtimeAttackBuffs": [],
+          "attackFlatBuffs": [],
+          "defense": 30925,
+          "coefficient": 0.6904,
+          "damageType": "normal",
+          "attackStatBasis": "native_caster_attack",
+          "snapshotTiming": "explicit_single_hit",
+          "canCrit": true,
+          "canCore": true,
+          "crit": false,
+          "core": false,
+          "chargeApplicable": true,
+          "fullCharge": true,
+          "chargeBase": 3.5,
+          "chargeMultiplierBonus": 0.0947,
+          "chargeAdd": 0.07,
+          "properDistance": false,
+          "distanceBonus": 0.3,
+          "fullBurst": false,
+          "burstBonus": 0.5,
+          "critBonus": 0.6246,
+          "coreBonus": 1,
+          "pierce": true,
+          "parts": false,
+          "attackDamage": 0,
+          "pierceDamage": 0,
+          "partsDamage": 0,
+          "dotDamage": 0,
+          "sequentialDamage": 0,
+          "trueDamage": 0,
+          "damageTaken": 0.3926,
+          "distributionDamage": 0,
+          "elementAdvantage": false,
+          "elementBase": 0.1,
+          "elementBonus": 0,
+          "statDamageRatio": 1,
+          "defenceRatioRate": 0
+        },
+        "effectiveAttack": 100,
+        "observedDamage": null,
+        "candidates": [
+          {
+            "policy": "legacy_term_floor",
+            "damage": 1,
+            "residual": null,
+            "relativeError": null,
+            "terms": [
+              {
+                "name": "effectiveAttack",
+                "before": 100,
+                "after": 100,
+                "operation": "native + grouped rounded native * (OL + passive + active skill rates) + caster-based flat grants"
+              },
+              {
+                "name": "effectiveDefense",
+                "before": 30925,
+                "after": 30925,
+                "operation": "identity"
+              },
+              {
+                "name": "charge",
+                "before": 3.5,
+                "after": 3.90145,
+                "operation": "base * (1 + multiplierBonus) + add; gated by fullCharge"
+              },
+              {
+                "name": "P",
+                "before": -30825,
+                "after": -83029.02029100001,
+                "operation": "attackDefenseDifference * coefficient * charge"
+              },
+              {
+                "name": "minimum",
+                "before": -83029.02029100001,
+                "after": 1,
+                "operation": "defense >= attack"
+              }
+            ]
+          },
+          {
+            "policy": "final_round_even",
+            "damage": 1,
+            "residual": null,
+            "relativeError": null,
+            "terms": [
+              {
+                "name": "effectiveAttack",
+                "before": 100,
+                "after": 100,
+                "operation": "native + grouped rounded native * (OL + passive + active skill rates) + caster-based flat grants"
+              },
+              {
+                "name": "effectiveDefense",
+                "before": 30925,
+                "after": 30925,
+                "operation": "identity"
+              },
+              {
+                "name": "charge",
+                "before": 3.5,
+                "after": 3.90145,
+                "operation": "base * (1 + multiplierBonus) + add; gated by fullCharge"
+              },
+              {
+                "name": "P",
+                "before": -30825,
+                "after": -83029.02029100001,
+                "operation": "attackDefenseDifference * coefficient * charge"
+              },
+              {
+                "name": "minimum",
+                "before": -83029.02029100001,
+                "after": 1,
+                "operation": "defense >= attack"
+              }
+            ]
+          },
+          {
+            "policy": "nested_floor",
+            "damage": 1,
+            "residual": null,
+            "relativeError": null,
+            "terms": [
+              {
+                "name": "effectiveAttack",
+                "before": 100,
+                "after": 100,
+                "operation": "native + grouped rounded native * (OL + passive + active skill rates) + caster-based flat grants"
+              },
+              {
+                "name": "effectiveDefense",
+                "before": 30925,
+                "after": 30925,
+                "operation": "identity"
+              },
+              {
+                "name": "charge",
+                "before": 3.5,
+                "after": 3.90145,
+                "operation": "base * (1 + multiplierBonus) + add; gated by fullCharge"
+              },
+              {
+                "name": "P",
+                "before": -30825,
+                "after": -83029.02029100001,
+                "operation": "attackDefenseDifference * coefficient * charge"
+              },
+              {
+                "name": "minimum",
+                "before": -83029.02029100001,
+                "after": 1,
+                "operation": "defense >= attack"
+              }
+            ]
+          },
+          {
+            "policy": "client_f32",
+            "damage": 1,
+            "residual": null,
+            "relativeError": null,
+            "terms": [
+              {
+                "name": "effectiveAttack",
+                "before": 100,
+                "after": 100,
+                "operation": "checked int64 grouped rate/10000, then flat grants"
+              },
+              {
+                "name": "effectiveDefense",
+                "before": 30925,
+                "after": 30925,
+                "operation": "true damage: 0; otherwise integer defence"
+              },
+              {
+                "name": "difference",
+                "before": 100,
+                "after": -30825,
+                "operation": "checked int64 attack - defence; then cast float32"
+              },
+              {
+                "name": "base",
+                "before": -30825,
+                "after": -83029.015625,
+                "operation": "float32 left-to-right damageRatio * statDamageRatio * chargeDamageRate"
+              },
+              {
+                "name": "B",
+                "before": 1,
+                "after": 1.0,
+                "operation": "float32 critical -> core -> burst -> range, each rate - 1 then add"
+              },
+              {
+                "name": "extra",
+                "before": 0,
+                "after": 1.0,
+                "operation": "float32 breakRate + addDamageRate - 1; provisional mapping"
+              },
+              {
+                "name": "reduction",
+                "before": 0,
+                "after": 1.3926000595092773,
+                "operation": "float32 1 - damageReductionRate; provisional mapping"
+              },
+              {
+                "name": "defenceRatio",
+                "before": 0,
+                "after": 1.0,
+                "operation": "float32 1 - defenceRatioRate"
+              },
+              {
+                "name": "product",
+                "before": -83029.015625,
+                "after": -115626.2109375,
+                "operation": "float32 left-to-right base * B * extra * reduction * defenceRatio * element"
+              },
+              {
+                "name": "final",
+                "before": -115626.2109375,
+                "after": 1,
+                "operation": "MathF.Round AwayFromZero; max(1); checked int64"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "all_flags_false": {
+      "hit": {
+        "statAttack": 144863,
+        "attackBuffs": [
+          {
+            "source": "overload:syn:head:1:StatAtk",
+            "rate": 0.1111,
+            "stacks": 1
+          }
+        ],
+        "runtimeAttackBuffs": [
+          {
+            "source": "skill:5011:108231001",
+            "rate": 0.66,
+            "stacks": 1
+          }
+        ],
+        "attackFlatBuffs": [
+          {
+            "source": "skill:5009:227110701",
+            "amount": 17191
+          }
+        ],
+        "defense": 30925,
+        "coefficient": 0.6904,
+        "damageType": "normal",
+        "attackStatBasis": "native_caster_attack",
+        "snapshotTiming": "explicit_single_hit",
+        "canCrit": true,
+        "canCore": true,
+        "crit": false,
+        "core": false,
+        "chargeApplicable": true,
+        "fullCharge": false,
+        "chargeBase": 3.5,
+        "chargeMultiplierBonus": 0.0947,
+        "chargeAdd": 0.07,
+        "properDistance": false,
+        "distanceBonus": 0.3,
+        "fullBurst": false,
+        "burstBonus": 0.5,
+        "critBonus": 0.6246,
+        "coreBonus": 1,
+        "pierce": false,
+        "parts": false,
+        "attackDamage": 0,
+        "pierceDamage": 0,
+        "partsDamage": 0,
+        "dotDamage": 0,
+        "sequentialDamage": 0,
+        "trueDamage": 0,
+        "damageTaken": 0.3926,
+        "distributionDamage": 0,
+        "elementAdvantage": false,
+        "elementBase": 0.1,
+        "elementBonus": 0,
+        "statDamageRatio": 1,
+        "defenceRatioRate": 0
+      },
+      "comparison": {
+        "rulesVersion": "p02.4-client-f32",
+        "status": "provisional_rounding",
+        "input": {
+          "statAttack": 144863,
+          "attackBuffs": [
+            {
+              "source": "overload:syn:head:1:StatAtk",
+              "rate": 0.1111,
+              "stacks": 1
+            }
+          ],
+          "runtimeAttackBuffs": [
+            {
+              "source": "skill:5011:108231001",
+              "rate": 0.66,
+              "stacks": 1
+            }
+          ],
+          "attackFlatBuffs": [
+            {
+              "source": "skill:5009:227110701",
+              "amount": 17191
+            }
+          ],
+          "defense": 30925,
+          "coefficient": 0.6904,
+          "damageType": "normal",
+          "attackStatBasis": "native_caster_attack",
+          "snapshotTiming": "explicit_single_hit",
+          "canCrit": true,
+          "canCore": true,
+          "crit": false,
+          "core": false,
+          "chargeApplicable": true,
+          "fullCharge": false,
+          "chargeBase": 3.5,
+          "chargeMultiplierBonus": 0.0947,
+          "chargeAdd": 0.07,
+          "properDistance": false,
+          "distanceBonus": 0.3,
+          "fullBurst": false,
+          "burstBonus": 0.5,
+          "critBonus": 0.6246,
+          "coreBonus": 1,
+          "pierce": false,
+          "parts": false,
+          "attackDamage": 0,
+          "pierceDamage": 0,
+          "partsDamage": 0,
+          "dotDamage": 0,
+          "sequentialDamage": 0,
+          "trueDamage": 0,
+          "damageTaken": 0.3926,
+          "distributionDamage": 0,
+          "elementAdvantage": false,
+          "elementBase": 0.1,
+          "elementBonus": 0,
+          "statDamageRatio": 1,
+          "defenceRatioRate": 0
+        },
+        "effectiveAttack": 273758,
+        "observedDamage": null,
+        "candidates": [
+          {
+            "policy": "legacy_term_floor",
+            "damage": 233470,
+            "residual": null,
+            "relativeError": null,
+            "terms": [
+              {
+                "name": "effectiveAttack",
+                "before": 144863,
+                "after": 273758,
+                "operation": "native + grouped rounded native * (OL + passive + active skill rates) + caster-based flat grants"
+              },
+              {
+                "name": "effectiveDefense",
+                "before": 30925,
+                "after": 30925,
+                "operation": "identity"
+              },
+              {
+                "name": "charge",
+                "before": 3.5,
+                "after": 1,
+                "operation": "base * (1 + multiplierBonus) + add; gated by fullCharge"
+              },
+              {
+                "name": "P",
+                "before": 242833,
+                "after": 167651.9032,
+                "operation": "attackDefenseDifference * coefficient * charge"
+              },
+              {
+                "name": "base",
+                "before": 167651.9032,
+                "after": 167651,
+                "operation": "floor"
+              },
+              {
+                "name": "distance",
+                "before": 0,
+                "after": 0,
+                "operation": "floor"
+              },
+              {
+                "name": "fullBurst",
+                "before": 0,
+                "after": 0,
+                "operation": "floor"
+              },
+              {
+                "name": "critical",
+                "before": 0,
+                "after": 0,
+                "operation": "floor"
+              },
+              {
+                "name": "core",
+                "before": 0,
+                "after": 0,
+                "operation": "floor"
+              },
+              {
+                "name": "B2",
+                "before": 167651.9032,
+                "after": 167651,
+                "operation": "sum of floored base and active bonus terms"
+              },
+              {
+                "name": "B3",
+                "before": 167651,
+                "after": 167651,
+                "operation": "multiply 1"
+              },
+              {
+                "name": "B4",
+                "before": 167651,
+                "after": 233470.7826,
+                "operation": "multiply 1.3926"
+              },
+              {
+                "name": "B5",
+                "before": 233470.7826,
+                "after": 233470.7826,
+                "operation": "multiply 1"
+              },
+              {
+                "name": "final",
+                "before": 233470.7826,
+                "after": 233470,
+                "operation": "floor"
+              }
+            ]
+          },
+          {
+            "policy": "final_round_even",
+            "damage": 233472,
+            "residual": null,
+            "relativeError": null,
+            "terms": [
+              {
+                "name": "effectiveAttack",
+                "before": 144863,
+                "after": 273758,
+                "operation": "native + grouped rounded native * (OL + passive + active skill rates) + caster-based flat grants"
+              },
+              {
+                "name": "effectiveDefense",
+                "before": 30925,
+                "after": 30925,
+                "operation": "identity"
+              },
+              {
+                "name": "charge",
+                "before": 3.5,
+                "after": 1,
+                "operation": "base * (1 + multiplierBonus) + add; gated by fullCharge"
+              },
+              {
+                "name": "P",
+                "before": 242833,
+                "after": 167651.9032,
+                "operation": "attackDefenseDifference * coefficient * charge"
+              },
+              {
+                "name": "B2",
+                "before": 167651.9032,
+                "after": 167651.9032,
+                "operation": "P * (1 + active bonuses)"
+              },
+              {
+                "name": "B3",
+                "before": 167651.9032,
+                "after": 167651.9032,
+                "operation": "multiply 1"
+              },
+              {
+                "name": "B4",
+                "before": 167651.9032,
+                "after": 233472.04039632002,
+                "operation": "multiply 1.3926"
+              },
+              {
+                "name": "B5",
+                "before": 233472.04039632002,
+                "after": 233472.04039632002,
+                "operation": "multiply 1"
+              },
+              {
+                "name": "final",
+                "before": 233472.04039632002,
+                "after": 233472,
+                "operation": "round ties-to-even; min 1"
+              }
+            ]
+          },
+          {
+            "policy": "nested_floor",
+            "damage": 233470,
+            "residual": null,
+            "relativeError": null,
+            "terms": [
+              {
+                "name": "effectiveAttack",
+                "before": 144863,
+                "after": 273758,
+                "operation": "native + grouped rounded native * (OL + passive + active skill rates) + caster-based flat grants"
+              },
+              {
+                "name": "effectiveDefense",
+                "before": 30925,
+                "after": 30925,
+                "operation": "identity"
+              },
+              {
+                "name": "charge",
+                "before": 3.5,
+                "after": 1,
+                "operation": "base * (1 + multiplierBonus) + add; gated by fullCharge"
+              },
+              {
+                "name": "P",
+                "before": 242833,
+                "after": 167651.9032,
+                "operation": "attackDefenseDifference * coefficient * charge"
+              },
+              {
+                "name": "base",
+                "before": 167651.9032,
+                "after": 167651,
+                "operation": "floor"
+              },
+              {
+                "name": "distance",
+                "before": 0,
+                "after": 0,
+                "operation": "floor"
+              },
+              {
+                "name": "fullBurst",
+                "before": 0,
+                "after": 0,
+                "operation": "floor"
+              },
+              {
+                "name": "critical",
+                "before": 0,
+                "after": 0,
+                "operation": "floor"
+              },
+              {
+                "name": "core",
+                "before": 0,
+                "after": 0,
+                "operation": "floor"
+              },
+              {
+                "name": "B2",
+                "before": 167651.9032,
+                "after": 167651,
+                "operation": "sum of floored base and active bonus terms"
+              },
+              {
+                "name": "B3",
+                "before": 167651,
+                "after": 167651,
+                "operation": "multiply 1; floor"
+              },
+              {
+                "name": "B4",
+                "before": 167651,
+                "after": 233470,
+                "operation": "multiply 1.3926; floor"
+              },
+              {
+                "name": "B5",
+                "before": 233470,
+                "after": 233470,
+                "operation": "multiply 1; floor"
+              },
+              {
+                "name": "final",
+                "before": 233470,
+                "after": 233470,
+                "operation": "floor"
+              }
+            ]
+          },
+          {
+            "policy": "client_f32",
+            "damage": 233472,
+            "residual": null,
+            "relativeError": null,
+            "terms": [
+              {
+                "name": "effectiveAttack",
+                "before": 144863,
+                "after": 273758,
+                "operation": "checked int64 grouped rate/10000, then flat grants"
+              },
+              {
+                "name": "effectiveDefense",
+                "before": 30925,
+                "after": 30925,
+                "operation": "true damage: 0; otherwise integer defence"
+              },
+              {
+                "name": "difference",
+                "before": 273758,
+                "after": 242833,
+                "operation": "checked int64 attack - defence; then cast float32"
+              },
+              {
+                "name": "base",
+                "before": 242833,
+                "after": 167651.90625,
+                "operation": "float32 left-to-right damageRatio * statDamageRatio * chargeDamageRate"
+              },
+              {
+                "name": "B",
+                "before": 1,
+                "after": 1.0,
+                "operation": "float32 critical -> core -> burst -> range, each rate - 1 then add"
+              },
+              {
+                "name": "extra",
+                "before": 0,
+                "after": 1.0,
+                "operation": "float32 breakRate + addDamageRate - 1; provisional mapping"
+              },
+              {
+                "name": "reduction",
+                "before": 0,
+                "after": 1.3926000595092773,
+                "operation": "float32 1 - damageReductionRate; provisional mapping"
+              },
+              {
+                "name": "defenceRatio",
+                "before": 0,
+                "after": 1.0,
+                "operation": "float32 1 - defenceRatioRate"
+              },
+              {
+                "name": "product",
+                "before": 167651.90625,
+                "after": 233472.046875,
+                "operation": "float32 left-to-right base * B * extra * reduction * defenceRatio * element"
+              },
+              {
+                "name": "final",
+                "before": 233472.046875,
+                "after": 233472,
+                "operation": "MathF.Round AwayFromZero; max(1); checked int64"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "provisionalErrors": {
+    "fractionalAttack": {
+      "status": 400,
+      "body": {
+        "error": "invalid_hit_input",
+        "message": "client_f32 requires integer native attack; 144863.5 was not truncated."
+      }
+    },
+    "finerRate": {
+      "status": 400,
+      "body": {
+        "error": "invalid_hit_input",
+        "message": "attack rate 0.01401 is finer than 1/10000."
+      }
+    }
+  }
+}

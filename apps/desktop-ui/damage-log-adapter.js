@@ -11,6 +11,8 @@
  * Never silently disguises uncollected/failed logs as mocks.
  */
 
+import { CLIENT_F32, CLIENT_F32_WIRE, policyInfo, readWireLong } from './hit-policy.js';
+
 export const DAMAGE_LOG_SCHEMA_VERSION = 1;
 export const DAMAGE_LOG_PROVISIONAL_NOTICE = '잠정 정확도 · 실게임 관측 대조 전 합성 시뮬레이션';
 
@@ -328,6 +330,23 @@ const AUDIT_TERM_LABELS = {
   B2: 'B2 가산 묶음', B3: 'B3 공격·관통·파츠 대미지', B4: 'B4 받는 대미지', B5: 'B5 우월 코드',
   final: '최종 정수화', minimum: '최소 피해'
 };
+// client_f32 audit (HitCalculator.Evaluate p02.4). Names shared with the earlier policies (base, final) differ in meaning.
+const CLIENT_TERM_LABELS = {
+  effectiveAttack: '최종 공격력 (long 조립)', effectiveDefense: '적용 방어력 (정수)',
+  difference: '공방차 (long → float32)', base: 'base = 공방차 × damageRatio × statDamageRatio × chargeDamageRate',
+  B: 'B · crit → core → burst → range 누적', extra: 'extra = breakRate + addDamageRate − 1 (잠정 대응)',
+  reduction: '1 − damageReductionRate (잠정 대응)', defenceRatio: '1 − defenceRatioRate (실험·미확정)',
+  product: '정수화 전 곱 (float32)', final: '최종 · 사사오입 · 최소 1'
+};
+const CLIENT_REQUIRED_TERMS = ['effectiveAttack', 'effectiveDefense', 'difference', 'base', 'B', 'extra', 'reduction', 'defenceRatio', 'product', 'final'];
+// Effect axes use the earlier B3/B4 names; client_f32 names the formula term instead (H-F32 provisional mapping).
+const CLIENT_AXIS_NAMES = [
+  [/^B4 · /, 'damageReductionRate · '], [/^B3 · /, 'addDamageRate · '], [/^B3$/, 'addDamageRate'],
+  [/^가산 묶음 · 크리티컬 보너스$/, 'B · criticalDamageRate'], [/^차지 배율 · 가산항$/, 'chargeDamageRate · 가산항'], [/^차지 배율$/, 'chargeDamageRate']
+];
+export function termLabel(name, policy) {
+  return (policy === CLIENT_F32 ? CLIENT_TERM_LABELS[name] : AUDIT_TERM_LABELS[name]) ?? `기록 항목 ${name}`;
+}
 const NATIVE_BASES = new Set(['native_recipient', 'native_caster']);
 const isFiniteNumber = v => typeof v === 'number' && Number.isFinite(v);
 
@@ -592,14 +611,15 @@ export function buildDamageBreakdown(entry) {
   const finalValue = val(finalTerm?.after) ?? val(minimumTerm?.after);
   const storedDamage = val(entry?.damage);
   const required = ['effectiveAttack', 'effectiveDefense', 'charge', 'P'];
+  const policy = typeof calc?.policy === 'string' && calc.policy ? calc.policy : null;
   return {
-    policy: typeof calc?.policy === 'string' && calc.policy ? calc.policy : null,
+    policy,
     hasSteps: Boolean(list?.length),
     baseAttack: val(attackTerm?.before) ?? val(hit?.statAttack) ?? val(legacy?.baseAttack),
     effectiveAttack: val(attackTerm?.after) ?? val(legacy?.effectiveAttack),
     defense: val(defenseTerm?.after) ?? val(legacy?.effectiveDefense),
     defenseIgnored: defenseTerm?.operation === 'ignore',
-    attackDefenseDifference: val(pTerm?.before) ?? val(legacy?.statDifference),
+    attackDefenseDifference: val(pTerm?.before) ?? val(term('difference')?.after) ?? val(legacy?.statDifference),
     coefficient: val(hit?.coefficient) ?? val(legacy?.skillMultiplier),
     charge: {
       value: val(chargeTerm?.after) ?? val(legacy?.charge) ?? val(legacy?.chargeMultiplier),
@@ -618,16 +638,55 @@ export function buildDamageBreakdown(entry) {
     storedDamage,
     calculationDamage: val(calc?.damage),
     finalMatchesStored: finalValue !== null && storedDamage !== null ? finalValue === storedDamage : null,
-    steps: (list ?? []).map(t => ({ name: t.name, label: AUDIT_TERM_LABELS[t.name] ?? `기록 항목 ${t.name}`,
+    steps: (list ?? []).map(t => ({ name: t.name, label: termLabel(t.name, policy),
       before: val(t.before), after: val(t.after), operation: typeof t.operation === 'string' ? t.operation : '' })),
-    missing: list ? required.filter(n => !term(n)).concat(finalTerm || minimumTerm ? [] : ['final']) : ['terms']
+    missing: !list ? ['terms'] : policy === CLIENT_F32 ? CLIENT_REQUIRED_TERMS.filter(n => !term(n))
+      : required.filter(n => !term(n)).concat(finalTerm || minimumTerm ? [] : ['final']),
+    client: policy === CLIENT_F32 ? buildClientBreakdown(term, hit, val) : null
+  };
+}
+
+/**
+ * client_f32 view of the stored terms. Values are the engine's recorded terms; hit inputs are shown as inputs
+ * (the audit has no separate charge/element term). A missing new ratio stays null, never an assumed 1/0.
+ */
+function buildClientBreakdown(term, hit, val) {
+  const after = name => val(term(name)?.after);
+  const long = name => readWireLong(term(name)?.after);
+  const rate = (flag, field) => triState(hit?.[flag]) === false ? 1
+    : triState(hit?.[flag]) === true && val(hit?.[field]) !== null ? 1 + hit[field] : null;
+  const element = triState(hit?.elementAdvantage) === false ? 1
+    : triState(hit?.elementAdvantage) === true && val(hit?.elementBase) !== null && val(hit?.elementBonus) !== null
+      ? 1 + hit.elementBase + hit.elementBonus : null;
+  return {
+    attack: long('effectiveAttack'), defence: long('effectiveDefense'), difference: long('difference'),
+    damageRatio: val(hit?.coefficient), statDamageRatio: val(hit?.statDamageRatio), defenceRatioRate: val(hit?.defenceRatioRate),
+    base: after('base'), bonus: after('B'), extra: after('extra'), reduction: after('reduction'),
+    defenceFactor: after('defenceRatio'), product: after('product'), final: long('final'),
+    rates: { critical: rate('crit', 'critBonus'), core: rate('core', 'coreBonus'), burst: rate('fullBurst', 'burstBonus'),
+      range: rate('properDistance', 'distanceBonus'), element },
+    // max(1) applied: the float product rounded below 1 (includes defence >= attack).
+    minimumApplied: after('product') !== null && after('final') === 1 && Math.round(after('product')) < 1
   };
 }
 
 /** Human-readable formula for the stored rounding policy (HitCalculator.Compare). */
 export function describeRoundingFormula(policy, minimum = false) {
+  if (policy === CLIENT_F32) return [
+    '최종 공격력 = 기본값 + Σ 사사오입(기본값 × 동일 비율 × 개수) + 고정 부여 (long 정수, 비율은 1/10000 단위)',
+    'base = float32(공격력 − 방어력) × damageRatio(스킬 계수) × statDamageRatio × chargeDamageRate · 곱마다 float32 저장',
+    'B = 1에서 시작해 크리 → 코어 → 풀버스트 → 적정 거리 순으로 B + (rate − 1) · float32 누적',
+    'extra = breakRate + addDamageRate − 1 (잠정: breakRate = 1 + 파츠, addDamageRate = 1 + 공격·관통·지속·연속·방어 무시)',
+    '감소 = 1 − damageReductionRate (잠정: −(받는 대미지 + 분배)) · 방어비율 = 1 − defenceRatioRate (실험 입력)',
+    'elementRate = 우월 코드면 1 + 기본 + 추가, 아니면 1',
+    '최종 = max(1, 사사오입(base × B × extra × 감소 × 방어비율 × elementRate)) · 0.5는 0에서 먼 쪽 · 곱마다 float32'
+  ];
+  // After stage B the engine default is client_f32; a stored earlier policy is then a comparison candidate.
+  const comparison = CLIENT_F32_WIRE.confirmed && policyInfo(policy).role === 'comparison'
+    ? ['비교 후보 정책 · 기본 경로는 client_f32 (엔진 H-F32)'] : [];
   const lines = ['P = (최종 공격력 − 방어력) × 스킬 계수 × 차지 배율',
     '차지 배율 = 풀차지면 기본 × (1 + 배율 증가) + 가산, 아니면 1'];
+  lines.unshift(...comparison);
   if (minimum) return [...lines, '방어력 ≥ 공격력 → 최소 피해 1 (가산 묶음·B3~B5 미적용)'];
   const floorB2 = 'B2 = ⌊P⌋ + ⌊P×거리⌋ + ⌊P×풀버스트⌋ + ⌊P×크리⌋ + ⌊P×코어⌋ (보너스끼리 더하는 가산 묶음, 항마다 내림)';
   switch (policy) {
@@ -644,7 +703,10 @@ export function buildHitAudit(entry, ctx = null) {
   const breakdown = buildDamageBreakdown(entry);
   const effects = (Array.isArray(entry?.buffs) ? entry.buffs : []).map(b => {
     const desc = describeBuffSnapshot(b, entry?.frame, ctx);
-    return { ...desc, ...classifyBuffForHit(desc, entry?.hit, ctx) };
+    const cls = classifyBuffForHit(desc, entry?.hit, ctx);
+    if (breakdown.policy === CLIENT_F32 && cls.axis)
+      cls.axis = CLIENT_AXIS_NAMES.reduce((axis, [pattern, name]) => axis.replace(pattern, name), cls.axis);
+    return { ...desc, ...cls };
   });
   const hit = entry?.hit && typeof entry.hit === 'object' ? entry.hit : null;
   const sourceText = source => {
