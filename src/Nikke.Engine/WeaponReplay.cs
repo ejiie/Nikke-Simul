@@ -3,6 +3,7 @@ using Nikke.Core.Stats;
 using Nikke.Simulator.Core.Data.Dto;
 using Nikke.Simulator.Core.Stats;
 using Nikke.Simulator.Engine;
+using System.Text.Json.Serialization;
 
 namespace Nikke.Engine;
 
@@ -17,8 +18,24 @@ public sealed record WeaponReplayConditions
     public string PelletCoefficientPolicy { get; init; } = ""; // explicit for SG: per_trigger / per_pellet
     public string CritMode { get; init; } = "off"; // controlled measurement, or sample
     public bool Core { get; init; }
-    public bool ProperDistance { get; init; }
-    public bool ElementAdvantage { get; init; }
+    // Keep source callers' bool access while retaining explicitly supplied false in saved JSON.
+    private bool? legacyProperDistance, legacyElementAdvantage;
+    private int? bossDistance;
+    private string bossWeakElement;
+    [JsonIgnore]
+    public bool ProperDistance { get => legacyProperDistance ?? false; init => legacyProperDistance=value; }
+    [JsonIgnore]
+    public bool ElementAdvantage { get => legacyElementAdvantage ?? false; init => legacyElementAdvantage=value; }
+    [JsonPropertyName("properDistance"), JsonIgnore(Condition=JsonIgnoreCondition.WhenWritingNull)]
+    public bool? LegacyProperDistance { get => legacyProperDistance; init => legacyProperDistance=value; }
+    [JsonPropertyName("elementAdvantage"), JsonIgnore(Condition=JsonIgnoreCondition.WhenWritingNull)]
+    public bool? LegacyElementAdvantage { get => legacyElementAdvantage; init => legacyElementAdvantage=value; }
+    [JsonIgnore(Condition=JsonIgnoreCondition.WhenWritingNull)]
+    public int? BossDistance { get => bossDistance; init { bossDistance=value; BossFieldsSpecified=true; } }
+    [JsonIgnore(Condition=JsonIgnoreCondition.WhenWritingNull)]
+    public string BossWeakElement { get => bossWeakElement; init { bossWeakElement=value; BossFieldsSpecified=true; } }
+    [JsonIgnore]
+    public bool BossFieldsSpecified { get; private init; }
     public double EnemyDefense { get; init; }
     public string TargetLabel { get; init; } = "fixed_target";
     public string Notes { get; init; } = "";
@@ -29,7 +46,12 @@ public sealed record WeaponReplayConditions
     public bool Trace { get; init; }
     public int TraceLimit { get; init; } = 2000;
 }
-public record WeaponReplayMember(string CharacterId, WeaponDto Weapon, HitContext Hit, StatBuffSet Buffs);
+public record WeaponReplayMember(string CharacterId, WeaponDto Weapon, HitContext Hit, StatBuffSet Buffs)
+{
+    public int? BonusRangeMin { get; init; }
+    public int? BonusRangeMax { get; init; }
+    public string Element { get; init; }
+}
 public record ReplayEvent(long Id, long? ParentId, int Frame, string Kind, string CharacterId, string EffectId,
     int Ammo, bool FullCharge = false, bool Crit = false, bool Core = false, bool FullBurst = false,
     double EffectiveAttack = 0, IReadOnlyDictionary<string, double> Damage = null,
@@ -45,7 +67,7 @@ public record WeaponReplayResult(string RulesVersion, string Status, string Skil
 // A weapon-only reference replay. Prescribed condition windows are never labelled automatic skills or burst cycles.
 public static class WeaponReplay
 {
-    public const string Version = "p03.weapon-reference.2-client-f32";
+    public const string Version = "p03.weapon-reference.3-boss-conditions";
     private static readonly string[] Policies = [HitCalculator.DefaultPolicy, "legacy_term_floor", "final_round_even", "nested_floor"];
     private static Dictionary<string, double> ZeroDamage() => Policies.ToDictionary(p => p, _ => 0d);
     private sealed class MemberState
@@ -60,6 +82,7 @@ public static class WeaponReplay
         IRandomSource random = null)
     {
         Validate(members, c);
+        var bonuses=members.ToDictionary(m=>m.CharacterId,m=>BossConditionResolver.Resolve(m,c,true));
         random ??= SystemRandomSource.Instance;
         var states = members.Select(m => new MemberState { Input = m,
             Firing = new(new WeaponProfile(m.Weapon), checked((int)StatBuffCalculator.Apply(m.Weapon.maxAmmo, m.Buffs.Ammo)),
@@ -107,7 +130,8 @@ public static class WeaponReplay
                     bool crit = c.CritMode == "on" || c.CritMode == "sample" && CritSampler.RollCrit(random, critChance);
                     var hit = s.Input.Hit with { RuntimeAttackBuffs = s.Input.Hit.RuntimeAttackBuffs.Concat(scheduled).ToArray(),
                         Coefficient = coefficient, FullCharge = step.IsFullCharge, Crit = crit, Core = c.Core,
-                        FullBurst = burst, ProperDistance = c.ProperDistance, ElementAdvantage = c.ElementAdvantage, Defense = c.EnemyDefense };
+                        FullBurst = burst, ProperDistance = bonuses[s.Input.CharacterId].ProperDistance,
+                        ElementAdvantage = bonuses[s.Input.CharacterId].ElementAdvantage, Defense = c.EnemyDefense };
                     var comparison = HitCalculator.Compare(hit);
                     var damage = comparison.Candidates.ToDictionary(d => d.Policy, d => d.Damage);
                     s.Hits++; if (crit) s.CriticalHits++;
@@ -143,6 +167,7 @@ public static class WeaponReplay
             throw new ArgumentException("평타 시간축 검산 입력을 확인하세요.");
         if (c.ManualCharacterId != "" && !members.Any(m => m.CharacterId == c.ManualCharacterId))
             throw new ArgumentException("수동 조작 캐릭터가 편성에 없습니다.");
+        BossConditionResolver.Validate(c);
         if (policy == HitCalculator.DefaultPolicy) StatBuffCalculator.RequireInteger(c.EnemyDefense);
         foreach (var m in members)
         {
@@ -163,6 +188,7 @@ public static class WeaponReplay
             if (w.weaponType == "SG" && c.PelletCoefficientPolicy is not ("per_trigger" or "per_pellet"))
                 throw new ArgumentException("SG 계수를 한 발 전체 또는 펠릿당 기준 중 명시하세요.");
             HitCalculator.Calculate(m.Hit,policy);
+            BossConditionResolver.Resolve(m,c,true);
             foreach (var buffs in new[] { m.Buffs.Ammo, m.Buffs.ChargeSpeed, m.Buffs.ReloadSpeed, m.Buffs.CriticalChance })
                 StatBuffCalculator.Apply(0, buffs); // shared validation before expanding stack terms
             if (StatBuffCalculator.Apply(w.maxAmmo, m.Buffs.Ammo) is < 1 or > 100000)

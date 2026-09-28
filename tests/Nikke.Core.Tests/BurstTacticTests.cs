@@ -39,7 +39,7 @@ public class BurstTacticTests
         var legacy=SkillReplay.Run(Members(),G(),C(null));
         Assert.Null(legacy.TeamBurst.Options.Tactic);
         Assert.All(legacy.TeamBurst.FullBursts,w=>Assert.Equal("c",w.Caster));
-        Assert.Equal("p04.team.3-client-f32",legacy.RulesVersion);
+        Assert.Equal("p04.team.4-boss-conditions",legacy.RulesVersion);
     }
     [Fact]
     public void Each_stage_priority_is_obeyed_without_changing_stage_order()

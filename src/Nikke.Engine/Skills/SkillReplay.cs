@@ -8,7 +8,7 @@ namespace Nikke.Engine.Skills;
 // Prescribed measurements and the P04 controller share the same effect/weapon execution.
 public static class SkillReplay
 {
-    public const string Version = "p03.skills.3-client-f32";
+    public const string Version = "p03.skills.4-boss-conditions";
     public static SkillReplayResult Run(IReadOnlyList<SkillReplayMember> members, SkillGraph graph,
         SkillReplayConditions conditions, IRandomSource random = null,
         ICombatEventSink events = null, ISkillBattleDriver driver = null)
@@ -135,6 +135,7 @@ public static class SkillReplay
         public SkillReplayMember Input;
         public string Id => Input.Weapon.CharacterId;
         public SkillFiringModel Gun;
+        public MemberHitBonuses Bonuses;
         public bool GunDirty = true;
         public double Hp, CoverRatio = 1, CoverMaxHp = 1;
         public int Shots, Hits, Crits, AmmoConsumed;
@@ -268,6 +269,7 @@ public static class SkillReplay
             this.eventSink=eventSink; this.driver=driver;
             this.cancellationToken=cancellationToken; this.summaryOnly=summaryOnly;
             team = members.Select(m => new Actor { Input = m,
+                Bonuses = BossConditionResolver.Resolve(m.Weapon,C,true),
                 Gun = new(new WeaponProfile(m.Weapon.Weapon), m.Weapon.Weapon.maxAmmo,
                     new FiringControl { Mode = C.ManualCharacterId == m.Weapon.CharacterId ? ControlMode.Manual : ControlMode.Auto,
                         Style = C.ManualStyle == "tap" ? FireStyle.Tap : FireStyle.FullCharge }, random),
@@ -593,7 +595,7 @@ public static class SkillReplay
                 CanCrit=true, CanCore=normal, Crit=crit, Core=normal && C.Core,
                 ChargeApplicable=normal && a.Input.Weapon.Hit.ChargeApplicable, FullCharge=normal && charged,
                 ChargeAdd=a.Input.Weapon.Hit.ChargeAdd+On(a,11).Sum(e=>e.Value*e.Stacks),
-                FullBurst=fullBurst, ProperDistance=normal && C.ProperDistance, ElementAdvantage=C.ElementAdvantage,
+                FullBurst=fullBurst, ProperDistance=normal && a.Bonuses.ProperDistance, ElementAdvantage=a.Bonuses.ElementAdvantage,
                 CritBonus=a.Input.Weapon.Hit.CritBonus+On(a,51).Sum(e=>e.Value*e.Stacks),
                 Pierce=normal && On(a,54).Any(),
                 DamageTaken=a.Input.Weapon.Hit.DamageTaken+On(null,42).Sum(e=>e.Value*e.Stacks),
