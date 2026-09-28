@@ -83,4 +83,12 @@ Q-F32 단계 B 통과 후 Director가 통합하고 원본 배포(AGENTS.md 절�
 
 ## 전달 확인
 
-(전달 후 기록)
+Orca runtime `a0bed151-149f-486b-a796-53848c05acdc`. 지시서 커밋 `bc25518`. 전달 직전 `terminal read`로 세 터미널이 idle 입력 대기 상태임을 확인했다.
+
+| 담당 | 터미널 | 요청 ID | 착수 근거 |
+|---|---|---|---|
+| I-BE Backend | `term_e5d05982-dabd-4b09-9242-c75d3d7b6010` (codex, H-SRC 세션 계속) | `93189f10-11ca-4137-a1c8-2de9d58d2a08` | accepted=true, `input_accepted`. 영수증에는 turn_started가 없었으나 화면에서 파일 확인 명령 실행과 `Working` 상태를 확인했다. 재전송하지 않았다 |
+| I-UI UI | `term_c322a450-b75e-485d-91e5-cf9ed7ec6e38` (claude) | `4305104d-652d-4420-829f-5439b9e2e742` | accepted=true, `input_accepted`·`turn_started`. 단계 A만 |
+| Q-F32 검수 | `term_234e279b-927e-4118-a8fe-f90736db2e68` (codex, 기존 Q-CPU-10K 세션) | `82ffae07-97b2-4cef-8d08-b99a382661b5` | accepted=true, `input_accepted`·`turn_started`. 단계 A만 |
+
+검수 Codex 화면에 주간 사용 한도 25% 미만 경고가 있었다. 엔진 터미널에는 보내지 않았다. 이 기록은 착수 확인이며 구현·검수 완료가 아니다.
