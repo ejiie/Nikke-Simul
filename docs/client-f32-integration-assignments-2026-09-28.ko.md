@@ -16,6 +16,7 @@
   - compute: `hitOverrides`로 두 rate·runtimeAttackBuffs·attackFlatBuffs 실험, schema·정책·summary·raw 포함 fingerprint, 구버전 batch 재개 거부, 구결과 조회 가능·통계 분리.
   - 검증(Backend 보고): 전체 Release 경고 0/오류 0, 329 tests(Backend 141, Core 147, Analysis 41). 격리 API(포트 54516) v3/v2/import/저장/네 후보/오류 6종, 5인 600프레임 batch 세 조건(client/legacy/실험값) 각 1회, fingerprint·튜닝 키 분리. 공개 레벨·호감도 24,360셀·큐브/소장품/장비에서 **소수 native 발견 0**.
 - **단계 B 통지(2026-09-28):** I-UI 단계 B와 Q-F32 단계 B를 시작한다. Q-F32 단계 B는 두 부분으로 나눈다 — **B1(지금)**: Backend `74ca24f`를 merge해 API·v2 변환·wire·오류·fingerprint/캐시·구결과 혼합 금지 종단 수용. **B2(I-UI 단계 B 인계 후 Director 통지)**: UI 확정 커밋으로 브라우저·피해 로그·통계 화면 종단 수용.
+  - 통지 전달: I-UI 단계 B → `term_c322a450…` 요청 `8a8cbd2b-7013-4708-b2c8-7e2cc25813ef`, Q-F32 B1 → `term_234e279b…` 요청 `21fda1d7-621f-433d-959a-027be4c2c4a3`. 둘 다 accepted=true, `input_accepted`·`turn_started`. 전달 직전 두 터미널 idle 확인. Q-F32에는 Backend의 `check_client_f32_api.py`를 판정 근거로 재사용하지 말라고 지시했다.
 
 ## 승인과 근거
 
