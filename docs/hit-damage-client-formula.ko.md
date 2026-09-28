@@ -35,6 +35,16 @@ candidate = max(1, round(
 3. **`defenceRatioRate`는 추가 필수.** 사용자 확인: 최근 업데이트 이후 생긴 기믹이다. 입력 기본값은 0(효과 없음)으로 두되, 어떤 보스·조건에서 어느 값이 적용되는지는 원천 조사 대상이다.
 4. **`statDamageRatio`는 조사 대상.** 사용자 추정은 "스킬 대미지 계수"이며 확정이 아니다. 이 추정이 맞으면 현재 `Coefficient`에 대응시킨 `damageRatio`의 의미도 함께 재확인해야 한다. 조사 전에는 기본값 1로 두고 추정값을 계산에 넣지 않는다.
 
+### 사용자 답변 — 2026-09-28: 공격력 조립
+
+사용자가 클라이언트 분석으로 확인한 공격력 식:
+
+```text
+Attack = statAtk + sum(round(statAtk * atkBuff * buffNum))
+```
+
+대미지 공식의 `attack`은 **이미 정수화된 값으로 전달된다**. 동일 버프율 그룹별 `round` 후 합산 구조는 기존 규칙·H-F32 `long` 조립과 일치한다. 남은 확인: `statAtk * atkBuff * buffNum`의 연산 자료형(float32/double)과 `round` 방식. 예: 100×0.145는 float32 곱이면 14.5 → 15, double 곱이면 14.499999999999998 → 14, H-F32의 정확 정수 경로는 15다(Director 합성 계산). 결정 1(공격력 `long`)은 유지하되 자료형 확인 결과에 따라 재현 방식을 조정할 수 있다.
+
 `float32` 재현에서 약 16,777,216(2^24) 이상 값의 정수 해상도 저하는 게임 동작의 재현이며 오류로 취급하지 않는다. 반대로 `long` 공격력 조립의 overflow와 최종 정수 변환의 범위 초과는 탐지해야 한다.
 
 ## H-SRC 원천 조사 결과 — 2026-09-28
@@ -90,7 +100,7 @@ candidate = max(1, round(
 1. `base`, `extra`, 최종 곱의 자료형(`float32`/`double`). 전부 `float32`이면 약 16,777,216을 넘는 피해는 정수 해상도가 떨어진다(2·4·8… 단위). 기존 큰 실측 피해값이 모두 짝수인지로 교차 확인할 수 있다.
 2. 실제 곱셈 순서. 부동소수점은 결합 순서에 따라 결과가 달라진다.
 3. `round` 종류: `Mathf.Round`/`Math.Round`(ToEven), AwayFromZero, `(long)(x + 0.5)` 등. 확인 전 기본은 사사오입(결정 2).
-4. `attack` 조립 경로(OL·버프 적용 공격력)의 자료형과 정수화 위치, `float32`로 넘어가는 지점. 결정 1에 따라 조립은 `long`으로 구현한다.
+4. ~~`attack` 정수화 위치~~ — 2026-09-28 답변: 조립 후 정수로 전달(위 절). 남은 것: `statAtk * atkBuff * buffNum`의 연산 자료형과 `round` 방식.
 5. 항별 원천 대입 경로. H-SRC가 구체적 질문 8개로 정리했다: [H-SRC 보고서](C:/Users/user/orca/workspaces/Nikke-Simul/Backend/docs/hit-damage-source-investigation.ko.md)(Backend `f4ab2fc`) 말미 "사용자가 클라이언트 코드에서 확인할 구체적 질문". (`damageRatio`/`statDamageRatio` 대입 우변, `level_statdamageratio`, 일반 공격 증가, `DefenceRatioRatio`, break/parts gate, addDamageRate 구성, reduction·분배, 기본 rate 우선순위)
 6. `rate`의 원래 자료형(예: `1.5f`)과 `rate − 1`의 계산 자료형.
 7. 출처 기록: 클라이언트 버전, 클래스·메서드 이름.
