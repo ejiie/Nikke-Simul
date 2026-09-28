@@ -35,6 +35,12 @@
   - 추가 발견·수정: `09e27cb`부터 있던 팝업 포커스/close 경쟁(빠른 키보드 재열기 시 버튼 포커스 누락·새 팝업 내용 삭제). mock 브라우저 간헐 실패로 드러났고 동기 포커스 복귀·재열림 시 close 무시로 고쳐 5/5.
   - UI 보고 실제 격리 API + Chromium: 사례마다 새 dataRoot에 prepare 후 격리 runtime만 손상(5004 `bonusRangeMin` 삭제, 5011 element null, 미준비) → 실제 409와 네 화면의 기대 진단, 연결 정상, 넘침 0·JS 오류 0. 기존 회귀 통과. 한계: `combat_member_profile_missing` 400은 단위만, EXE 배포 없음.
 - **F-COND-Q 재수용 + 단계 2 통지(2026-09-29):** UI `77264bf` 기준으로 B-FIX-2 재수용(API)과 브라우저 단계 2를 한 번에 요청한다. 전달 `term_234e279b…` 요청 `4bb3c6ad-05a2-4ef3-a516-ccbc19e04585`, accepted=true·`input_accepted`·`turn_started`.
+- **F-COND-Q 최종: 통과.** 검수 `d71c7a2`(UI `77264bf` 일반 merge `a0f16d2`), QA 보고서 최신 2026-09-29 절, 근거 검수 `artifacts/single-deck-qa/conditions-14a3ee04039a`(API 83)·`conditions-browser-954724d9ce7f`(브라우저 141)·`f32-b2-b01862749de6`(기존 91). Director 확인: merge 이후 제품 변경 0.
+  - 자체 검사 **315/315**(정상 API 83 + B-FIX-2·실제 Chromium 141 + 기존 client_f32·통계 91), 별도 Q3 계약 harness 26/26. 담당 검사·mock·정답 재사용 없음.
+  - F-COND-Q-1 해소: 필드 누락·null·잘못된 타입·범위·미지원 속성·ID 불일치 16종 × 두 GET·replay·compute = 64응답 모두 409 `combat_profile_invalid`, characterId/field/reason 정확, 0 채움·500 없음, 실패 시 파일·실험 불변. 정상 SG/RL min 0·SR 예외·구 bool 정확 재현 유지.
+  - 브라우저: 32px 아이콘·두 팝업·약점 경고·5속성 이미지·멤버 미리보기, 새/null 요청에 구 bool 없음, 저장 모드·구 bool 표시, replay·통계 값, 손상 데이터 한국어 진단 4화면·연결 유지, 키보드/ESC/포커스 복귀, 1500/850/500 통과. QA 예비 실행의 팝업 멈춤은 QA 선택자 오류로 확인되어 제품 결함으로 세지 않았다.
+  - 미판정: 실게임 가설(양끝 포함·RL 0–0), 실사용자 덱, 성능, RL 멤버 전체 전투 UI, reason 8종 전체 문구, weapon replay 손상 endpoint. Q-CPU-10K 보류.
+- **Director 통합(2026-09-29): 완료.** QA `d71c7a2`를 `--no-ff` merge(`52ff31f`, 충돌 없음, `src`·`tests`·`apps`·`tools` 트리가 `d71c7a2`와 동일). 원본 배포는 사용자 확인 후 별도 — 배포 시 원본 `data/local/runtime`에 `prepare_combat_conditions.py` 실행이 필요하다(기존 runtime 보존, 새 runtime 추가).
 
 ### F-COND-Q — 독립 QA (검수 담당)
 
