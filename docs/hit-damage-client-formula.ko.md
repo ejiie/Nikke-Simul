@@ -97,6 +97,8 @@ Attack = statAtk + sum(round(statAtk * atkBuff * buffNum))
 
 ## 클라이언트에서 추가 확인할 항목
 
+> 2026-09-28 사용자 방향: 포트폴리오 목적이므로 아래 항목은 클라이언트 분석에 매몰되지 않고 **실측 대조 실험으로 찾아간다.** 각 항목은 차단 질문이 아니라 실험 후보이며, 가설·실험 입력·기각 후보·판정을 이력으로 남긴다. 사용자가 클라이언트에서 확인한 내용은 들어오는 대로 근거로 추가한다.
+
 1. `base`, `extra`, 최종 곱의 자료형(`float32`/`double`). 전부 `float32`이면 약 16,777,216을 넘는 피해는 정수 해상도가 떨어진다(2·4·8… 단위). 기존 큰 실측 피해값이 모두 짝수인지로 교차 확인할 수 있다.
 2. 실제 곱셈 순서. 부동소수점은 결합 순서에 따라 결과가 달라진다.
 3. `round` 종류: `Mathf.Round`/`Math.Round`(ToEven), AwayFromZero, `(long)(x + 0.5)` 등. 확인 전 기본은 사사오입(결정 2).
@@ -107,7 +109,7 @@ Attack = statAtk + sum(round(statAtk * atkBuff * buffNum))
 
 ## 후속 작업
 
-2026-09-28 아래 1·2를 배정했다: [H-F32·H-SRC 지시서](hit-damage-assignments-2026-09-28.ko.md). **2(H-SRC)는 원천 조사 완료·Director 검토 수용**, **1(H-F32)은 엔진 브랜치 구현 완료·Director 검토 수용(미통합, 독립 QA 전)** — [H-F32 보고서](C:/Users/user/orca/workspaces/Nikke-Simul/시뮬레이션-엔진-담당/docs/hit-damage-client-f32.ko.md)(엔진 브랜치 `53b3d10`/`5ced15a`). 3·4는 미배정이다. 추가 후속: 클라이언트 질문 답변 후 break/parts 분리(저지 입력 신설·96 중복 제거)와 `statDamageRatio`·`defenceRatioRate` 원천 연결.
+2026-09-28 아래 1·2를 배정했다: [H-F32·H-SRC 지시서](hit-damage-assignments-2026-09-28.ko.md). **2(H-SRC)는 원천 조사 완료·Director 검토 수용**, **1(H-F32)은 엔진 브랜치 구현 완료·Director 검토 수용(미통합) — 통합 연결·독립 QA는 [I-BE·I-UI·Q-F32 지시서](client-f32-integration-assignments-2026-09-28.ko.md)로 배정** — [H-F32 보고서](C:/Users/user/orca/workspaces/Nikke-Simul/시뮬레이션-엔진-담당/docs/hit-damage-client-f32.ko.md)(엔진 브랜치 `53b3d10`/`5ced15a`). 3·4는 미배정이다. 추가 후속: 클라이언트 질문 답변 후 break/parts 분리(저지 입력 신설·96 중복 제거)와 `statDamageRatio`·`defenceRatioRate` 원천 연결.
 
 1. `HitCalculator`에 `client_f32` policy 추가: `long` 공격력 조립 → `float32` 대미지 경로 → 사사오입 `max(1, round)`. 기존 후보는 비교용으로 유지한다. `defenceRatioRate`(기본 0)는 필수로, `statDamageRatio`(기본 1)는 조사 결과 전까지 중립값 입력으로 추가한다. 입력 계약 버전 변경 여부는 구현 시 결정한다.
 2. `statDamageRatio`·`damageRatio`·`defenceRatioRate` 원천 조사를 담당자에게 배정한다. 사용자 추정을 확정 사실로 전달하지 않는다.
