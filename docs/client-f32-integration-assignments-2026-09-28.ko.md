@@ -17,6 +17,11 @@
   - 검증(Backend 보고): 전체 Release 경고 0/오류 0, 329 tests(Backend 141, Core 147, Analysis 41). 격리 API(포트 54516) v3/v2/import/저장/네 후보/오류 6종, 5인 600프레임 batch 세 조건(client/legacy/실험값) 각 1회, fingerprint·튜닝 키 분리. 공개 레벨·호감도 24,360셀·큐브/소장품/장비에서 **소수 native 발견 0**.
 - **단계 B 통지(2026-09-28):** I-UI 단계 B와 Q-F32 단계 B를 시작한다. Q-F32 단계 B는 두 부분으로 나눈다 — **B1(지금)**: Backend `74ca24f`를 merge해 API·v2 변환·wire·오류·fingerprint/캐시·구결과 혼합 금지 종단 수용. **B2(I-UI 단계 B 인계 후 Director 통지)**: UI 확정 커밋으로 브라우저·피해 로그·통계 화면 종단 수용.
   - 통지 전달: I-UI 단계 B → `term_c322a450…` 요청 `8a8cbd2b-7013-4708-b2c8-7e2cc25813ef`, Q-F32 B1 → `term_234e279b…` 요청 `21fda1d7-621f-433d-959a-027be4c2c4a3`. 둘 다 accepted=true, `input_accepted`·`turn_started`. 전달 직전 두 터미널 idle 확인. Q-F32에는 Backend의 `check_client_f32_api.py`를 판정 근거로 재사용하지 말라고 지시했다.
+- **Q-F32 B1: API·이력 분리 수용 통과, 차단 결함 0.** 검수 `058b8a5`(Backend `74ca24f` 일반 merge `4a05a26`), 보고서 최신 B1 절, 근거 검수 `artifacts/single-deck-qa/f32-b1-88f22794209a/`(Git 제외). Director가 커밋 범위를 확인했다: merge 이후 `src`·`apps`·`scripts`·`tools/data-pipeline` 변경 0(QA 도구·보고서만). 재실행은 하지 않았다.
+  - Backend 검사 스크립트·테스트를 실행·import·정답 재사용하지 않은 자체 검사: 실제 API **85/85**, 후속 캐시·입력 **9/9**. v3 client 150건·과거 후보 100건 독립 `Fraction` 산술, v2 원본 + `conversion`(1/0), import·저장 GET·재시작 조회, 네 후보·선택 audit, 계산 불가 후보 null + 이유, exact 문자열·큰 정수, 소수·과정밀·underflow·unsafe number·overflow 오류(오류는 저장 안 됨).
+  - compute(합성 5인·400·600프레임·DEF 30925·worker 1): default·legacy·stat·defence·raw·rate·flat 각 1회 → fingerprint 7개·튜닝 키 7개 분리. 동일 조건 재요청은 검증된 캐시 재사용, 구 캐시 존재 시 새 키 miss, 변조 payload 복구 거부.
+  - 구 이력: 이전 Q-LOAD-1000 합성 calibration 20행을 격리 이관(계정 DB 복제 없음) — 원본 GET 동일, resume 409 `engine_or_rules_version_changed`, 구 fingerprint RunSummary의 새 batch 쓰기 거부(0행), 새 통계 n1과 구 통계 n20 분리.
+  - 미판정: B2(브라우저·UI·피해 로그/통계 화면), 실게임·실측 18점·실사용자 덱·GPU·SW·성능. Q-CPU-10K 보류 유지.
 
 ## 승인과 근거
 
