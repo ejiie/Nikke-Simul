@@ -174,9 +174,9 @@ await check('sign_zero_decimal_null', () => {
 
 await check('unknown_type_is_explicit', () => {
   const unknown = describe({ type: 999, value: 5, basis: 'native_caster' });
-  assert.equal(unknown.label, '미해석 효과 (type 999)'); assert.equal(unknown.valueText, '원값 5'); assert.equal(unknown.known, false);
-  assert.match(unknown.basisText, /basis native_caster/);
-  assert.equal(describe({ type: undefined, value: 5 }).label, '미해석 효과 (type 미기록)');
+  assert.equal(unknown.label, '미해석 효과'); assert.equal(unknown.valueText, '원값 5'); assert.equal(unknown.known, false);
+  assert.equal(unknown.basisText, '시전자 기초 스탯 기준'); // U-FIX-4: no raw basis keys on screen
+  assert.equal(describe({ type: undefined, value: 5 }).label, '미해석 효과');
 });
 
 await check('source_name_and_id_fallback', () => {

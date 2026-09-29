@@ -195,6 +195,39 @@ async def run(args):
                     problems.append(f'defense line {lines["defense"]!r} vs {expected_defense(body["result"]["defense"], names)!r}')
             await page.locator('#replay-result').screenshot(path=str(out / 'result-default.png'))
 
+            # U-FIX-4 (F2-Q-2): the audit panel names the attack sources; the saved record is not recalculated or rewritten.
+            import hashlib, re
+            _, stored_before = api.call('runtime/skill-replays/' + body['id'])
+            entry = next((e for e in body['result']['damageLog']['entries']
+                          if any(str(b.get('source', '')).startswith('overload:') for b in (e.get('hit') or {}).get('attackBuffs', []))), None)
+            if entry is None:
+                problems.append('no hit with an overload attack source in the synthetic replay')
+            else:
+                await page.wait_for_selector(f".graph-hit-dot[data-hit-id=\"{entry['hitId']}\"]", state='attached', timeout=60000)
+                await page.evaluate("id => document.querySelector(`.graph-hit-dot[data-hit-id=\"${id}\"]`).dispatchEvent(new MouseEvent('click'))", entry['hitId'])
+                await page.wait_for_selector('.damage-audit-panel', timeout=15000)
+                panel = await page.locator('.damage-audit-panel').inner_text()
+                lines = await page.evaluate("() => [...document.querySelectorAll('.damage-audit-panel [data-audit-group=\"attack\"] li')].map(li => li.textContent.replace(/\\s+/g, ' ').trim())")
+                raw = re.findall(r'overload:|cube:|collection:|skill:\d|function:|StatAtk|native_|basis |\b50\d\d\b', panel)
+                src = next(b['source'] for b in entry['hit']['attackBuffs'] if b['source'].startswith('overload:'))
+                parts = src.split(':')
+                want = f"{names.get(parts[1], '이름 미확인')} · {({'head': '머리', 'torso': '몸통', 'arm': '팔', 'leg': '다리'})[parts[2]]} {parts[3]}번 줄 · {'공격력' if parts[4] == 'StatAtk' else parts[4]}"
+                summary['auditSources'] = {'hitId': entry['hitId'], 'source': src, 'lines': lines, 'raw': raw}
+                if not any(want in line for line in lines) or raw:
+                    problems.append(f'audit sources {lines} raw {raw[:5]} expected {want!r}')
+                for width in WIDTHS:
+                    await page.set_viewport_size({'width': width, 'height': 1000})
+                    await page.wait_for_timeout(150)
+                    if await page.evaluate("document.documentElement.scrollWidth - innerWidth") > 0:
+                        problems.append(f'audit panel overflow @{width}')
+                    await page.locator('.damage-audit-panel').screenshot(path=str(out / f'audit-sources-{width}.png'))
+                await page.set_viewport_size({'width': 1500, 'height': 1000})
+            _, stored_after = api.call('runtime/skill-replays/' + body['id'])
+            digest_of = lambda v: hashlib.sha256(json.dumps(v, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+            summary['storedReplayUnchanged'] = digest_of(stored_before) == digest_of(stored_after) and stored_after['result']['totalDamage'] == body['result']['totalDamage']
+            if not summary['storedReplayUnchanged']:
+                problems.append('stored replay changed after viewing the audit panel')
+
             # 2) Real switch: synthetic 100x attack windows added to the outgoing request (Backend threshold fixture).
             def boost(body):
                 body['conditions']['combat']['attackBuffWindows'] = [{'characterId': cid, 'buff': {'source': 'synthetic_f2u_threshold', 'rate': 100, 'stacks': 1},

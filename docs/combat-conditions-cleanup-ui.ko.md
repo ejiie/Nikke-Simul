@@ -151,3 +151,39 @@ Director 통지: Backend 확정 `aa1b71e`(엔진 `1a86ec9` 포함) merge(`92aef7
 - 단위: raid 6/6(DEF 카드 5경우·옛 문구 부재·코드/trace ID 미노출), 통계 19/19(덱 목록 코드 없음·`이름 미확인`), 조건 12/12·damage_audit 19/19(코드 없는 이름으로 기대값 갱신).
 - 기존 회귀: Q3 26/26, client_f32_mock, vitest 13/13, raid·combat·client_f32 mock 브라우저, 솔로 레이드·통계·damage audit 브라우저, combat-conditions·profile-errors·client_f32 live 모두 통과.
 - EXE·원본 `data/local`·5180/5181 미접촉.
+
+## 8. U-FIX-4 — 내부 키 화면 노출 정리(F2-Q-2) (2026-09-29)
+
+배정: Director 지시서 `F2-Q 재수용`·`U-FIX-4`, QA 보고서 최신 절(검수 `eb7c23f`, 근거 `f2-ufix3-preparation/defect-F2-Q-2.json`, 읽기만 함). 사용자 지시: "화면에서는 이름으로 표시해야 함". 기준 `ad6d3f0`, 새 merge 없음. API·저장 source 키와 데이터 속성은 그대로 두고 **표시 문자열만** 바꿨다.
+
+### 8.1 source 키 표시 — `display-labels.js`(신규) `describeSourceKey`
+
+| 저장 source 키 | 화면 |
+|---|---|
+| `overload:5004:head:1:StatAtk` | `앨리스 · 머리 1번 줄 · 공격력` (부위 머리/몸통/팔/다리, 옵션 공격력·방어력·최대 장탄 수·크리티컬 확률/대미지·차지 대미지/속도·우월코드 대미지·명중률, 모르는 옵션 `오버로드 옵션`, 이름 없으면 `이름 미확인`) |
+| `cube:<id>:<옵션>` / `collection:<id>:<옵션>` | `큐브 · 공격력` / `소장품 · 크리티컬 대미지`, 옵션을 모르면 `큐브 효과` / `소장품 효과` |
+| `equipment:<부위>` | `장비 · 몸통` |
+| `manual:attack:<n>` | `직접 입력한 버프 n` |
+| `function:<id>` | `스킬 효과 · 함수 <id>` (함수 번호는 허용 범위 유지) |
+| `skill:<캐릭터>:<함수>` | 기존대로 `누아르 · 스킬 1 · 함수 …`(이름만, 코드 없음) |
+| 그 밖(합성 창 source 등) | `기타 효과` — 코드·원문 없음 |
+
+### 8.2 같은 유형 정리 목록
+
+| 위치 | 이전 | 이후 |
+|---|---|---|
+| `damage-log-adapter.js` 타격 검산 근거 `최종 공격력 입력` (F2-Q-2) | `상시 비율 · overload:5004:head:1:StatAtk +4.77%` | `상시 비율 · 앨리스 · 머리 1번 줄 · 공격력 +4.77%` |
+| `damage-log-adapter.js` 효과 적용 기준 | `basis native_recipient`, 모르는 값은 `basis <원문>` | `수혜자 기초 스탯 기준` 등 한국어, 모르면 `적용 기준 미확인`/`적용 기준 미기록` |
+| `damage-log-adapter.js` 미해석 효과 | `미해석 효과 (type 999)` | `미해석 효과` |
+| `single-deck-stats.js` OL 후보 비교 표 | 부위 `head`, 옵션 `StatAtk` 원문 | `머리`, `공격력`(`data-slot`·`data-option` 보존) |
+| `single-deck-stats.js` 표본 단계 카드 | `final`/`pilot` 원문 | `최종`/`파일럿`/`탐색`/`예열` |
+| `app.js` 고급 진단 수집 확인 | 이슈 `path`(내부 경로·캐릭터 코드 포함 가능) · 메시지 | 메시지만(`data-issue-path` 보존) |
+
+유지(내부 키가 아닌 기술 식별자·허용 범위): 타격·발사·함수·버스트 시전 번호, replay ID, 통계 화면의 입력 fingerprint·rules/summary 버전·schema, 대미지 정책 id(`client_f32` 등 선택지와 같은 정책 이름), 검산 단계 표의 엔진 연산 설명(`저장된 연산` 열), 사거리·속성 진단의 서버 원문(QA가 구조화 필드 경로를 허용 범위로 기록).
+
+### 8.3 검증
+
+- **실제 격리 API + Chromium** `check_raid_conditions_live.py … --expect-bosses 43` → 통과 `artifacts/ui/raid-conditions-live/run-dc278931ceeb`: QA 재현과 같은 앨리스 머리 1번 줄 StatAtk 4.77% 합성 계정의 180초 replay, 앨리스 타격 #200 검산 근거 `상시 비율 · 앨리스 · 머리 1번 줄 · 공격력 +4.77%`·`고정 가산 · 누아르 · 스킬 1 · 함수 227111001 +12,717`, 패널 본문 원문 키·코드 0건, 1500/850/500 넘침 0. 패널 조회 전후 `GET /runtime/skill-replays/{id}` 동일·총피해 동일(재계산·재저장 없음). DEF 카드 3경우·보스·코드 스캔 등 기존 항목도 통과, 원천 해시 불변.
+- **실제 기존 저장 replay(재계산 없음)** `python tests/ui/check_source_labels_saved.py --saved-replay <Director 격리 live ui-response.json>` → 통과 `artifacts/ui/source-labels/run-eec83adc0ec8`: 저장본 그대로 제공(합성 HTTP), overload·skill source 타격 #184 `상시 비율 · 앨리스 · 머리 1번 줄 · 공격력 +11.11%` 등, 원문 키·코드 0건, 1500/850/500, 저장 파일 SHA-256 전후 동일. 이 저장본의 cube·collection 키는 타격 공격력 입력 밖에만 있어 해당 라벨은 단위 테스트로 확인했다.
+- 단위: `display_labels.test.mjs` 3/3(키 14종·기준·미해석, 패널 텍스트, 저장 entry 불변), damage_audit 19/19(기준·미해석 기대값 갱신), 통계 19/19·조건 12/12·raid 6/6.
+- 기존 회귀: Q3 26/26, vitest 13/13, raid·combat·client_f32 mock, 솔로 레이드·통계·damage audit 브라우저, combat-conditions·profile-errors·client_f32 live 모두 통과. EXE·원본 `data/local`·5180/5181 미접촉.
