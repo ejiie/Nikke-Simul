@@ -38,7 +38,7 @@ public static class VirtualOverload
 
 public sealed partial class RuntimeReplayService
 {
-    public IPreparedExperiment PrepareCompute(AccountSnapshot original,GameSnapshot game,ExperimentRequest request,CalculationService calculation)
+    public IPreparedExperiment PrepareCompute(AccountSnapshot original,GameSnapshot game,ExperimentRequest request,CalculationService calculation,SoloRaidBoss? boss=null)
     {
         if(request.SnapshotId!=original.Id || original.GameSnapshotId!=game.Id || request.CharacterIds is null || request.Conditions is null || request.CharacterIds.Count!=5 || request.CharacterIds.Distinct().Count()!=5
             || request.OlChanges?.Any(c=>!request.CharacterIds.Contains(c.CharacterId))==true
@@ -65,7 +65,7 @@ public sealed partial class RuntimeReplayService
             var hit=HitCalculationService.ApplyExperimentOverrides(report.BasicHit,request.HitOverrides?.GetValueOrDefault(id));
             members.Add(new(WithCombatProfile(new(id,weapon,hit,report.PermanentBuffs),profiles),report.NativeStats.HP,Loadout(id,levels)));reports.Add(report);
         }
-        return PreparedCompute.Create(members,Graph(),conditions,original.Id,game.Id+":"+reports[0].CalculationDataId+":"+runtimeId,request.Phase);
+        return PreparedCompute.Create(members,Graph(),conditions,original.Id,game.Id+":"+reports[0].CalculationDataId+":"+runtimeId,request.Phase,boss);
     }
 }
 
@@ -91,7 +91,7 @@ public sealed class PreparedCompute : IPreparedExperiment
             throw new InvalidOperationException("prepared_input_fingerprint_mismatch");
         engine=PreparedSkillReplay.Create(payload.Members,payload.Graph,payload.Conditions);}
     public static PreparedCompute Restore(string persisted)=>new(persisted);
-    public static PreparedCompute Create(IReadOnlyList<SkillReplayMember> members,SkillGraph graph,SkillReplayConditions conditions,string snapshotId,string dataVersion,string phase)
+    public static PreparedCompute Create(IReadOnlyList<SkillReplayMember> members,SkillGraph graph,SkillReplayConditions conditions,string snapshotId,string dataVersion,string phase,SoloRaidBoss? boss=null)
     {
         if(members.Count!=5)throw new ArgumentException("compute_requires_five_members");
         var compatibility=CombatConditionWire.FromConditions(conditions.Combat);
@@ -101,8 +101,10 @@ public sealed class PreparedCompute : IPreparedExperiment
         var input=new ExperimentInput(hash,snapshotId,dataVersion,ImplementationVersion,
             RulesVersion(conditions.RoundingPolicy),
             members.Select(m=>m.Weapon.CharacterId).ToArray(),400,conditions.Combat.DurationFrames,phase,"summary",
-            "fixed:"+conditions.Combat.EnemyDefense.ToString("R",System.Globalization.CultureInfo.InvariantCulture))
-            {InputSchemaVersion=HitWire.SchemaVersion,RoundingPolicy=conditions.RoundingPolicy,SummaryVersion=ImplementationVersion,ConditionCompatibility=compatibility};
+            conditions.Combat.DefenseMode==DefenseMode.TeamDamageThreshold?"team_damage_threshold:30925:2000000000:31784":
+                "fixed:"+conditions.Combat.EnemyDefense.ToString("R",System.Globalization.CultureInfo.InvariantCulture))
+            {InputSchemaVersion=HitWire.SchemaVersion,RoundingPolicy=conditions.RoundingPolicy,SummaryVersion=ImplementationVersion,
+                ConditionCompatibility=compatibility,Boss=boss,BattleConditions=SoloRaidRequestPolicy.Describe(conditions.Combat)};
         return new(Wire.Serialize(new Payload(input,members,graph,conditions)));
     }
     private static string Fingerprint(IReadOnlyList<SkillReplayMember> members,SkillGraph graph,SkillReplayConditions conditions,string snapshotId,string dataVersion,CombatConditionCompatibility compatibility)
@@ -113,6 +115,8 @@ public sealed class PreparedCompute : IPreparedExperiment
         var result=engine.Run(cancellationToken);
         return new($"{experimentId}:{index}",attempt,index,experimentId,payload.Input.Fingerprint,"cpu",payload.Input.Phase,result.TeamDamage,
             result.Members.Select(m=>new MemberRunSummary(m.CharacterId,m.Damage,m.Shots,m.Hits,m.CriticalHits,m.Reloads,m.BurstCasts)).ToArray(),
-            result.FullBursts,result.ElapsedMilliseconds);
+            result.FullBursts,result.ElapsedMilliseconds) {Defense=MapDefense(result.Defense)};
     }
+    private static DefenseResult MapDefense(DefenseRunSummary result) => new(result.Mode,result.InitialDefense,result.FinalDefense,result.DamageThreshold,
+        result.SwitchAfterHit is {} hit?new(hit.Frame,hit.HitTraceId,hit.HitOrdinal,hit.CharacterId,hit.Effect,hit.CumulativeDamage,hit.PreviousDefense,hit.NewDefense):null);
 }

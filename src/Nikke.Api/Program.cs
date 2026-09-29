@@ -83,6 +83,8 @@ var runtimeRoot = Path.Combine(dataRoot, "runtime");
 var runtimeReplay = new Lazy<RuntimeReplayService>(() => new(runtimeRoot, Path.Combine(dataRoot, "weapon-replays")));
 app.MapCompute(dataRoot, store, game, runtimeReplay, calculations);
 var presentationRoot = Path.Combine(dataRoot, "presentation");
+var bosses=new SoloRaidBossCatalogService(presentationRoot);
+app.MapGet("/api/presentation/solo-raid-bosses",()=>bosses.Read());
 var presentation = app.Services.GetRequiredService<PresentationService>();
 app.MapGet("/api/presentation", () => presentation.Read());
 app.MapGet("/api/presentation/status", () => presentation.Status());
@@ -108,11 +110,12 @@ app.MapPost("/api/runtime/weapon-replays", (WeaponReplayRequest request) =>
 app.MapGet("/api/runtime/weapon-replays/{id}", (string id) => runtimeReplay.Value.Read(id));
 app.MapPost("/api/runtime/skill-replays", (JsonObject payload) =>
 {
-    var request = RuntimeReplayService.ReadSkillRequest(payload);
+    var request = RuntimeReplayService.ReadSkillRequest(payload,normalizeNewRequest:true);
+    var boss= bosses.Resolve(request.BossId);
     if (string.IsNullOrWhiteSpace(request.SnapshotId)) throw new ArgumentException("저장 스냅샷을 지정하세요.");
     if (!File.Exists(Path.Combine(runtimeRoot, "current.json")))
         throw new InvalidOperationException("P03 자료 준비가 필요합니다. npm run prepare:p03을 실행하세요.");
-    return runtimeReplay.Value.RunSkills(store.Snapshot(request.SnapshotId) ?? throw new KeyNotFoundException(), request, calculations.Value);
+    return runtimeReplay.Value.RunSkills(store.Snapshot(request.SnapshotId) ?? throw new KeyNotFoundException(), request, calculations.Value,boss);
 });
 // Historical reads must not require today's runtime catalog or deserialize away unknown fields.
 var skillArchive = new SkillReplayArchive(Path.Combine(dataRoot, "skill-replays"));
@@ -135,6 +138,8 @@ app.MapPut("/api/accounts/{id}/burst-tactic", (string id, SaveBurstTactic reques
 });
 app.MapGet("/api/runtime/skill-replays/{id}", (string id) => Results.Content(skillArchive.ReadJson(id), "application/json", System.Text.Encoding.UTF8));
 app.MapGet("/api/runtime/skill-replays/{id}/condition-compatibility", (string id) => CombatConditionWire.FromReplay(skillArchive.ReadJson(id)));
+app.MapGet("/api/runtime/skill-replays/{id}/battle-conditions",(string id)=>
+    SoloRaidRequestPolicy.FromJson(JsonNode.Parse(skillArchive.ReadJson(id))!["result"]!["conditions"]!.AsObject()));
 app.MapGet("/api/runtime/skill-replays/{id}/export.json", (string id) =>
     Results.File(System.Text.Encoding.UTF8.GetBytes(skillArchive.ReadJson(id)), "application/json", $"skill-replay-{id}.json"));
 app.MapGet("/api/runtime/skill-replays/{id}/damage-log", (string id) => DamageLogExport.Read(skillArchive.ReadJson(id)));

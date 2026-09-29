@@ -7,7 +7,7 @@ public record CombatMemberProfile(string CharacterId, string Name, string Weapon
     int BonusRangeMin, int BonusRangeMax, string Element)
 {
     public bool RangeBonusAvailable => !(WeaponType == "RL" && BonusRangeMin == 0 && BonusRangeMax == 0);
-    public string? Diagnostic => RangeBonusAvailable ? null : "rl_zero_range_no_bonus_unverified";
+    public string? Diagnostic => RangeBonusAvailable ? null : "rl_zero_range_no_bonus";
 }
 public record WeaponRangeVariant(int Min, int Max, int Count, bool IsTypical, IReadOnlyList<string> CharacterIds);
 public record WeaponRangeGroup(string WeaponType, int CharacterCount, IReadOnlyList<WeaponRangeVariant> Ranges,
@@ -15,7 +15,7 @@ public record WeaponRangeGroup(string WeaponType, int CharacterCount, IReadOnlyL
 public record CombatElementChoice(string Value, string IconUrl);
 public record CombatConditionCatalog(string RuntimeDataId, int SchemaVersion, CombatProfileSource Source,
     IReadOnlyList<WeaponRangeGroup> WeaponRanges, IReadOnlyList<CombatElementChoice> Elements,
-    string RangeRule = "inclusive_character_range_normal_only", bool GameVerified = false);
+    string RangeRule = "inclusive_character_range_normal_only", bool GameVerified = true);
 public record DeckCombatProfiles(string RuntimeDataId, string SnapshotId, IReadOnlyList<CombatMemberProfile> Members);
 
 // Readable compatibility metadata; neither migration nor recomputation of old results.
