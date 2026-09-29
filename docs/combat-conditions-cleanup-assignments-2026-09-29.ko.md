@@ -1,5 +1,13 @@
 # 전투 조건 정리·보스 선택 — F-COND-2 배정 (2026-09-29)
 
+## 최신 상태
+
+- **F2-E: 완료, Director 검토 수용.** 엔진 `d090641`(구현) → `1a86ec9`(기록), `e98db6a` ff 위. [보고서](C:/Users/user/orca/workspaces/Nikke-Simul/시뮬레이션-엔진-담당/docs/def-switch-engine.ko.md). 변경은 Engine·엔진 tests·보고서뿐(Api·Data·Contracts·apps 0), Backend `97ba7bf`와 충돌 없이 merge된다. Director가 `src/Nikke.Engine/DefenseMode.cs`를 읽었다: `fixed`(생략 시 기본, 구 `EnemyDefense` 재현)와 `team_damage_threshold`, 누적 ≤ 20억이면 유지, 초과시킨 타격은 이전 DEF로 계산하고 다음 타격부터 31784.
+  - 엔진 보고 검증: Core/Engine 196/196(기존 174 + 신규 22). 정확히 20억 무전환, 20억+1, 같은 프레임 멤버·추가타·SG 펠릿, Frame 0, 고정 경로, 팀 합, 자동 버스트, summary·병렬·취소. 기존 5인 180초 client 1,346,863,834 / legacy 1,346,859,763 동일.
+  - 결과 계약: `SkillReplayResult.Defense`·`SkillRunSummary.Defense`(Mode·InitialDefense·FinalDefense·DamageThreshold·SwitchAfterHit — Frame·HitTraceId·HitOrdinal·CharacterId·Effect·CumulativeDamage·Previous/NewDefense), trace `defense_switch`. 버전 `skills.5-defense-switch`·`team.5-defense-switch`·`cpu-summary.4-defense-switch`.
+  - Backend 후속(엔진 보고): 새 요청에 자동 모드 명시·구 fixed 저장 호환, `PreparedCompute.Create`의 fixed 라벨 수정, `PreparedCompute.Run`에서 새 `result.Defense`를 Contracts·저장 DTO로 전달(현재 매핑 없음). 다중 정책 `WeaponReplay` 참조는 자동 모드를 거부하므로 SkillReplay를 써야 한다.
+- **F2-B:** 진행 중. 엔진 `1a86ec9` merge 통지(2026-09-29). **F2-U:** 진행 중(mock).
+
 ## 근거
 
 [사용자 요구 사항 R1~R8](user-requests-2026-09-29.ko.md)을 한 번에 처리한다(사용자 지시). 요구 원문·해석은 그 문서를 따른다. 보스 선택(R8)은 **표시만** 한다(사용자 선택, 2026-09-29): 이름·이미지 선택과 저장까지이며 약점·거리 등 전투 반영은 보스별 데이터가 준비되면 다음 단계에서 한다. 더미 보스 = 현재 동작.
