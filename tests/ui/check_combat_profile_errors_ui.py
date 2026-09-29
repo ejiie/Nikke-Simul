@@ -94,7 +94,6 @@ async def run_case(browser, name, spec, args, out, sources):
         await page.goto(base + '/editor/')
         await page.wait_for_function("document.body.dataset.ready==='true'", timeout=90000)
         await page.locator('[data-tab="raid"]').click()
-        await page.locator('[name="seconds"]').fill('5')
 
         def has_expected(textv):
             return all(x in textv for x in spec['expect']) and HINT in textv

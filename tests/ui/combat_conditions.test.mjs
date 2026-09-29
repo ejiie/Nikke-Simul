@@ -52,7 +52,7 @@ await check('range_status_boundaries_inclusive_and_rl', () => {
   assert.equal(cond.rangeStatus(r, 36).kind, 'out');
   assert.equal(cond.rangeStatus(r, null).kind, 'unset');
   assert.equal(cond.rangeStatus(profiles['5009'], 0).kind, 'no_bonus');
-  assert.match(cond.rangeStatus(profiles['5009'], 0).text, /보너스 없음\(데이터 0–0, 확인 필요\)/);
+  assert.equal(cond.rangeStatus(profiles['5009'], 0).text, '보너스 없음 (0–0)'); // R2: verified data, no '확인 필요'
   assert.equal(cond.rangeStatus(null, 30).kind, 'unknown');
 });
 
@@ -81,11 +81,18 @@ await check('member_preview_mixed_deck', () => {
 });
 
 await check('distance_dialog_table', () => {
-  const html = cond.renderDistanceDialog({ bossDistance: 35, bossWeakElement: null }, catalog, cond.memberPreview(members, profiles, { bossDistance: 35, bossWeakElement: null }));
-  assert.ok(html.includes('0–0 · 보너스 없음(확인 필요)'));
-  assert.ok(html.includes('Harran (#5042): 25–45'));
+  const names = new Map([['5042', '하란']]);
+  const html = cond.renderDistanceDialog({ bossDistance: 35, bossWeakElement: null }, catalog,
+    cond.memberPreview(members, profiles, { bossDistance: 35, bossWeakElement: null }), { nameOf: x => names.get(x.characterId) ?? x.name });
+  // R2: weapon icon + text, "적정 사거리" header, Korean exception names without codes, no source/verification footer.
+  assert.ok(html.includes('0–0 · 보너스 없음') && !html.includes('확인 필요') && !html.includes('잠정'));
+  assert.ok(html.includes('하란: 25–45') && !html.includes('#5042') && !html.includes('Harran'));
+  assert.ok(html.includes('<th>적정 사거리</th>') && !html.includes('(다수)'));
   assert.equal((html.match(/data-weapon=/g) ?? []).length, 6);
-  assert.ok(html.includes('실게임 검증 전'));
+  for (const icon of ['shotgun', 'submachine_gun', 'assault_rifle', 'machine_gun', 'sniper_rifle', 'rocket_launcher'])
+    assert.ok(html.includes(`/editor/assets/ui/weapon-${icon}.png`), icon);
+  for (const gone of ['실게임 검증 전', '무기군 표는 참고용', '원천', 'sha256', 'blabla_roledata', '양끝 포함'])
+    assert.ok(!html.includes(gone), gone);
   const failed = cond.renderDistanceDialog(cond.createConditionState(), null, [], { error: 'combat_profile_catalog_missing' });
   assert.ok(failed.includes('불러오지 못했습니다. combat_profile_catalog_missing'));
 });
@@ -94,7 +101,8 @@ await check('element_dialog_states_boss_weakness_explicitly', () => {
   const preview = cond.memberPreview(members, profiles, { bossDistance: null, bossWeakElement: 'fire' });
   const html = cond.renderElementDialog({ bossDistance: null, bossWeakElement: 'fire' }, preview, catalog);
   assert.ok(html.includes('보스의 약점 속성 — 이 속성 니케가 우월 코드 보너스를 받습니다'));
-  assert.ok(html.includes('니케 자신의 속성이나 보스 자신의 속성이 아닙니다'));
+  assert.ok(!html.includes('니케 자신의 속성이나 보스 자신의 속성이 아닙니다')); // R1: removed, top warning kept
+  for (const en of ['Fire', 'Water', 'Wind', 'Iron', 'Electronic', 'Electric']) assert.ok(!html.includes(`>${en}<`) && !html.includes(` ${en}`), en);
   assert.equal((html.match(/data-cond-element="/g) ?? []).length, 6);
   for (const e of ['fire', 'water', 'wind', 'iron', 'electric']) assert.ok(html.includes(`/editor/assets/ui/code-${e}.png`), e);
   assert.ok(html.includes('덱: 리타, 누아르'));
@@ -105,7 +113,7 @@ await check('compatibility_display_uses_backend_mode', () => {
   const fresh = cond.describeCompatibility({ mode: 'per_member', label: '보스 거리·약점(멤버별)', legacyProperDistance: false,
     legacyElementAdvantage: false, bossDistance: 35, bossWeakElement: 'Fire' });
   assert.equal(fresh.mode, 'per_member');
-  assert.equal(fresh.text, '보스 거리·약점(멤버별) · 보스 거리 35 · 약점 작열(Fire)');
+  assert.equal(fresh.text, '보스 거리·약점(멤버별) · 보스 거리 35 · 약점 작열');
   const unset = cond.describeCompatibility({ mode: 'per_member', label: '보스 거리·약점(멤버별)', bossDistance: null, bossWeakElement: null });
   assert.equal(unset.text, '보스 거리·약점(멤버별) · 보스 거리 미설정 · 약점 없음');
   const legacy = cond.describeCompatibility({ mode: 'legacy_global', label: '이전 방식(전원 적용)', legacyProperDistance: true,
@@ -113,9 +121,9 @@ await check('compatibility_display_uses_backend_mode', () => {
   assert.equal(legacy.mode, 'legacy');
   assert.equal(legacy.text, '이전 방식(전원 적용) · 적정 거리 적용 · 우월 코드 미적용');
   assert.equal(cond.describeCompatibility(null).mode, 'unknown');
-  assert.equal(cond.describePlannedConditions({ bossDistance: 35, bossWeakElement: 'fire' }), '보스 거리 35 · 약점 작열(Fire) (멤버별 판정)');
+  assert.equal(cond.describePlannedConditions({ bossDistance: 35, bossWeakElement: 'fire' }), '보스 거리 35 · 약점 작열 (멤버별 판정)');
   const controls = cond.renderConditionControls({ bossDistance: 35, bossWeakElement: 'fire' }, { legacy: legacy.text, catalog });
-  assert.ok(controls.includes('적정 거리 · 35') && controls.includes('약점 · 작열(Fire)') && controls.includes('이전 방식(전원 적용)'));
+  assert.ok(controls.includes('적정 거리 · 35') && controls.includes('약점 · 작열<') && controls.includes('이전 방식(전원 적용)'));
   assert.ok(!controls.includes('type="hidden"'));
 });
 

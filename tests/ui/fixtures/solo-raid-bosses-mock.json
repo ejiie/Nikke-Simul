@@ -1,0 +1,9 @@
+{
+  "_note": "UI MOCK for F2-U R8 before the Backend boss list. Shape and route are provisional (raid-conditions.js). Names are synthetic placeholders, not real bosses; imageUrl paths are routed by the mock check to local stand-in images.",
+  "bosses": [
+    { "id": "dummy", "name": "더미 보스", "season": null, "imageUrl": null, "weakElement": null, "dummy": true },
+    { "id": "mock-a", "name": "모의 보스 A", "season": 41, "imageUrl": "/mock-boss/a.png", "weakElement": "Fire", "dummy": false },
+    { "id": "mock-b", "name": "모의 보스 B", "season": 40, "imageUrl": "/mock-boss/b.png", "weakElement": "Electronic", "dummy": false },
+    { "id": "mock-c", "name": "모의 보스 C (이미지 없음)", "season": 39, "imageUrl": null, "weakElement": "Water", "dummy": false }
+  ]
+}

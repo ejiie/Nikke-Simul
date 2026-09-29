@@ -360,7 +360,7 @@ async def live_check(browser, dotnet, source, output):
             await page.wait_for_function("document.body.dataset.ready==='true'", timeout=60000)
             await page.locator('[data-tab="raid"]').click()
             await page.locator('[name="crit"]').select_option('on')
-            await page.locator('[name="seconds"]').fill('180')
+            # F-COND-2 R3: the form has no time input; battles are always 180 s.
             async with page.expect_response(lambda r: r.request.method == 'POST' and r.url.endswith('/api/runtime/skill-replays'), timeout=180000) as pending:
                 await page.locator('#run-replay').click()
             response = await pending.value

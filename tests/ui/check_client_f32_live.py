@@ -266,7 +266,7 @@ async def desktop_checks(browser, base, api, out, problems):
     result['raidPolicyOptions'] = options
     if [o['value'] for o in options] != ['client_f32', 'legacy_term_floor', 'final_round_even', 'nested_floor'] or not options[0]['selected']:
         problems.append(f'desktop: raid policy options {options}')
-    await page.locator('[name="seconds"]').fill('20')
+    # F-COND-2 R3: battle time is fixed at 180 s (no input).
     await page.locator('[name="core"]').check()
     async with page.expect_response(lambda r: r.request.method == 'POST' and r.url.endswith('/api/runtime/skill-replays'), timeout=240000) as pending:
         await page.locator('#run-replay').click()
