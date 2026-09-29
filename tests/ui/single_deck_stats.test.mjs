@@ -403,9 +403,19 @@ await check('controller_combat_profile_invalid_is_not_an_outage', async () => {
   await controller.start();
   const model = controller.getModel();
   assert.equal(model.endpointStatus, 'connected');
-  assert.ok(model.errors.some(e => e.includes('사거리·속성 데이터 오류 · 앨리스(#5004) · 속성(element) · 값이 null')), model.errors.join(' | '));
+  assert.ok(model.errors.some(e => e.includes('사거리·속성 데이터 오류 · 앨리스 · 속성(element) · 값이 null')), model.errors.join(' | '));
   assert.ok(!view.renderSingleDeckStats(model).includes('compute API 미연결'));
   controller.dispose();
+});
+
+// U-FIX-3: the deck list shows Korean names only (codes stay in data attributes); names fall back to 이름 미확인.
+await check('deck_list_has_no_character_codes', () => {
+  const markup = html({ batch: batches.completed });
+  assert.ok(!/#50\d\d/.test(markup), 'character code shown');
+  assert.ok(markup.includes('data-character-id="5004"') && markup.includes('앨리스'));
+  const anon = view.renderSingleDeckStats(view.buildStatsModel({ batch: batches.completed }));
+  assert.ok(!/#50\d\d/.test(anon) && anon.includes('이름 미확인'));
+  assert.ok(!/>50\d\d</.test(anon), 'bare code used as a name');
 });
 
 const failed = checks.filter(c => !c.passed);

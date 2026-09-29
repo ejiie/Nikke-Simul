@@ -35,9 +35,9 @@ from prepare_combat_conditions import write_runtime  # noqa: E402
 WIDTHS = [1500, 850, 500]
 CASES = {
     'member_min_missing': {'mutate': lambda c: c['combatProfiles']['characters']['5004'].pop('bonusRangeMin'),
-                           'code': 'combat_profile_invalid', 'expect': ['앨리스(#5004)', '최소 사거리(bonusRangeMin)', '값 없음(키 누락)']},
+                           'code': 'combat_profile_invalid', 'expect': ['앨리스 ·', '최소 사거리(bonusRangeMin)', '값 없음(키 누락)']},
     'element_null': {'mutate': lambda c: c['combatProfiles']['characters']['5011'].__setitem__('element', None),
-                     'code': 'combat_profile_invalid', 'expect': ['리타(#5011)', '속성(element)', '값이 null']},
+                     'code': 'combat_profile_invalid', 'expect': ['리타 ·', '속성(element)', '값이 null']},
     'catalog_missing': {'mutate': None, 'code': 'combat_profile_catalog_missing', 'expect': ['준비되지 않았습니다']},
 }
 HINT = 'prepare_combat_conditions.py'

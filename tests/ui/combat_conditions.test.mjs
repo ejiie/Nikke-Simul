@@ -143,14 +143,15 @@ await check('combat_profile_invalid_diagnostics', () => {
     characterId: '5004', field: 'combatProfiles.characters.5004.bonusRangeMin', reason: 'missing' };
   const d = cond.describeCombatProfileError(apiError(409, body), names);
   assert.equal(d.code, 'combat_profile_invalid');
-  assert.equal(d.text, '사거리·속성 데이터 오류 · 앨리스(#5004) · 최소 사거리(bonusRangeMin) · 값 없음(키 누락). 서버 runtime의 사거리·속성 데이터 확인 후 prepare_combat_conditions.py로 다시 준비해야 합니다.');
+  assert.equal(d.text, '사거리·속성 데이터 오류 · 앨리스 · 최소 사거리(bonusRangeMin) · 값 없음(키 누락). 서버 runtime의 사거리·속성 데이터 확인 후 prepare_combat_conditions.py로 다시 준비해야 합니다.');
   assert.equal(d.raw, 'combat_profile_invalid: combatProfiles.characters.5004.bonusRangeMin: missing');
   const reasons = { null: '값이 null', wrong_type: '자료형 오류', out_of_range: '범위 오류(0–100, 최소 ≤ 최대)', unsupported_value: '지원하지 않는 값',
     id_mismatch: 'ID 불일치', weapon_mismatch: '무기군 불일치', hash_mismatch: '출처 해시 불일치' };
   for (const [reason, label] of Object.entries(reasons))
     assert.ok(cond.describeCombatProfileError(apiError(409, { ...body, reason }), names).text.includes(label), reason);
   const element = cond.describeCombatProfileError(apiError(409, { ...body, characterId: '9999', field: 'combatProfiles.characters.9999.element', reason: 'unsupported_value' }), names);
-  assert.match(element.text, /#9999 · 속성\(element\) · 지원하지 않는 값/);
+  assert.match(element.text, /이름 미확인 캐릭터 · 속성\(element\) · 지원하지 않는 값/); // U-FIX-3: no character codes
+  assert.ok(!element.text.includes('9999'));
   const source = cond.describeCombatProfileError(apiError(409, { ...body, characterId: null, field: 'combatProfiles.source.sha256', reason: 'hash_mismatch' }));
   assert.match(source.text, /카탈로그·출처 · combatProfiles\.source\.sha256 · 출처 해시 불일치/);
   // Code only in the message still maps (older error shape).
@@ -161,7 +162,8 @@ await check('catalog_missing_member_missing_and_unrelated', () => {
   const missing = cond.describeCombatProfileError(apiError(409, { message: 'combat_profile_catalog_missing' }));
   assert.match(missing.text, /combatProfiles\)가 준비되지 않았습니다.*prepare_combat_conditions\.py/);
   const member = cond.describeCombatProfileError(apiError(400, { message: 'combat_member_profile_missing:5011' }), new Map([['5011', '리타']]));
-  assert.match(member.text, /^리타\(#5011\)의 사거리·속성 데이터가 없습니다/);
+  assert.match(member.text, /^리타의 사거리·속성 데이터가 없습니다/);
+  assert.ok(!member.text.includes('5011'));
   assert.equal(cond.describeCombatProfileError(apiError(400, { message: 'boss_conditions_mixed_with_legacy' })), null);
   assert.equal(cond.describeCombatProfileError(new TypeError('Failed to fetch')), null);
 });

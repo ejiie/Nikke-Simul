@@ -112,3 +112,42 @@ Director 통지: Backend 확정 `aa1b71e`(엔진 `1a86ec9` 포함) merge(`92aef7
 - EXE 빌드·배포 없음. 원본 경로·5180/5181·원본 `data/local` 미접촉. **배포 시 원본 presentation에 `prepare_solo_raid_bosses.py`, runtime에 `prepare_combat_conditions.py` 준비가 필요**하다(Backend 보고와 같음). 준비 전에는 보스 목록이 더미만 + `보스 목록 준비 중` 안내다.
 - 20억 초과 전환은 합성 100배 공격력 창으로만 재현했다(합성 계정 180초 기본 피해는 20억 미만). 경계 세부(정확히 20억 무전환·다음 타격부터)는 Backend 문서상 실게임 확인 대기 가설이다.
 - 보스 선택은 표시·저장만 한다(보스별 약점·거리·DEF 반영은 다음 단계).
+
+## 7. U-FIX-3 — 통계 DEF 카드(F2-Q-1)·캐릭터 코드 노출 정리 (2026-09-29)
+
+배정: Director 지시서 `F2-Q`·`U-FIX-3` 항목, QA 보고서 `검수/docs/combat-conditions-cleanup-qa.ko.md`(검수 `09c9d8a`, 근거 `f2-2a4bc7b9cd59/defect-F2-Q-1.*`, 읽기만 함). 기준 `dae1949`, 새 merge 없음.
+
+### 7.1 F2-Q-1 — DEF 정책 카드
+
+`single-deck-stats.js`의 `DEF 정책` 카드 부제가 `'자동 20억 전환 없음'` 고정 문자열이었다. 저장 정책(`input.battleConditions`, 없으면 `/battle-conditions`, 그다음 `input.defPolicy`)과 실행 결과(`/results`의 `runs[].defense`, 최대 1,000행)로 `describeDefensePolicy`(raid-conditions.js)가 만든다:
+
+| 경우 | 값 | 부제 |
+|---|---|---|
+| 실행 전(예정) | `자동 전환 (30,925 → 31,784)` | `누적 대미지 20억 초과 후 다음 타격부터 전환` |
+| 자동·전환 없음 | 같음 | `전환 없음 · N회 모두 누적 20억 이하` |
+| 자동·전환 있음 | 같음 | 1회: `방어력 30,925 → 31,784 · 20.88초(1,253프레임) 누아르 타격 후 전환 · 누적 2,000,901,314`, 여러 회: `N회 중 K회 전환 · 첫 결과: …`(1,000행 초과면 `(불러온 결과 기준)`) |
+| 자동·전환 기록 없음(과거 행 null) | 같음 | `… · 실행 결과의 전환 기록 없음` |
+| 이전 방식 fixed | `이전 방식 · 방어력 31,784 고정` | `이전 방식(고정 방어력) · 누적 대미지에 따른 전환 없음(당시 조건)` |
+
+### 7.2 캐릭터 코드 노출 정리 (데이터 속성·내부 키 유지)
+
+| 위치 | 이전 | 이후 |
+|---|---|---|
+| `single-deck-stats.js` 덱 목록 | 이름 + `#5004` 배지, 덱 정보가 없으면 이름 자리에 코드 | 한글 이름만(`data-character-id` 속성으로 보존), 없으면 `이름 미확인` |
+| `single-deck-stats.js` 통계 멤버 이름 map | 이름 없으면 코드 | `이름 미확인` |
+| `compute-adapter.js` OL 비교 변경 항목·이름 함수 | 이름 없으면 코드 | `이름 미확인` |
+| `damage-log-adapter.js` 효과 출처(`auditNikkeText`) | `누아르 (#5009)`, `니케 #5008` | `누아르`, `이름 미확인 니케` |
+| `combat-conditions.js` 사거리·속성 진단(`앨리스(#5004)`, `#9999`) | 코드 포함 | 이름만, 없으면 `이름 미확인 캐릭터` |
+| `combat-conditions.js` 멤버 미리보기·이름 map | 이름 없으면 코드/영문 | `이름 미확인` |
+| `app.js` 편성 멤버·조건 멤버·전술 요약·버스트 사이클 표·검산 결과 멤버 제목 | presentation 이름 없으면 코드 | snapshot 한글 이름, 없으면 `이름 미확인`(결과 제목은 `data-character-id` 보존) |
+| `damage-log.js` 피해 로그 대상 이름 | 이름 없으면 코드 | `이름 미확인` |
+| `burst-tactics.js` 전술 목록 이름 | 이름 없으면 코드 | `이름 미확인` |
+
+타격·발사·함수·버스트 시전 번호, replay ID는 캐릭터 코드가 아니라 유지했다. 니케 관리·편성 카드 렌더에는 화면 문자로 나가는 코드가 없었다(데이터 속성·캐시 키만).
+
+### 7.3 검증
+
+- **실제 격리 API + Chromium** `python tests/ui/check_raid_conditions_live.py … --expect-bosses 43` → 통과 `artifacts/ui/raid-conditions-live/run-91b31b09b729`: 통계 실험 3건 — 기본(자동·전환 없음) `전환 없음 · 1회 모두 누적 20억 이하`, 나가는 요청에만 합성 100배 공격 창을 넣은 자동 전환 실험 `방어력 30,925 → 31,784 · 20.88초(1,253프레임) 누아르 타격 후 전환 · 누적 2,000,901,314`(실제 `runs[].defense`와 일치), 나가는 요청을 `conditionProfile:"legacy"`·fixed 31,784로 바꾼 실험 `이전 방식 · 방어력 31,784 고정`(`defPolicy fixed:31784`). 솔로 레이드·통계 화면 표시 텍스트에서 캐릭터 코드(`50xx`) 0건. 원천 해시 불변.
+- 단위: raid 6/6(DEF 카드 5경우·옛 문구 부재·코드/trace ID 미노출), 통계 19/19(덱 목록 코드 없음·`이름 미확인`), 조건 12/12·damage_audit 19/19(코드 없는 이름으로 기대값 갱신).
+- 기존 회귀: Q3 26/26, client_f32_mock, vitest 13/13, raid·combat·client_f32 mock 브라우저, 솔로 레이드·통계·damage audit 브라우저, combat-conditions·profile-errors·client_f32 live 모두 통과.
+- EXE·원본 `data/local`·5180/5181 미접촉.

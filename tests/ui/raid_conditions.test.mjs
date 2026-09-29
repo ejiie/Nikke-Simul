@@ -89,6 +89,31 @@ await check('boss_list_confirmed_shape_and_notice', () => {
   assert.ok(!evil.includes('<img src=x>') && !evil.includes('"><script>'));
 });
 
+// U-FIX-3 / F2-Q-1: the statistics DEF card follows the stored policy and runs.
+await check('defense_policy_card_auto_switch_none_legacy', () => {
+  const names = new Map([['5004', '앨리스']]);
+  const bc = { profile: 'solo_raid', label: '덱 누적 피해에 따라 방어력 자동 전환', defenseMode: 'team_damage_threshold', initialDefense: 30925, switchedDefense: 31784 };
+  const sw = { mode: 'team_damage_threshold', initialDefense: 30925, finalDefense: 31784, damageThreshold: 2000000000,
+    switchAfterHit: { frame: 750, hitTraceId: 3076, characterId: '5004', cumulativeDamage: 2013492851, previousDefense: 30925, newDefense: 31784 } };
+  const none = { mode: 'team_damage_threshold', initialDefense: 30925, finalDefense: 30925, damageThreshold: 2000000000, switchAfterHit: null };
+  const planned = raid.describeDefensePolicy({}, null, { planned: true });
+  assert.deepEqual(planned, { value: '자동 전환 (30,925 → 31,784)', sub: '누적 대미지 20억 초과 후 다음 타격부터 전환' });
+  const one = raid.describeDefensePolicy({ defPolicy: 'team_damage_threshold:30925:2000000000:31784', battleConditions: bc }, [sw], { names });
+  assert.equal(one.value, '자동 전환 (30,925 → 31,784)');
+  assert.equal(one.sub, '방어력 30,925 → 31,784 · 12.5초(750프레임) 앨리스 타격 후 전환 · 누적 2,013,492,851');
+  const two = raid.describeDefensePolicy({ defPolicy: 'team_damage_threshold:30925:2000000000:31784' }, [none, sw], { names, partial: true });
+  assert.match(two.sub, /^2회 중 1회 전환 \(불러온 결과 기준\) · 첫 결과: 방어력 30,925 → 31,784/);
+  const noSwitch = raid.describeDefensePolicy({ battleConditions: bc }, [none, none]);
+  assert.equal(noSwitch.sub, '전환 없음 · 2회 모두 누적 20억 이하');
+  assert.match(raid.describeDefensePolicy({ battleConditions: bc }, []).sub, /실행 결과의 전환 기록 없음/);
+  // The old fixed message never appears for the automatic mode.
+  for (const card of [planned, one, two, noSwitch]) assert.ok(!(card.value + card.sub).includes('자동 20억 전환 없음'));
+  const legacy = raid.describeDefensePolicy({ defPolicy: 'fixed:31784', battleConditions: { profile: 'legacy', label: '이전 방식(고정 방어력)', defenseMode: 'fixed', initialDefense: 31784 } }, [null]);
+  assert.deepEqual(legacy, { value: '이전 방식 · 방어력 31,784 고정', sub: '이전 방식(고정 방어력) · 누적 대미지에 따른 전환 없음(당시 조건)' });
+  assert.equal(raid.describeDefensePolicy({ defPolicy: 'fixed:30925' }).value, '이전 방식 · 방어력 30,925 고정');  // record without battleConditions
+  assert.ok(!one.sub.includes('5004') && !one.sub.includes('3076'));
+});
+
 const failed = checks.filter(c => !c.passed);
 console.log(JSON.stringify({ evidence: 'mock_only_not_api', total: checks.length, failed: failed.length, checks }, null, 2));
 if (failed.length) process.exit(1);

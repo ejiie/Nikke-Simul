@@ -200,3 +200,34 @@ export function mountBossSelector(container, { loadBosses = async () => null, on
     dispose: () => dialog.remove()
   };
 }
+
+/**
+ * Statistics "DEF 정책" card from the STORED policy (input.defPolicy / input.battleConditions) and the stored run
+ * results (runs[].defense). Automatic mode never reads as "no switch" unless the runs show none; the fixed policy of
+ * older records keeps its own value. `runs` = defense objects of the loaded runs (null entries = not recorded).
+ */
+export function describeDefensePolicy({ defPolicy = null, battleConditions = null } = {}, runs = null,
+  { names = null, planned = false, partial = false } = {}) {
+  const bc = battleConditions && typeof battleConditions === 'object' ? battleConditions : null;
+  const policy = text(defPolicy);
+  const auto = bc ? bc.defenseMode === 'team_damage_threshold' : policy?.startsWith('team_damage_threshold') ?? false;
+  const fixed = bc ? bc.defenseMode === 'fixed' : policy?.startsWith('fixed') ?? false;
+  const autoValue = `자동 전환 (${num(bc?.initialDefense ?? DEF_BEFORE)} → ${num(bc?.switchedDefense ?? DEF_AFTER)})`;
+  const rule = '누적 대미지 20억 초과 후 다음 타격부터 전환';
+  if (planned) return { value: autoValue, sub: rule };
+  if (auto) {
+    const recorded = (Array.isArray(runs) ? runs : []).filter(d => d && typeof d === 'object');
+    const scope = partial ? ' (불러온 결과 기준)' : '';
+    if (!recorded.length) return { value: autoValue, sub: `${rule} · 실행 결과의 전환 기록 없음` };
+    const switched = recorded.filter(d => d.switchAfterHit);
+    if (!switched.length) return { value: autoValue, sub: `전환 없음 · ${num(recorded.length)}회 모두 누적 20억 이하${scope}` };
+    const first = describeDefenseResult(switched[0], { names });
+    return { value: autoValue, sub: recorded.length === 1 ? first : `${num(recorded.length)}회 중 ${num(switched.length)}회 전환${scope} · 첫 결과: ${first}` };
+  }
+  if (fixed) {
+    const value = Number.isFinite(bc?.initialDefense) ? bc.initialDefense : Number(policy?.split(':')[1]);
+    return { value: `이전 방식 · 방어력 ${Number.isFinite(value) ? num(value) : '기록 없음'} 고정`,
+      sub: `${bc?.label ?? '이전 방식(고정 방어력)'} · 누적 대미지에 따른 전환 없음(당시 조건)` };
+  }
+  return { value: policy ?? '기록 없음', sub: '저장된 정책 그대로 표시' };
+}
