@@ -36,7 +36,7 @@
   - **F2-Q-1(UI):** `apps/desktop-ui/single-deck-stats.js:56` 단일 덱 통계 "DEF 정책" 카드 부제가 **`'자동 20억 전환 없음'` 고정 문자열**이라 자동 모드·실제 전환한 실험에도 그대로 표시된다(Director 코드 확인).
   - QA 자체 도구 오류(nullable raw 처리, 초기 replay/compute 택틱 적용 차이)는 원 로그를 보존한 채 QA 도구만 고쳤고 제품 결함이 아니다.
   - 미판정: 실게임 20억 경계·사거리 양끝, 실사용 덱, 원본 배포, 성능·GPU·Q-CPU-10K.
-- **U-FIX-3 배정(2026-09-29, F2-U 담당):** (1) F2-Q-1 — DEF 정책 카드를 저장된 정책으로 구분 표시: 자동 모드(전환 있음이면 시점·캐릭터·누적, 없음이면 "전환 없음"), legacy 고정 DEF는 이전 방식 설명. (2) Director 추가 발견 — 같은 파일 46행 덱 목록이 **캐릭터 코드(`#5004` 등)**를 노출한다. R2의 "캐릭터 코드는 UI에 노출하지 않는다" 사용자 지시에 맞춰 제거(한글 이름만). 다른 화면에도 같은 코드 노출이 있으면 목록으로 보고하고 같은 기준으로 정리. 실제 격리 API + 브라우저로 자동 전환 있음/없음/legacy 세 경우 재확인. 이후 QA 재수용.
+- **U-FIX-3 배정(2026-09-29, F2-U 담당):** (1) F2-Q-1 — DEF 정책 카드를 저장된 정책으로 구분 표시: 자동 모드(전환 있음이면 시점·캐릭터·누적, 없음이면 "전환 없음"), legacy 고정 DEF는 이전 방식 설명. (2) Director 추가 발견 — 같은 파일 46행 덱 목록이 **캐릭터 코드(`#5004` 등)**를 노출한다. R2의 "캐릭터 코드는 UI에 노출하지 않는다" 사용자 지시에 맞춰 제거(한글 이름만). 다른 화면에도 같은 코드 노출이 있으면 목록으로 보고하고 같은 기준으로 정리. 실제 격리 API + 브라우저로 자동 전환 있음/없음/legacy 세 경우 재확인. 이후 QA 재수용. 전달 `term_c322a450…` 요청 `7897384f-e4d3-4e47-a1df-a2b979b982ae`, accepted=true·`input_accepted`, 화면에서 작업 중 확인.
 - **F2-U 2단계 통지(2026-09-29):** Backend `aa1b71e` 기준 R4·R8 실제 연결 + 앱 화면·코드 주석의 Nikke-Local-Lab 출처 표기 삭제.
 - (이전) 엔진 `1a86ec9` merge 통지(2026-09-29) — `term_e5d05982…` 요청 `eebad101-6fd8-4a9a-a8fb-b8203c2cf1ab`, accepted=true·`input_accepted`(작업 중 턴에 전달, 재전송 없음). **F2-U:** 진행 중.
 - **F2-U 1단계: 완료, Director 검토 수용.** UI `889b679`(`e98db6a` ff 위), [보고서](C:/Users/user/orca/workspaces/Nikke-Simul/UI/docs/combat-conditions-cleanup-ui.ko.md). 변경은 `apps/desktop-ui`·UI tests·UI 문서뿐(제품 `src`·QA `tests/q3` 0). Director가 mock 캡처(전투 조건 폼·보스 선택·거리 팝업, 1500px)를 확인했다.
