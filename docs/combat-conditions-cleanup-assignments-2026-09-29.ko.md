@@ -6,7 +6,12 @@
   - 엔진 보고 검증: Core/Engine 196/196(기존 174 + 신규 22). 정확히 20억 무전환, 20억+1, 같은 프레임 멤버·추가타·SG 펠릿, Frame 0, 고정 경로, 팀 합, 자동 버스트, summary·병렬·취소. 기존 5인 180초 client 1,346,863,834 / legacy 1,346,859,763 동일.
   - 결과 계약: `SkillReplayResult.Defense`·`SkillRunSummary.Defense`(Mode·InitialDefense·FinalDefense·DamageThreshold·SwitchAfterHit — Frame·HitTraceId·HitOrdinal·CharacterId·Effect·CumulativeDamage·Previous/NewDefense), trace `defense_switch`. 버전 `skills.5-defense-switch`·`team.5-defense-switch`·`cpu-summary.4-defense-switch`.
   - Backend 후속(엔진 보고): 새 요청에 자동 모드 명시·구 fixed 저장 호환, `PreparedCompute.Create`의 fixed 라벨 수정, `PreparedCompute.Run`에서 새 `result.Defense`를 Contracts·저장 DTO로 전달(현재 매핑 없음). 다중 정책 `WeaponReplay` 참조는 자동 모드를 거부하므로 SkillReplay를 써야 한다.
-- **F2-B:** 진행 중. 엔진 `1a86ec9` merge 통지(2026-09-29) — `term_e5d05982…` 요청 `eebad101-6fd8-4a9a-a8fb-b8203c2cf1ab`, accepted=true·`input_accepted`(작업 중 턴에 전달, 재전송 없음). **F2-U:** 진행 중(mock).
+- **F2-B:** 진행 중. 엔진 `1a86ec9` merge 통지(2026-09-29) — `term_e5d05982…` 요청 `eebad101-6fd8-4a9a-a8fb-b8203c2cf1ab`, accepted=true·`input_accepted`(작업 중 턴에 전달, 재전송 없음). **F2-U:** 진행 중.
+- **F2-U 1단계: 완료, Director 검토 수용.** UI `889b679`(`e98db6a` ff 위), [보고서](C:/Users/user/orca/workspaces/Nikke-Simul/UI/docs/combat-conditions-cleanup-ui.ko.md). 변경은 `apps/desktop-ui`·UI tests·UI 문서뿐(제품 `src`·QA `tests/q3` 0). Director가 mock 캡처(전투 조건 폼·보스 선택·거리 팝업, 1500px)를 확인했다.
+  - 기존 wire로 실제 연결·검증: R1(설명 문장 삭제·속성 한국어만), R2(무기군 아이콘 + 이름, "적정 사거리", 예외 한글 이름만·코드 미노출, 출처·sha·검증 전·참고용·확인 필요·잠정 문구 삭제), R3(시간 삭제·180초), R5(크리 기본 확률 적용), R6(변경 없음), R7(샷건 삭제·per_trigger). 저장 결과 카드는 저장 당시 조건 그대로 표시.
+  - mock(flag false, wire 대기): R4 방어력 선택 삭제·자동 전환 안내, R8 보스 카드 선택(크리·정책 아래, 더미 기본, 대화상자 카드 격자, 표시·저장만). 실제 폼은 아직 고정 DEF 선택·보스 없음.
+  - UI 보고 검증: 실제 격리 API + Chromium(조건·손상 진단·client_f32 live), mock 브라우저 R1~R8 1500/850/500 넘침 0·JS 오류 0, 단위·Q3 26/26·기존 회귀 통과.
+  - 참고: 기존 코드에 Nikke-Local-Lab 출처 표기가 남아 있다 — `apps/desktop-ui/app.js` 고급 진단의 "화면: Nikke-Local-Lab" 문구, `cards.js`·`local-lab-detail.js` 첫 줄 주석, README·`desktop-ui-migration.ko.md`·`desktop-spec-editor.ko.md`. 사용자 지시(출처 미표기)에 맞춰 정리할지 사용자 확인 대기.
 
 ## 근거
 
