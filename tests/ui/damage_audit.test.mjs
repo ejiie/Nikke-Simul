@@ -181,15 +181,16 @@ await check('unknown_type_is_explicit', () => {
 
 await check('source_name_and_id_fallback', () => {
   const noir = describe({ type: 1, value: 1, basis: 'native_caster_flat_at_application' });
-  assert.equal(noir.sourceText, '누아르'); // U-FIX-3: character codes are not shown assert.equal(noir.originText, '스킬 1 · 함수 227110701');
+  assert.equal(noir.sourceText, '누아르'); // U-FIX-3: character codes are not shown
+  assert.equal(noir.originText, '스킬 1'); // U-FIX-5: function numbers are not shown
   assert.equal(describe({ source: '5008', type: 2, value: 1, basis: 'caster_final_max_hp_at_application' }).sourceText, '이름 미확인 니케');
   assert.equal(describe({ source: '5044', type: 8, value: 0.1, basis: 'native_recipient' }).sourceText, '이름 미확인 니케');
-  assert.equal(describe({ source: '5009', functionId: 127031004, type: 42, value: 0.1, basis: 'native_recipient' }).originText, '버스트 · 함수 127031004');
-  assert.equal(describe({ functionId: 119111002, type: 61, value: 0.1, basis: 'native_caster' }).originText, '함수 119111002 · 슬롯 미확인(하위 스킬·연결 함수)');
+  assert.equal(describe({ source: '5009', functionId: 127031004, type: 42, value: 0.1, basis: 'native_recipient' }).originText, '버스트');
+  assert.equal(describe({ functionId: 119111002, type: 61, value: 0.1, basis: 'native_caster' }).originText, '스킬 효과');
   assert.match(describe({ type: 1, value: 1, basis: 'native_caster' }, 100, { burstCastId: 7 }).originText, /버스트 시전 이벤트 #7/);
   const bare = describe({ functionId: 42, type: 1, value: 1, basis: 'native_caster' }, 100, undefined, adapter.createAuditContext(null, []));
-  assert.equal(bare.originText, '함수 42'); assert.equal(bare.sourceText, '이름 미확인 니케');
-  assert.equal(describe({ functionId: null, type: 1, value: 1, basis: 'native_caster' }).originText, '함수 ID 미기록');
+  assert.equal(bare.originText, '스킬 효과'); assert.equal(bare.sourceText, '이름 미확인 니케');
+  assert.equal(describe({ functionId: null, type: 1, value: 1, basis: 'native_caster' }).originText, '스킬 정보 미기록');
 });
 
 await check('duration_states', () => {

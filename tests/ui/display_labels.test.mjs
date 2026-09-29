@@ -26,10 +26,12 @@ await check('source_keys_to_korean', () => {
     ['cube:7000001:StatAtk', '큐브 · 공격력'], ['cube:7000001:Mystery', '큐브 효과'],
     ['collection:123:StatCriticalDamage', '소장품 · 크리티컬 대미지'], ['collection:123:x', '소장품 효과'],
     ['equipment:torso', '장비 · 몸통'], ['manual:attack:2', '직접 입력한 버프 2'],
-    ['function:227110701', '스킬 효과 · 함수 227110701'], ['skill:5004:1', '앨리스 · 스킬 효과'],
+    ['function:227110701', '스킬 효과'],  // U-FIX-5: no function numbers ['skill:5004:1', '앨리스 · 스킬 효과'],
     ['synthetic_f2u_threshold', '기타 효과'], ['weird:5004:raw', '기타 효과'], ['', '기타 효과']
   ];
   for (const [key, want] of cases) assert.equal(labels.describeSourceKey(key, { nameOf }), want, key);
+  // A function key the caller can resolve is shown as character · slot.
+  assert.equal(labels.describeSourceKey('function:227110701', { resolveFunction: id => id === '227110701' ? '누아르 · 스킬 1' : null }), '누아르 · 스킬 1');
   for (const [key] of cases) assert.ok(!/\b50\d\d\b|9999|7000001|:/.test(labels.describeSourceKey(key, { nameOf })), key);
   assert.equal(labels.basisLabel('native_recipient'), '수혜자 기초 스탯 기준');
   assert.equal(labels.basisLabel('unexpected_basis'), '적용 기준 미확인');
@@ -45,11 +47,12 @@ await check('audit_attack_sources_show_names_not_keys', () => {
   const ctx = adapter.createAuditContext({ inputs: [{ weapon: { characterId: '5009' }, skills: { slots: { skill1: { functionIds: [227110701], functionPhases: {} } } } }] },
     [{ id: '5004', displayName: '앨리스' }, { id: '5009', displayName: '누아르' }]);
   const audit = adapter.buildHitAudit(entry, ctx);
-  assert.deepEqual(audit.attackSources.map(s => s.source), ['앨리스 · 머리 1번 줄 · 공격력', '큐브 · 공격력', '누아르 · 스킬 1 · 함수 227110701', '기타 효과', '스킬 효과 · 함수 127131004']);
+  assert.deepEqual(audit.attackSources.map(s => s.source), ['앨리스 · 머리 1번 줄 · 공격력', '큐브 · 공격력', '누아르 · 스킬 1', '기타 효과', '스킬 효과']);
   assert.equal(audit.attackSources[0].valueText, '+4.77%');
   const text = viewer.renderDamageAuditPanel({ hitId: 1, shotId: 1, seconds: 1 }, audit).replace(/<[^>]+>/g, ' ');
   assert.ok(text.includes('상시 비율 · 앨리스 · 머리 1번 줄 · 공격력'));
   assert.ok(!/overload:|cube:|skill:|synthetic_f2u|StatAtk/.test(text), 'raw key in the panel text');
+  assert.ok(!/함수|227110701|127131004/.test(text), 'function number in the panel text'); // U-FIX-5
   // The stored entry is untouched (display-only).
   assert.equal(entry.hit.attackBuffs[0].source, 'overload:5004:head:1:StatAtk');
 });
