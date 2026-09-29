@@ -25,7 +25,12 @@
   - 발견·수정: 실제 저장 replay는 조건이 `result.conditions`에 있어 조건 줄에서 크리티컬이 빠지던 문제(1단계 mock 가정) 수정.
   - 출처 삭제: 고급 진단 "화면: Nikke-Local-Lab", `cards.js`·`local-lab-detail.js`·`local-lab-account.js`·`local-lab-adapter.js` 첫 줄 주석, `simul.css` 주석 2곳. 파일·함수 이름 유지.
   - UI 보고 실제 격리 API + Chromium(`b977e77` 기준): 보스 43개·제외 0·이미지 42, 한국어 이름 카드, 기본 replay 요청 필드·저장 boss, 합성 100배 공격으로 실제 전환(488프레임 블랑 누적 2,000,645,839) 표시, legacy 프로필 → 이전 방식 고정 방어력 표시, 통계 카드, 1500/850/500 넘침 0·JS 오류 0. 기존 회귀 통과.
-- **F2-Q 배정 준비:** 통합·QA 기준 트리 = UI `dae1949`(엔진·Backend·보스 이름 모두 포함). 사고 수준 QA high, R4 경계 xhigh — 검수 세션 설정 확인 후 전달.
+- **F2-Q 배정(2026-09-29):** 기준 UI `dae1949`(엔진·Backend·보스 이름 모두 포함). 사용자가 검수 Codex 세션을 **xhigh**로 전환(R4 경계 포함이라 세션 전체 xhigh). 범위:
+  1. R4 경계(독립 산술·자체 검사): 누적 < 20억 무전환, 정확히 20억 무전환, 20억 초과 타격은 30925·다음 타격부터 31784, 같은 프레임 멤버·추가타·SG 펠릿 순서, 전환 기록(frame·hit·캐릭터·누적)과 replay = compute 일치, 기존 고정 DEF·legacy 프로필 결과 정확 재현, 팀 합 = 구성원 합.
+  2. 조건 wire: 새 요청 기본값(180초·per_trigger·자동 DEF·크리 sample), 다른 명시값 400, `conditionProfile=legacy` 재현, `battleConditions` 저장·`/battle-conditions` 조회, 구 결과 GET/export 바이트 보존, fingerprint·튜닝 키 분리.
+  3. 보스: 한국어 목록 43개·제외 0·이미지, `bossId` 저장, 보스만 다른 실험의 피해·키 동일, UI·API 응답에 출처·영문명·원본 ID 미노출.
+  4. 화면 R1~R8(실제 격리 API + 브라우저): 약점 팝업 문구·한국어 속성, 거리 표(아이콘·한글 예외·미확정 문구 없음), 시간·방어력·샷건 입력 없음, 크리 기본 확률 적용, 보스 카드 선택, 전환 표시, 이전 기록 표시, 앱 화면의 Nikke-Local-Lab 표기 없음, 1500/850/500, 기존 회귀(F-COND-1·client_f32·통계).
+  - 담당 검사 스크립트·mock·정답 재사용 금지, 격리 dataRoot에서 `prepare_combat_conditions.py`·`prepare_solo_raid_bosses.py` 준비, 원본 `data/local`·5180/5181 불변, 부하·Q-CPU-10K 보류.
 - **F2-U 2단계 통지(2026-09-29):** Backend `aa1b71e` 기준 R4·R8 실제 연결 + 앱 화면·코드 주석의 Nikke-Local-Lab 출처 표기 삭제.
 - (이전) 엔진 `1a86ec9` merge 통지(2026-09-29) — `term_e5d05982…` 요청 `eebad101-6fd8-4a9a-a8fb-b8203c2cf1ab`, accepted=true·`input_accepted`(작업 중 턴에 전달, 재전송 없음). **F2-U:** 진행 중.
 - **F2-U 1단계: 완료, Director 검토 수용.** UI `889b679`(`e98db6a` ff 위), [보고서](C:/Users/user/orca/workspaces/Nikke-Simul/UI/docs/combat-conditions-cleanup-ui.ko.md). 변경은 `apps/desktop-ui`·UI tests·UI 문서뿐(제품 `src`·QA `tests/q3` 0). Director가 mock 캡처(전투 조건 폼·보스 선택·거리 팝업, 1500px)를 확인했다.
