@@ -2,6 +2,8 @@
 
 배포본(2026-09-29, [배포 기록](desktop-release-original-2026-09-29.ko.md))을 사용하며 사용자가 하나씩 작성하는 요구 사항을 받은 그대로 기록한다. 항목마다 상태(접수 → 배정 → 구현 → 검수 → 배포)를 갱신한다. **R1~R8은 한 번에 묶어 처리한다**(사용자, 2026-09-29).
 
+**상태(2026-09-29): R1~R8 배정됨** — [F-COND-2 지시서](combat-conditions-cleanup-assignments-2026-09-29.ko.md). R8 보스 선택은 **표시만**(사용자 선택).
+
 ## 공통 참고
 
 - **참조 프로젝트:** 사용자의 다른 프로젝트 [ejiie/Nikke-Local-Lab](https://github.com/ejiie/Nikke-Local-Lab)(비공개). **UI와 통계 쪽을 참조한다**(사용자, 2026-09-29). 사용자 본인 프로젝트이므로 **코드·UI를 가져와도 출처 표기를 남기지 않는다**(사용자 지시). 로컬에는 `C:/Users/user/Documents/GitHub/Nikke-Local-Lab.zip`만 있다 — 원격 저장소 또는 zip을 읽기 전용으로 참조한다.

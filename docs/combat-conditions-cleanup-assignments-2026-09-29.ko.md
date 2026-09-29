@@ -46,4 +46,12 @@ Nikke-Local-Lab(사용자 비공개 프로젝트)의 UI·통계를 참조한다.
 
 ## 전달 확인
 
-(전달 후 기록)
+지시서 커밋 `e98db6a`. 전달 직전 세 터미널 idle 확인.
+
+| 담당 | 터미널 | 요청 ID | 착수 근거 |
+|---|---|---|---|
+| F2-E 엔진 | `term_5e3783c1…` (codex) | `23831e95-c79e-4cc3-a5b8-895c206b9d05` | `input_accepted`·`turn_started` |
+| F2-B Backend | `term_e5d05982…` (codex) | `f8e007ca-d03f-4fd4-91a5-074774292b65` | `input_accepted`. 화면에서 Working 확인, 재전송 없음 |
+| F2-U UI | `term_c322a450…` (claude) | `13210927-4553-4535-b8bf-ead12cf23c88` | `input_accepted`·`turn_started` |
+
+검수에는 아직 배정하지 않았다. 착수 확인이며 구현 완료가 아니다.
