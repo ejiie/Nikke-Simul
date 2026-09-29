@@ -36,7 +36,7 @@ const distanceElementFields=data=>COND_WIRE.confirmed&&combatConditions
   ?conditionWire(combatConditions.getState())
   :{properDistance:data.has('distance'),elementAdvantage:data.has('element')};
 const conditionMembers=()=>formation.members().map(id=>{const p=state.presentationByCharacter.get(id);
-  return {id,displayName:p?.displayName||build(id)?.name||id,weaponCode:p?.weaponCode??null,elementCode:p?.elementCode??null};});
+  return {id,displayName:p?.displayName||build(id)?.name||'이름 미확인',weaponCode:p?.weaponCode??null,elementCode:p?.elementCode??null};});
 const getMembersWithMeta=()=>{
   const members=formation.members();
   const defaultSteps={'5011':1,'5008':2,'5009':3,'5004':3,'5044':3};
@@ -45,7 +45,7 @@ const getMembersWithMeta=()=>{
     const b=build(id);
     return {
       id,
-      displayName:p?.displayName||b?.name||id,
+      displayName:p?.displayName||b?.name||'이름 미확인', // character codes are not shown
       burstStep:p?.burstStep||defaultSteps[id]||3,
       weaponCode:p?.weaponCode||'sniper_rifle'
     };
@@ -59,7 +59,7 @@ const statsView=createSingleDeckStatsView({api,getSnapshot:()=>snapshot,getMembe
   getTacticSummary:()=>{
     const tactics=tacticsManager.getTactics?.();
     const order=(tactics?.burst3Rotation?.length?tactics.burst3Rotation:tactics?.priority?.stage3)??[];
-    return order.map(id=>state.presentationByCharacter.get(id)?.displayName??id).join(' → ');
+    return order.map(id=>state.presentationByCharacter.get(id)?.displayName??build(id)?.name??'이름 미확인').join(' → ');
   },
   // Contract v1 takes the full SkillReplayConditions; the saved burst tactic is applied by useSavedTactic.
   getConditions:()=>{
@@ -322,7 +322,7 @@ function renderRaid(){
   };
 }
 function renderReplay(saved){
-  $('replay-result').innerHTML=`<article class="surface"><p class="eyebrow">검산 결과 · ${time(saved.createdAt)}</p><h2>총 대미지 ${num(saved.result.totalDamage)}</h2><p>실측 오차 검증 전 · 지정한 조건의 시뮬레이션 결과</p>${savedCombatLine(saved)}${COND_WIRE.confirmed?conditionModeLine(describeCompatibility(saved.conditionCompatibility)):''}<div id="burst-timeline-comparison"></div>${renderBurstSummary(saved.result.teamBurst)}<div class="simul-result-grid">${saved.result.members.map(m=>`<article><h3>${esc(state.presentationByCharacter.get(m.characterId)?.displayName??m.characterId)}</h3><strong>${num(m.damage)}</strong><dl>${Object.entries(m.effects).map(([effect,dmg],index)=>`<div><dt>${esc(effectLabel(saved,m.characterId,effect,index))}</dt><dd>${num(dmg)}</dd></div>`).join('')}</dl></article>`).join('')}</div><div id="damage-log-container"></div><details><summary>저장 결과 원문</summary><pre>${esc(JSON.stringify(saved,null,2))}</pre></details></article>`;
+  $('replay-result').innerHTML=`<article class="surface"><p class="eyebrow">검산 결과 · ${time(saved.createdAt)}</p><h2>총 대미지 ${num(saved.result.totalDamage)}</h2><p>실측 오차 검증 전 · 지정한 조건의 시뮬레이션 결과</p>${savedCombatLine(saved)}${COND_WIRE.confirmed?conditionModeLine(describeCompatibility(saved.conditionCompatibility)):''}<div id="burst-timeline-comparison"></div>${renderBurstSummary(saved.result.teamBurst)}<div class="simul-result-grid">${saved.result.members.map(m=>`<article><h3 data-character-id="${esc(m.characterId)}">${esc(state.presentationByCharacter.get(m.characterId)?.displayName??build(m.characterId)?.name??'이름 미확인')}</h3><strong>${num(m.damage)}</strong><dl>${Object.entries(m.effects).map(([effect,dmg],index)=>`<div><dt>${esc(effectLabel(saved,m.characterId,effect,index))}</dt><dd>${num(dmg)}</dd></div>`).join('')}</dl></article>`).join('')}</div><div id="damage-log-container"></div><details><summary>저장 결과 원문</summary><pre>${esc(JSON.stringify(saved,null,2))}</pre></details></article>`;
   tacticsManager.renderTimelineComparison($('burst-timeline-comparison'),saved.result?.teamBurst?.fullBursts,getMembersWithMeta());
   damageLogViewer.setReplay(saved);
   // Records saved before battleConditions existed: the read-only endpoint gives the conditions used (fixed DEF).
@@ -348,7 +348,7 @@ function conditionModeLine(mode){
 }
 function renderBurstSummary(team){
   if(!team)return '';
-  const name=id=>esc(state.presentationByCharacter.get(id)?.displayName??id??'—');
+  const name=id=>esc(state.presentationByCharacter.get(id)?.displayName??build(id)?.name??(id?'이름 미확인':'—'));
   const seconds=frame=>num(frame/60);
   const reasons={missing_stage_1:'버스트 I 니케 없음',missing_stage_2:'버스트 II 니케 없음',missing_stage_3:'버스트 III 니케 없음',cooldown_stage_1:'버스트 I 쿨다운 대기',cooldown_stage_2:'버스트 II 쿨다운 대기',cooldown_stage_3:'버스트 III 쿨다운 대기'};
   const events=team.timeline.filter(e=>['burst_cast','waiting','stage_expired'].includes(e.kind));

@@ -351,7 +351,7 @@ export function describeStatistics(result, { memberOrder = [], displayNames = nu
   const keys = memberOrder.length
     ? [...memberOrder.filter(id => id in membersSource), ...Object.keys(membersSource).filter(id => !memberOrder.includes(id))]
     : Object.keys(membersSource);
-  const name = id => displayNames?.get?.(id) ?? id;
+  const name = id => displayNames?.get?.(id) ?? '이름 미확인'; // never the character code
   return {
     present: true,
     experimentId: text(result.experimentId),
@@ -369,7 +369,7 @@ export function describeOlChange(change, { displayNames = null } = {}) {
   const value = typeof change?.value === 'number' ? change.value : Number(change?.value);
   return {
     characterId,
-    displayName: displayNames?.get?.(characterId) ?? characterId ?? UNKNOWN,
+    displayName: displayNames?.get?.(characterId) ?? '이름 미확인',
     slot: text(change?.slot),
     lineIndex: isFiniteNumber(change?.lineIndex) ? change.lineIndex : null,
     optionId: text(change?.optionId),

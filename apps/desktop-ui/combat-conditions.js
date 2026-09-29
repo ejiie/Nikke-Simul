@@ -127,7 +127,7 @@ export function memberPreview(members, profiles, state) {
     const profile = profiles?.[m.id] ?? null;
     const element = profile?.element ?? elementByCode(m.elementCode)?.code ?? null;
     return {
-      id: m.id, name: m.displayName ?? profile?.name ?? m.id,
+      id: m.id, name: m.displayName ?? '이름 미확인',
       weaponType: profile?.weaponType ?? PRESENTATION_WEAPONS[m.weaponCode] ?? null,
       distance: rangeStatus(profile, state.bossDistance),
       element,
@@ -238,7 +238,7 @@ export function mountConditionControls(container, { getMembers = () => [], loadC
   doc.body.append(dialog);
   const preview = (s = state) => memberPreview(getMembers(), profiles, s);
   const paint = () => { container.innerHTML = renderConditionControls(state, { legacy, catalog }); };
-  const names = () => new Map(getMembers().map(m => [String(m.id), m.displayName ?? String(m.id)]));
+  const names = () => new Map(getMembers().map(m => [String(m.id), m.displayName ?? null]));
   const errorText = error => describeCombatProfileError(error, names())?.text ?? error?.message ?? String(error);
   const ensureCatalog = () => catalogPromise ??= Promise.resolve(loadCatalog())
     .then(payload => { catalog = payload ? normalizeCatalog(payload) : null; catalogError = null; return catalog; })
@@ -363,7 +363,8 @@ export function describeCombatProfileError(error, names = null) {
   const body = error?.details && typeof error.details === 'object' ? error.details : {};
   const message = String(body.message ?? error?.message ?? '');
   const code = text(error?.code) ?? text(body.code) ?? (message.match(/^(combat_profile_invalid|combat_profile_catalog_missing|combat_member_profile_missing)/)?.[1] ?? null);
-  const who = id => { const name = names?.get?.(String(id)) ?? null; return name && name !== String(id) ? `${name}(#${id})` : `#${id}`; };
+  // Character codes are not shown; an unnamed character stays unnamed.
+  const who = id => { const name = names?.get?.(String(id)) ?? null; return name && name !== String(id) ? name : '이름 미확인 캐릭터'; };
   if (code === 'combat_profile_invalid') {
     const field = text(body.field);
     const key = field?.split('.').pop() ?? null;

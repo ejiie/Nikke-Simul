@@ -405,7 +405,7 @@ export function createAuditContext(replay, membersWithMeta = []) {
 function auditNikkeText(id, ctx) {
   if (id == null || id === '') return '출처 미기록';
   const name = ctx?.names?.get(String(id));
-  return name ? `${name} (#${id})` : `니케 #${id}`;
+  return name ?? '이름 미확인 니케'; // character codes are not shown
 }
 
 function auditOriginText(sourceId, functionId, burstCastId, ctx) {

@@ -259,6 +259,82 @@ async def run(args):
                 if await page.evaluate("document.documentElement.scrollWidth - innerWidth") > 0:
                     problems.append(f'stats overflow @{width}')
             await page.locator('#stats-content').screenshot(path=str(out / 'stats.png'))
+            # 5) U-FIX-3 / F2-Q-1: DEF policy card for no switch (above), a real switch and an old fixed-DEF experiment.
+            async def stats_card():
+                return await page.evaluate("""() => { const c = [...document.querySelectorAll('#stats-content .metric-card')].find(c => c.querySelector('span')?.textContent.trim() === 'DEF 정책');
+                  return c ? [c.querySelector('strong').textContent.trim(), c.querySelector('small')?.textContent.trim() ?? ''] : null; }""")
+
+            async def run_experiment(rewrite, label):
+                if rewrite:
+                    async def handler(route):
+                        body = route.request.post_data_json
+                        rewrite(body)
+                        await route.continue_(post_data=json.dumps(body))
+                    await page.route('**/api/compute/experiments', handler)
+                async with page.expect_response(lambda r: r.request.method == 'POST' and r.url.endswith('/api/compute/experiments'), timeout=300000) as pending:
+                    await page.locator('#compute-start').click()
+                created = await (await pending.value).json()
+                if rewrite:
+                    await page.unroute('**/api/compute/experiments')
+                for _ in range(1500):
+                    _, done = api.call('compute/experiments/' + created['id'])
+                    if done['state'] in ('completed', 'failed', 'cancelled'):
+                        break
+                    time.sleep(.2)
+                _, results = api.call(f"compute/experiments/{created['id']}/results?offset=0&limit=1000")
+                defense = [r.get('defense') for r in results.get('runs', [])]
+                try:
+                    await page.wait_for_function("id => document.querySelector('#stats-content')?.innerText.includes(id)", arg=created['id'], timeout=60000)
+                except Exception:
+                    pass
+                await page.wait_for_timeout(1500)
+                card = await stats_card()
+                await page.locator('#stats-content').screenshot(path=str(out / f'stats-def-{label}.png'))
+                return done, defense, card
+
+            no_switch_card = await stats_card()
+            _, results0 = api.call(f"compute/experiments/{created['id']}/results?offset=0&limit=1000")
+            defense0 = [r.get('defense') for r in results0.get('runs', [])]
+            want0 = ('자동 전환 (30,925 → 31,784)', '전환 없음 · 1회 모두 누적 20억 이하') if defense0 and not defense0[0].get('switchAfterHit') else None
+            summary['defCardNoSwitch'] = {'card': no_switch_card, 'defense': defense0}
+            if not want0 or tuple(no_switch_card or ()) != want0:
+                problems.append(f'DEF card (no switch) {no_switch_card} expected {want0}')
+
+            def boost(body):
+                body['conditions']['combat']['attackBuffWindows'] = [{'characterId': cid, 'buff': {'source': 'synthetic_f2u_threshold', 'rate': 100, 'stacks': 1},
+                                                                      'startFrame': 1, 'endFrame': 10801} for cid in body['characterIds']]
+            done, defense1, card1 = await run_experiment(boost, 'switch')
+            summary['defCardSwitch'] = {'state': done['state'], 'card': card1, 'defense': defense1}
+            hit = (defense1[0] or {}).get('switchAfterHit') if defense1 else None
+            if done['state'] != 'completed' or not hit:
+                problems.append(f'switch experiment {done["state"]} {defense1}')
+            else:
+                sec = f"{round(hit['frame'] / 60 * 100) / 100:,.2f}".rstrip('0').rstrip('.')
+                want1 = ('자동 전환 (30,925 → 31,784)', f"방어력 30,925 → 31,784 · {sec}초({hit['frame']:,}프레임) {names.get(str(hit['characterId']), '니케')} 타격 후 전환 · 누적 {hit['cumulativeDamage']:,}")
+                if tuple(card1 or ()) != want1:
+                    problems.append(f'DEF card (switch) {card1} expected {want1}')
+
+            def legacy_exp(body):
+                body['conditionProfile'] = 'legacy'
+                body['conditions']['combat'].update({'enemyDefense': 31784, 'defenseMode': 'fixed'})
+            done, defense2, card2 = await run_experiment(legacy_exp, 'legacy')
+            summary['defCardLegacy'] = {'state': done['state'], 'defPolicy': done['input'].get('defPolicy'), 'card': card2, 'defense': defense2}
+            if done['state'] != 'completed' or tuple(card2 or ()) != ('이전 방식 · 방어력 31,784 고정', f"{done['input']['battleConditions']['label']} · 누적 대미지에 따른 전환 없음(당시 조건)"):
+                problems.append(f'DEF card (legacy) {card2}')
+            for card in (no_switch_card, card1, card2):
+                if card and '자동 20억 전환 없음' in ' '.join(card) and card is not card2:
+                    problems.append('old fixed DEF wording on an automatic experiment')
+
+            # U-FIX-3: no character codes in visible text of the raid and statistics screens.
+            import re
+            code = re.compile(r'#\s?50\d\d|\b50\d\d\b')
+            stats_text = await page.locator('#stats-content').inner_text()
+            await page.locator('[data-tab="raid"]').click()
+            raid_text = await page.locator('#raid-content').inner_text()
+            leaks = [m for m in code.findall(stats_text + '\n' + raid_text)]
+            summary['codeLeaks'] = leaks
+            if leaks:
+                problems.append(f'character codes visible: {leaks[:5]}')
             summary['pageErrors'] = errors
             if errors:
                 problems.append(f'page errors {errors}')
