@@ -67,17 +67,17 @@ def run_checks(s,ctx):
   page.set_viewport_size(dict(width=1500,height=1000))
   r,after=s.call('runtime/skill-replays/'+replay['id']);export,_=s.call('runtime/skill-replays/'+replay['id']+'/export.json')
   s.check('U-FIX-4 '+policy+' display preserves archive/API/export/total',archive.read_bytes()==before==r.body()==export.body() and after==replay and after['result']['totalDamage']==replay['result']['totalDamage'])
+  if policy=='client_f32':
+   for extension in ['json','csv']:
+    exported,_=s.call('runtime/skill-replays/'+replay['id']+'/damage-log/export.'+extension)
+    with page.expect_download() as pending_download:page.locator('#btn-export-'+extension).click()
+    download=s.run/('damage-log-download.'+extension);pending_download.value.save_as(str(download))
+    s.check('U-FIX-6 real '+extension+' download matches API and archive unchanged',exported.ok and download.read_bytes()==exported.body() and archive.read_bytes()==before)
   s.save('source-panel-'+policy,dict(rows=rows,archiveSha256=digest(archive),totalDamage=replay['result']['totalDamage']))
-  # Check the deliberately expandable raw-result view separately from ordinary labels.
-  page.locator('details').filter(has=page.locator('summary',has_text='저장 결과 원문')).locator('summary').click()
   rawtext=page.locator('#replay-result').inner_text()
   exposed=[k for k,_ in CASES if k in rawtext]
-  pos=rawtext.find('overload:5004')
-  raw_open.append(dict(policy=policy,exposedSourceKeys=exposed,visibleExcerpt=rawtext[max(0,pos-60):pos+180],selector='#replay-result details with summary 저장 결과 원문'))
-  if policy=='client_f32':
-   page.evaluate('''()=>{const e=document.querySelector('#replay-result details pre');const n=e.firstChild;const i=n.textContent.indexOf('overload:5004');const r=document.createRange();r.setStart(n,i);r.setEnd(n,i+30);const rect=r.getBoundingClientRect();window.scrollTo(0,scrollY+rect.top-200);const selection=getSelection();selection.removeAllRanges();selection.addRange(r);}''')
-   page.screenshot(path=str(s.run/'raw-result-expanded.png'))
-  page.locator('details').filter(has=page.locator('summary',has_text='저장 결과 원문')).locator('summary').click()
+  raw_open.append(dict(policy=policy,exposedSourceKeys=exposed,rawBlockCount=page.locator('#replay-result pre').count()))
+  s.check('F2-Q-4 '+policy+' no raw saved JSON screen',not exposed and '저장 결과 원문' not in rawtext and page.locator('#replay-result pre').count()==0)
  s.save('raw-result-view-observation',raw_open)
  s.check('U-FIX-4 expanded raw result has no source keys',not any(x['exposedSourceKeys'] for x in raw_open),raw_open)
 
@@ -111,19 +111,19 @@ def inspect_archive(s,ctx,source):
  page.route('**/api/runtime/skill-replays',get_saved)
  with page.expect_response(lambda r:r.url.endswith('/api/runtime/skill-replays/'+old['id'])) as response:page.locator('#run-replay').click()
  s.check('raw-view stored replay actual GET',response.value.request.method=='GET' and response.value.json()==old)
- raw=page.locator('details').filter(has=page.locator('summary',has_text='저장 결과 원문'));raw.locator('summary').click();pre=raw.locator('pre');pre.scroll_into_view_if_needed()
- info=pre.evaluate('''e=>{const n=e.firstChild;const i=n.textContent.indexOf('overload:5004');const r=document.createRange();r.setStart(n,i);r.setEnd(n,i+35);e.scrollTop+=r.getBoundingClientRect().top-e.getBoundingClientRect().top-100;const rect=r.getBoundingClientRect(), box=e.getBoundingClientRect();return {text:n.textContent.slice(i-50,i+130),range:{top:rect.top,bottom:rect.bottom},box:{top:box.top,bottom:box.bottom},visible:rect.top>=box.top&&rect.bottom<=box.bottom};}''')
- page.screenshot(path=str(s.run/'raw-source-scrolled.png'))
- s.check('raw-view source key actually inside visible scroll viewport',info['visible'] and 'overload:5004:head:1:StatAtk' in info['text'],info)
- s.save('raw-source-viewport',info);raw.locator('summary').click()
+ page.wait_for_selector('[data-view-audit]')
+ text=page.locator('#replay-result').inner_text()
+ s.check('F2-Q-4 stored replay no raw JSON block','저장 결과 원문' not in text and 'overload:5004' not in text and page.locator('#replay-result pre').count()==0)
+ scan_codes(s,page,'stored replay normal full screen')
  # Inventory of a real missing-character-log state, without enabling the mock button.
  page.locator('#log-character-select').select_option('5011');page.wait_for_timeout(800)
  text=page.locator('#damage-log-container').inner_text();scan_codes(s,page,'stored replay other-character log state',selector='#damage-log-container')
+ s.check('F2-Q-3 missing log names and Replay ID',all(w in text for w in ['앨리스','리타','Replay ID:']) and all(w not in text for w in ['5004','5011']),text)
  s.save('replay-identifier-state',dict(text=text,hasReplayId='Replay ID:' in text));page.screenshot(path=str(s.run/'replay-identifier-state.png'),full_page=True)
  s.check('raw-view source/copy/API preserved',source.read_bytes()==before==target.read_bytes()==s.call('runtime/skill-replays/'+old['id'])[0].body());page.close()
 
 def main():
- p=argparse.ArgumentParser();p.add_argument('--dotnet',required=True);p.add_argument('--inspect-archive',type=Path);a=p.parse_args();s=Session(a.dotnet);s.report['scope']='U-FIX-4/5 synthetic source families + actual previous QA archive' if not a.inspect_archive else 'saved raw view reproduction + identifier inventory'
+ p=argparse.ArgumentParser();p.add_argument('--dotnet',required=True);p.add_argument('--inspect-archive',type=Path);a=p.parse_args();s=Session(a.dotnet);s.report['scope']='U-FIX-6 actual source families + API/archive preservation' if not a.inspect_archive else 'F2-Q-3/4 minimal saved replay reproduction'
  try:
   with sync_playwright() as pw:
    browser=pw.chromium.launch(headless=True);ctx=browser.new_context(viewport=dict(width=1500,height=1000));ctx.tracing.start(screenshots=True,snapshots=True,sources=True)

@@ -18,6 +18,16 @@ def scan_codes(s,page,label,selector='body'):
  s.check('U-FIX-3 no character codes '+label,not found,found)
  functions=re.findall(r'(?:함수\s*#?\s*\d+|\bfunction:\d+)',text)
  s.check('U-FIX-5 no function numbers '+label,not functions,functions)
+ # This scan covers source/error keys, not every possible wire field. The audit
+ # table's calculation path and stored term strings have their own minimal test.
+ # /legacy is excluded; policy/script identifiers are explicit user exceptions.
+ if '/legacy/' not in page.url:
+  raw_pattern=r'overload:|cube:|collection:|equipment:|manual:attack:|skill:\d|function:|combatProfiles|bonusRangeMin|bonusRangeMax|서버 원문|저장 결과 원문|\bStat[A-Z]\w*'
+  raw=[m.group(0) for m in re.finditer(raw_pattern,text)]
+  allowed_keys={'client_f32','legacy_term_floor','final_round_even','nested_floor','prepare_combat_conditions','prepare_solo_raid_bosses'}
+  snake=[x for x in re.findall(r'\b[A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+\b',text) if x not in allowed_keys]
+  s.report.setdefault('visibleTextScans',[]).append(dict(label=label,url=page.url,text=text,raw=raw,snake=snake))
+  s.check('U-FIX-6 no raw keys/server codes '+label,not raw and not snake,dict(raw=raw,snake=snake))
 
 def record_identifiers(s,text,label):
  # Inventory only; the later U-FIX-5 decision is enforced separately by scan_codes.

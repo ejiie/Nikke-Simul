@@ -13,7 +13,7 @@ from actual_stats import metric
 ROOT=Path(__file__).resolve().parents[2]
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--dotnet',required=True);p.add_argument('--stats-only',action='store_true');p.add_argument('--f2-legacy-regression',action='store_true');a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--dotnet',required=True);p.add_argument('--desktop-only',action='store_true');p.add_argument('--stats-only',action='store_true');p.add_argument('--f2-legacy-regression',action='store_true');a=p.parse_args()
     run=ROOT/'artifacts/single-deck-qa'/('f32-b2-'+uuid.uuid4().hex[:12]);data=run/'data';data.mkdir(parents=True)
     source=ROOT/'artifacts/single-deck-qa/load1000-3db71912a601/data'
     hashes,game,snapshot,ids=create(source,data)
@@ -91,56 +91,57 @@ def main():
                 check(label+' width '+str(width),not overflow);shot(page,label+'-'+str(width))
             page.set_viewport_size(dict(width=1500,height=1000))
         if not a.stats_only:
-            web=ctx.new_page();attach(web);web.goto(base+'/legacy/');web.locator('[data-character="5004"]').click();web.locator('#scenario-level').fill('400');web.locator('#load-stats').click();web.locator('.hit-workbench summary').first.click()
-            web.locator('[name="statDamageRatio"]').wait_for()
-            check('web default and experimental labels',web.locator('[name="roundingPolicy"]').input_value()=='client_f32' and web.locator('[name="statDamageRatio"]').input_value()=='1' and web.locator('[name="defenceRatioRate"]').input_value()=='0' and '미확정' in web.locator('.experimental-inputs').inner_text())
-            def submit(label):
-                with web.expect_response(lambda r:r.url.endswith('/api/calculations/hit') and r.request.method=='POST') as pending:web.locator('.hit-form button[type="submit"]').click()
-                response=pending.value;value=response.json();web.wait_for_timeout(150);save(label,value);return response,value
-            web.locator('[name="attack-buffs"]').fill('14.5');web.locator('[name="statDamageRatio"]').fill('2');web.locator('[name="defenceRatioRate"]').fill('0.25')
-            response,value=submit('web-normal');expected=independent_hit(normalized(response.request.post_data_json['input']))
-            check('web real request raw string and independent damage',response.status==200 and response.request.post_data_json['input']['runtimeAttackBuffs'][0]['rawRate10000']=='1450' and value['candidates'][0]['exactDamage']==str(expected['damage']))
-            def compare_render(value,label):
-                text=web.locator('.hit-result').inner_text()
-                check(label+' exact attack',format(int(value['exactEffectiveAttack']),',') in web.locator('.effective-attack').inner_text())
-                for c in value['candidates']:
-                    check(label+' candidate '+c['policy'],(format(int(c['exactDamage'] or c['damage']),',') in text) if c['status']=='available' else '계산 불가' in text and c['errorCode'] in text)
-                rows=web.locator('.hit-audit tbody tr');check(label+' audit rows',rows.count()==len(value['selectedCandidate']['terms']))
-                cells=rows.evaluate_all('(rows)=>rows.map(r=>({name:r.dataset.term,before:r.cells[1].innerText,after:r.cells[2].innerText}))')
-                check(label+' audit values',all(x['name']==t['name'] and all(math.isclose(float(x[k].replace(',','')),t[k],rel_tol=1e-12,abs_tol=1e-7) for k in ['before','after']) for x,t in zip(cells,value['selectedCandidate']['terms'])))
-                save('web-dom-'+label,dict(text=text,terms=cells))
-                check(label+' saved equality',call('calculations/hit/'+value['id']).json()==value)
-            compare_render(value,'normal')
-            with web.expect_download() as downloaded:web.locator('.export-calculation').click()
-            downloaded.value.save_as(str(run/'web-export.json'))
-            check('download preserves saved response',read(run/'web-export.json')['comparison']==value)
-            resize(web,'web-normal')
-            for policy in ['legacy_term_floor','final_round_even','nested_floor']:
-                web.locator('[name="roundingPolicy"]').select_option(policy);r,v=submit('web-'+policy)
-                check('historical selected '+policy,v['selectedPolicy']==policy and policy in web.locator('.hit-audit').inner_text())
-                compare_render(v,policy)
-            web.locator('[name="attack-buffs"]').fill('1.234')
-            before=len([r for r in traffic if r['url'].endswith('/calculations/hit')]);web.locator('.hit-form button[type="submit"]').click();web.wait_for_timeout(150)
-            check('overprecision rejected before HTTP',len([r for r in traffic if r['url'].endswith('/calculations/hit')])==before and '0.01' in web.locator('.hit-result').inner_text())
-            web.locator('[name="attack-buffs"]').fill('');web.locator('[name="statAttack"]').fill('100.5');r,v=submit('web-400')
-            check('real 400 rendered',r.status==400 and 'statAttack_must_be_integer_never_truncated' in web.locator('.hit-result').inner_text() and '정수' in web.locator('.hit-result').inner_text());shot(web,'web-400')
-            # Legitimate form-only large integer: checked products fit int64, summed attack exceeds JS safe integer.
-            web.locator('[name="roundingPolicy"]').select_option('client_f32');web.locator('[name="statAttack"]').fill('999999999997');web.locator('[name="defense"]').fill('0');web.locator('[name="coefficient"]').fill('100');web.locator('[name="statDamageRatio"]').fill('1');web.locator('[name="defenceRatioRate"]').fill('0')
-            web.locator('[name="attack-buffs"]').fill(','.join(str(x*100) for x in list(range(900,890,-1))+[889]))
-            for field in ['crit','core','fullCharge','properDistance','fullBurst','pierce','parts','elementAdvantage']:web.locator('[name="'+field+'"]').uncheck()
-            r,v=submit('web-large');check('large response actual API',r.status==200)
-            if r.status==200:
-                compare_render(v,'large');check('large odd exact not rounded',int(v['exactEffectiveAttack'])>2**53 and int(v['exactEffectiveAttack'])%2==1 and format(int(v['exactEffectiveAttack']),',') in web.locator('.effective-attack').inner_text())
-                check('all three unavailable reasons rendered',all(c['status']=='unavailable' for c in v['candidates'][1:]) and web.locator('.hit-result').inner_text().count('계산 불가')>=3)
-                resize(web,'web-large')
-            # Real v2 request to actual API; no response fulfillment or fabricated candidates.
-            def v2route(route):
-                body=route.request.post_data_json;body['inputSchemaVersion']=2
-                body['input'].pop('statDamageRatio',None);body['input'].pop('defenceRatioRate',None)
-                route.continue_(post_data=json.dumps(body))
-            web.locator('[name="statAttack"]').fill('100');web.locator('[name="attack-buffs"]').fill('14.5')
-            web.route('**/api/calculations/hit',v2route);r,v=submit('web-v2');web.unroute('**/api/calculations/hit',v2route)
-            check('v2 conversion real response rendered',r.status==200 and v['conversion']['converted'] and web.locator('.hit-conversion').count()==1 and '2' in web.locator('.hit-conversion').inner_text() and '3' in web.locator('.hit-conversion').inner_text());shot(web,'web-v2')
+            if not a.desktop_only:
+                web=ctx.new_page();attach(web);web.goto(base+'/legacy/');web.locator('[data-character="5004"]').click();web.locator('#scenario-level').fill('400');web.locator('#load-stats').click();web.locator('.hit-workbench summary').first.click()
+                web.locator('[name="statDamageRatio"]').wait_for()
+                check('web default and experimental labels',web.locator('[name="roundingPolicy"]').input_value()=='client_f32' and web.locator('[name="statDamageRatio"]').input_value()=='1' and web.locator('[name="defenceRatioRate"]').input_value()=='0' and '미확정' in web.locator('.experimental-inputs').inner_text())
+                def submit(label):
+                    with web.expect_response(lambda r:r.url.endswith('/api/calculations/hit') and r.request.method=='POST') as pending:web.locator('.hit-form button[type="submit"]').click()
+                    response=pending.value;value=response.json();web.wait_for_timeout(150);save(label,value);return response,value
+                web.locator('[name="attack-buffs"]').fill('14.5');web.locator('[name="statDamageRatio"]').fill('2');web.locator('[name="defenceRatioRate"]').fill('0.25')
+                response,value=submit('web-normal');expected=independent_hit(normalized(response.request.post_data_json['input']))
+                check('web real request raw string and independent damage',response.status==200 and response.request.post_data_json['input']['runtimeAttackBuffs'][0]['rawRate10000']=='1450' and value['candidates'][0]['exactDamage']==str(expected['damage']))
+                def compare_render(value,label):
+                    text=web.locator('.hit-result').inner_text()
+                    check(label+' exact attack',format(int(value['exactEffectiveAttack']),',') in web.locator('.effective-attack').inner_text())
+                    for c in value['candidates']:
+                        check(label+' candidate '+c['policy'],(format(int(c['exactDamage'] or c['damage']),',') in text) if c['status']=='available' else '계산 불가' in text and c['errorCode'] in text)
+                    rows=web.locator('.hit-audit tbody tr');check(label+' audit rows',rows.count()==len(value['selectedCandidate']['terms']))
+                    cells=rows.evaluate_all('(rows)=>rows.map(r=>({name:r.dataset.term,before:r.cells[1].innerText,after:r.cells[2].innerText}))')
+                    check(label+' audit values',all(x['name']==t['name'] and all(math.isclose(float(x[k].replace(',','')),t[k],rel_tol=1e-12,abs_tol=1e-7) for k in ['before','after']) for x,t in zip(cells,value['selectedCandidate']['terms'])))
+                    save('web-dom-'+label,dict(text=text,terms=cells))
+                    check(label+' saved equality',call('calculations/hit/'+value['id']).json()==value)
+                compare_render(value,'normal')
+                with web.expect_download() as downloaded:web.locator('.export-calculation').click()
+                downloaded.value.save_as(str(run/'web-export.json'))
+                check('download preserves saved response',read(run/'web-export.json')['comparison']==value)
+                resize(web,'web-normal')
+                for policy in ['legacy_term_floor','final_round_even','nested_floor']:
+                    web.locator('[name="roundingPolicy"]').select_option(policy);r,v=submit('web-'+policy)
+                    check('historical selected '+policy,v['selectedPolicy']==policy and policy in web.locator('.hit-audit').inner_text())
+                    compare_render(v,policy)
+                web.locator('[name="attack-buffs"]').fill('1.234')
+                before=len([r for r in traffic if r['url'].endswith('/calculations/hit')]);web.locator('.hit-form button[type="submit"]').click();web.wait_for_timeout(150)
+                check('overprecision rejected before HTTP',len([r for r in traffic if r['url'].endswith('/calculations/hit')])==before and '0.01' in web.locator('.hit-result').inner_text())
+                web.locator('[name="attack-buffs"]').fill('');web.locator('[name="statAttack"]').fill('100.5');r,v=submit('web-400')
+                check('real 400 rendered',r.status==400 and 'statAttack_must_be_integer_never_truncated' in web.locator('.hit-result').inner_text() and '정수' in web.locator('.hit-result').inner_text());shot(web,'web-400')
+                # Legitimate form-only large integer: checked products fit int64, summed attack exceeds JS safe integer.
+                web.locator('[name="roundingPolicy"]').select_option('client_f32');web.locator('[name="statAttack"]').fill('999999999997');web.locator('[name="defense"]').fill('0');web.locator('[name="coefficient"]').fill('100');web.locator('[name="statDamageRatio"]').fill('1');web.locator('[name="defenceRatioRate"]').fill('0')
+                web.locator('[name="attack-buffs"]').fill(','.join(str(x*100) for x in list(range(900,890,-1))+[889]))
+                for field in ['crit','core','fullCharge','properDistance','fullBurst','pierce','parts','elementAdvantage']:web.locator('[name="'+field+'"]').uncheck()
+                r,v=submit('web-large');check('large response actual API',r.status==200)
+                if r.status==200:
+                    compare_render(v,'large');check('large odd exact not rounded',int(v['exactEffectiveAttack'])>2**53 and int(v['exactEffectiveAttack'])%2==1 and format(int(v['exactEffectiveAttack']),',') in web.locator('.effective-attack').inner_text())
+                    check('all three unavailable reasons rendered',all(c['status']=='unavailable' for c in v['candidates'][1:]) and web.locator('.hit-result').inner_text().count('계산 불가')>=3)
+                    resize(web,'web-large')
+                # Real v2 request to actual API; no response fulfillment or fabricated candidates.
+                def v2route(route):
+                    body=route.request.post_data_json;body['inputSchemaVersion']=2
+                    body['input'].pop('statDamageRatio',None);body['input'].pop('defenceRatioRate',None)
+                    route.continue_(post_data=json.dumps(body))
+                web.locator('[name="statAttack"]').fill('100');web.locator('[name="attack-buffs"]').fill('14.5')
+                web.route('**/api/calculations/hit',v2route);r,v=submit('web-v2');web.unroute('**/api/calculations/hit',v2route)
+                check('v2 conversion real response rendered',r.status==200 and v['conversion']['converted'] and web.locator('.hit-conversion').count()==1 and '2' in web.locator('.hit-conversion').inner_text() and '3' in web.locator('.hit-conversion').inner_text());shot(web,'web-v2')
             desktop=ctx.new_page();attach(desktop);desktop.goto(base+'/editor/');desktop.wait_for_selector('body[data-ready="true"]')
             desktop.locator('[data-tab="raid"]').click();desktop.locator('#replay-form').wait_for()
             check('desktop policy default and history options',desktop.locator('[name="rounding"]').input_value()=='client_f32' and desktop.locator('[name="rounding"] option').count()==4)
@@ -194,7 +195,7 @@ def main():
             desktop.wait_for_timeout(150)
         assert call('compute/experiments/'+warm['id']+'/statistics').status==409
         desktop.evaluate('(id)=>localStorage.setItem("nikke-single-deck-experiment",id)',warm['id']);desktop.reload();desktop.wait_for_selector('body[data-ready="true"]');desktop.locator('[data-tab="stats"]').click()
-        desktop.wait_for_function('document.querySelector("#stats-content").innerText.includes("warmup_excluded_from_statistics")',timeout=30000)
+        desktop.wait_for_function('document.querySelector("#stats-content").innerText.includes("통계 표본에서 제외")',timeout=30000)
         check('real 409 explained in stats', '워밍업' in desktop.locator('#stats-content').inner_text() or 'warmup' in desktop.locator('#stats-content').inner_text());shot(desktop,'desktop-409')
         from f32_ufix_acceptance import verify
         verify(desktop,call,check,save,shot,traffic,base,b,st,warm)

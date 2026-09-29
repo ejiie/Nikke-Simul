@@ -1,4 +1,76 @@
-# F2-Q 독립 재수용 — U-FIX-4·5 (2026-09-29)
+# F2-Q 독립 재수용 — U-FIX-6 (2026-09-29)
+
+**최종 판정: F2-Q-3·4·5 수정은 수용. 전체 화면 표시 수용은 F2-Q-6(UI의 검산 표 원문 표시) 때문에 차단.** 제품 `59fe22d`를 기존 QA `02b63fb` 위에 일반 merge한 `dc612bd`에서 독립 검수했다. 제품 파일은 직접 수정하지 않았다. 계산·통계 회귀와 화면 표시 결함을 구분한다.
+
+## 이번 검수의 근거
+
+Director 지시서 U-FIX-6, UI 보고서10절(바꾼 것/유지한 것), 사용자 화면 표시 원칙을 읽었다. 담당 검사·mock·정답을 사용하지 않고 자체 Python/Chromium·실제 격리 API·Fraction 기반 산술로 판정했다. 새 합성 계정과 공개 allowlist를 사용했고 사용자 원본 계정/세션을 복제하지 않았다. `prepare_combat_conditions.py`로 새 runtime을 만들고 본인 공개 보스·이미지 준비물을 hash 대조해 연결했다.
+
+아래 artifacts는 모두 `C:/Users/user/orca/workspaces/Nikke-Simul/검수/artifacts/single-deck-qa/` 아래이며 Git 제외 근거다. `f2-ufix6-preparation/evidence-index.json`에 최종 실행과 제외한 검수 도구 재시도, 포트·PID를 구분했다.
+
+| 새 독립 실행 | 결과 | 근거 폴더 |
+|---|---:|---|
+| 실제 API·Chromium·DEF6·보스·조건 wire·손상 profile | 332/332 | `f2-ufix6-1b52c394dc9f` |
+| 데스크톱 client_f32·통계·400/404/409·장애 복구 | 75/75 | `f32-b2-403af01ae4cd` |
+| source17종×네 정책·저장 GET·JSON/CSV 다운로드 | 155/155 | `f2-ufix6-e5ba7219da11` |
+| F2-Q-3·4 실제 저장 GET 최소 재현 | 12/12 | `f2-ufix6-48fa627d53f6` |
+| 고급 진단·실제400/GPU409·속성null/카탈로그 미준비 | 104/104 | `f2-ufix6-9e8168b39ec4` |
+| 새 F2-Q-6 실제 저장 GET 최소 재현 | 4/7, 표시3검사 실패 | `f2-ufix6-1213fc48923f` |
+| 자체 엔진 R4 경계10입력·41타격 독립 산술 | 87/87 | `f2-ufix6-preparation/engine-audit.json` |
+
+합계 **772검사 중769 통과·3 실패**이며, 실패3개는 한 검산 표의 잔여 표시 경로다. API Release 빌드는 경고0/오류0이었다. 실행 중단/검수 기대 문구 수정 후 재시도는 통과 집계에 넣지 않았다. GPU 선택 불가 상태에서 잘못된 option을 찾은 검사, `GPU 사용 불가`를 다른 표현으로 기다린 검사, 변경된 warmup 안내를 옛 문구로 기다린 검사를 각각 수정하고 새 dataRoot에서 다시 실행했다. 제품 결함이나 제품 수정으로 분류하지 않는다.
+
+## F2-Q-3·4·5: 수용
+
+- **F2-Q-3:** 실제 기존 QA 저장 replay를 GET으로 읽고 로그 대상을 리타로 변경하면 현재 대상 **앨리스**, 요청 대상 **리타**로 안내한다. `5004/5011` 노출0, 허용된 Replay ID 배지 유지. `replay-identifier-state.json/png`가 최소 근거다.
+- **F2-Q-4:** 네 정책의 실제 replay 및 기존 저장 GET에서 `저장 결과 원문`/raw JSON 블록이 없다. API 원래 source 키·저장 파일·GET/export 바이트·총피해는 동일하다. Chromium의 실제 JSON/CSV 다운로드 파일도 각 서버 export 응답과 바이트가 같다.
+- **F2-Q-5:** 최소/최대 사거리·속성 키 누락, 속성 null, 카탈로그 미준비를 본인 runtime에서 재현했다. 조회/replay/compute는 실제409이고 저장 증가는0. 최소 사거리 누락·속성null·카탈로그 미준비의 거리/약점 팝업·replay·통계는 한글 의미/캐릭터 이름/복구 안내만 표시한다. `combatProfiles`·`bonusRangeMin`·캐릭터 코드·원문 서버 오류가 없고 연결을 유지한다. 조치 안내의 `prepare_combat_conditions.py`는 사용자 허용대로 유지했다.
+- source17종×네 정책의 대응 행68개를 실제 API의 source 순서와 DOM 행으로 추가 대조했다. 모두 맞는다(`source-row-audit.json`, 동일 관측의 후처리이므로 검사 수에 더하지 않음). 자연 OL 표시는 `앨리스 · 머리 1번 줄 · 공격력 +4.77%`; 알려진 function은 `누아르 · 스킬 1`, 모르는 function은 `스킬 효과`이며 함수 번호가 없다.
+- 고급 진단은 새 합성 계정 DB에 직접 작성한 issue/changes로 검증했다. 내부 `data-issue-path`와 저장 슬롯 키는 유지하고 화면에는 이름·머리/몸통/팔/다리가 나온다. 자연 사용자 동기화에서 생성된 진단을 검증했다고 주장하지 않는다.
+- 실제 unknown boss·잘못된 전투시간·unknown profile400과 강제GPU409는 한글로 안내한다. 강제GPU는 선택 불가 UI를 조작하지 않고 **나가는 요청만** 변경해 실제 API 거부를 확인했다. GPU 실행/성능 검사는 아니다.
+
+## F2-Q-6 — 피해 검산 표에 내부 경로·단계 키·서버 연산 원문 노출
+
+**담당: UI. 화면 원문 금지 조건의 잔여 차단 결함.** F2-Q-3~5 수정과 별개로 `59fe22d`에서도 피해 로그 → 타격 검산 근거 → 계산 단계 표에 아래 텍스트가 표시된다.
+
+| 위치 | 실제 표시 |
+|---|---|
+| 계산 단계 제목 | `계산 단계 (저장된 calculation.terms)` |
+| 단계명 옆 보조 텍스트 | `effectiveAttack`, `effectiveDefense`, `difference`, `defenceRatio` 등 API의 `terms[].name` |
+| 저장된 연산 열 | `checked int64 grouped rate/10000, then flat grants`, `MathF.Round AwayFromZero; max(1); checked int64` 등 API의 `terms[].operation` |
+
+원인: `apps/desktop-ui/damage-log.js:125`에서 `s.name`, 128에서 `s.operation`, 160에서 `calculation.terms` 경로를 화면에 직접 넣는다. API 값이 데이터 속성에만 있는 경우가 아니다. 실제 저장 GET의 terms10행과 화면의 이름/연산10행이 일치하는지 비교했다. 수식 기호 `B`나 `float32`라는 과학·기술 용어 자체를 금지한 판정이 아니라, **저장 구조의 원문 경로/키와 서버 연산 문자열을 화면에 직접 표시하는 경로**를 지적한다.
+
+최소 재현:
+
+1. 본인 합성 저장본 `b41c653c67fa48dfa35cb46547de88ab.json`을 새 격리 replay 폴더에 그대로 복사한다.
+2. 실제 API GET으로 읽어 일반 replay renderer에 연결하고, 저장된 풀버스트·코어 타격의 검산 근거를 연다. 나가는 POST를 실제 GET으로 바꿨으며 응답 대체·재계산은 없다.
+3. 계산 단계 제목과 표를 확인한다. 1500/850/500 캡처 및 `audit-wire-vs-visible.json`에 원문-화면 대응을 남겼다.
+
+근거: `f2-ufix6-1213fc48923f/summary.json`, `audit-wire-vs-visible.json`, `audit-raw-1500.png`, `trace.zip`. 같은 원문은 새 네 정책 source 검사 캡처에도 보인다. 좁은 source/error 패턴 스캔이 이 구조 키까지 검증한다고 해석하지 않았다. 캡처 검토 후 별도 검사로 명시적으로 검출했다.
+
+수정 수용 조건: UI의 제목·단계 이름·연산 설명은 표시용 이름/설명으로 제공하고 원문 경로·키·서버 문자열을 직접 렌더하지 않는다. API `terms[].name/operation`, `data-term`, 저장 파일·내보내기·수치·총피해·허용 정책 id는 그대로 보존한다. 현재/기존 저장 replay·과거 비교 정책에서도 같은 경로를 확인한다. 수식 설명의 세부 디자인은 UI 담당 범위다.
+
+기존 저장본의 총피해 **749,761,509**, 원본/사본 SHA256 **`2ea1762e9e743a548cf56a6bdcc7709ed50804f24a3b96340bb4c6a9afbcac87`**는 불변이었다.
+
+## 계산·저장 회귀 및 미판정
+
+- 새 API 피해19,462건을 독립 산술로 검산했다. 팀 합 **24,007,922,311** = 멤버 합 = replay = compute. 전환은750프레임/앨리스/누적2,013,492,851이며 엄격한 `>20억` 이후 다음 타격을 유지했다. 별도 엔진 probe는 미만/동일/동일 프레임 +1/SG펠릿/추가타/0프레임/네 고정 정책 경계를 확인했다.
+- DEF 카드6조합: 자동 미전환 n1/n2, 자동 전환 n1/n2, legacy고정30925/31784의 저장 정책·전환 메타데이터와 화면이 일치했다. 보스43개/이미지42개·조건 wire·fingerprint·레벨400·버스트·기존 bool 저장 결과·새/과거 정책 피해 로그도 회귀 통과다.
+- n1의 평균/중앙값/P5/P95와 n2 CI, 기준 없음400·unknown404·warmup409의 연결 유지, 별도 장애 주입503/transport의 미연결 및 저장 조회 복구가 통과했다. 장애 주입은 제품의 자연503 발생으로 주장하지 않는다.
+- 원래375개 목록 중 이번 범위인 **317/317**, 직전456개 목록 중 **390/390**을 새 실행으로 연결했다. 각각58/66개는 사용자가 명시 제외한 `/legacy` 웹 참조 화면 검사라 실행하지 않았다. 빠진 항목을 옛 통과로 대체하지 않았다(`regression-coverage.json`).
+- `identifier-inventory.json`에 타격·발사·버스트 시전 번호, Replay ID, fingerprint·버전·schema·정책 id 및 장치 해시의 실제 위치를 기록했다. 준비 스크립트 이름도 허용했다. source/서버 오류 패턴의 전체 화면 스캔은 `visible-text-inventory.json`; 검산 표의 별도 F2-Q-6 결과와 함께 읽어야 한다.
+- 이번 판정은 합성 공개 입력의 소규모 기능 검수다. 실사용자 덱·실게임 실측 일치·GPU 실행·부하/1만회·최적성·배포 수용은 미판정이다. `/legacy` 화면은 범위 밖이며 Q-CPU-10K 보류를 유지했다.
+
+원본 `data/local`·계정/세션/캐시·사용자 EXE·5180/5181에는 접근/종료/변경하지 않았다. 본인 API PID17개(재시도 포함)는 모두 종료 및 프로세스 부재 확인(`owned-process-cleanup.json`). 공개 준비물 hash와 미추적 package-lock SHA256 `2ef4178aa07ddd9ac2e4d47422038d02d8adaadfb15586cee6a2f1995253c767`을 보존했다. 다른 worktree 수정·제품 수정·push·배포·새 worker/Run/Dispatch/lifecycle 실행은 없다. 사용자 실제 EXE 경로 `C:/Users/user/Documents/GitHub/Nikke-Simul/artifacts/desktop/win-x64/Nikke Simul.exe`의 배포/실행 수용은 이번 검수 대상이 아니다.
+
+재실행 도구: `check_f2_conditions.py`, `check_f32_b2.py --f2-legacy-regression --desktop-only`, `check_f2_sources.py` 및 `--inspect-archive`, `check_f2_ufix6.py`, `check_f2_audit_text.py`, `DefenseProbe/Probe.csproj` + `check_defense_probe.py`. 모두 `tests/single_deck_compute_qa/`의 본인 도구이며 `--dotnet`에는 본인 격리 API를 실행할 dotnet 절대 경로를 준다. `summarize_f2_ufix6.py`는 이번 근거 경로를 고정한 후처리다.
+
+---
+
+아래는 이전 검수의 역사 기록이다. 현재 판정은 위 U-FIX-6 절을 따른다.
+
+# F2-Q 독립 재수용 — U-FIX-4·5 (2026-09-29, 이전 기록)
 
 **통합 판정: 일반 검산 패널의 F2-Q-2와 함수 번호 제거는 수용. 전체 수용은 잔여 화면 노출 때문에 차단한다.** 최종 제품은 `1168819`다. API·저장 키·총피해는 보존됐으며, 캐릭터 코드 또는 원문 키가 나오는 경로를 아래 F2-Q-3~5로 구분한다. 타격·발사 번호, replay ID, fingerprint·버전·schema·정책 id는 사용자 확정대로 허용하며 결함으로 판정하지 않는다.
 
