@@ -13,7 +13,7 @@ from actual_stats import metric
 ROOT=Path(__file__).resolve().parents[2]
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--dotnet',required=True);p.add_argument('--stats-only',action='store_true');a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--dotnet',required=True);p.add_argument('--stats-only',action='store_true');p.add_argument('--f2-legacy-regression',action='store_true');a=p.parse_args()
     run=ROOT/'artifacts/single-deck-qa'/('f32-b2-'+uuid.uuid4().hex[:12]);data=run/'data';data.mkdir(parents=True)
     source=ROOT/'artifacts/single-deck-qa/load1000-3db71912a601/data'
     hashes,game,snapshot,ids=create(source,data)
@@ -35,7 +35,7 @@ def main():
     with socket.socket() as sock:sock.bind(('127.0.0.1',0));port=sock.getsockname()[1]
     assert port not in (5180,5181)
     env=dict(os.environ,NIKKE_PROJECT_ROOT=str(ROOT),NIKKE_DATA_ROOT=str(data),NIKKE_PORT=str(port),NIKKE_TEST_FIXTURE='1');env.pop('NIKKE_GAME_CATALOG',None)
-    report=dict(status='running',port=port,checks=[],errors=[],scope='synthetic real browser and API',responseMocks=False)
+    report=dict(status='running',port=port,checks=[],errors=[],scope='synthetic real browser and API',responseMocks=False,f2LegacyRegression=a.f2_legacy_regression)
     def save(name,obj):(run/(name+'.json')).write_text(json.dumps(obj,ensure_ascii=False,indent=2),encoding='utf-8')
     def check(name,ok,detail=None):
         report['checks'].append(dict(name=name,passed=bool(ok),detail=detail));save('summary',report);print(name+(': PASS' if ok else ': FAIL'),flush=True)
@@ -48,6 +48,19 @@ def main():
         ctx=browser.new_context(viewport=dict(width=1500,height=1000),accept_downloads=True)
         ctx.tracing.start(screenshots=True,snapshots=True,sources=True)
         api=ctx.request
+        # F2 removed duration/DEF controls. Historical F32 scenarios stay explicit legacy
+        # requests to the actual API; new solo_raid defaults are covered by check_f2_conditions.
+        def duration(page,seconds):
+            if a.f2_legacy_regression:page.evaluate('(n)=>sessionStorage.setItem("qa-regression-frames",String(n))',seconds*60)
+            else:page.locator('[name="seconds"]').fill(str(seconds))
+        if a.f2_legacy_regression:
+            def legacy_request(route):
+                body=route.request.post_data_json
+                if route.request.method=='POST' and (route.request.url.endswith('/api/runtime/skill-replays') or route.request.url.endswith('/api/compute/experiments')):
+                    body['conditionProfile']='legacy';body['conditions']['combat'].update(durationFrames=int(route.request.frame.evaluate('Number(sessionStorage.getItem("qa-regression-frames")||600)')),enemyDefense=30925,defenseMode='fixed')
+                    route.continue_(post_data=json.dumps(body))
+                else:route.continue_()
+            ctx.route('**/api/runtime/skill-replays',legacy_request);ctx.route('**/api/compute/experiments',legacy_request)
         for _ in range(300):
             try:
                 boot=api.get(base+'/api/bootstrap').json();break
@@ -126,7 +139,7 @@ def main():
             desktop=ctx.new_page();attach(desktop);desktop.goto(base+'/editor/');desktop.wait_for_selector('body[data-ready="true"]')
             desktop.locator('[data-tab="raid"]').click();desktop.locator('#replay-form').wait_for()
             check('desktop policy default and history options',desktop.locator('[name="rounding"]').input_value()=='client_f32' and desktop.locator('[name="rounding"] option').count()==4)
-            desktop.locator('[name="seconds"]').fill('20');desktop.locator('[name="core"]').check()
+            duration(desktop,20);desktop.locator('[name="core"]').check()
             def replay(label):
                 with desktop.expect_response(lambda r:'/api/runtime/skill-replays' in r.url and r.request.method=='POST',timeout=60000) as pending:desktop.locator('#run-replay').click()
                 res=pending.value;value=res.json();save(label,value);desktop.locator('[data-view-audit]').first.wait_for(timeout=30000);return res,value
@@ -146,10 +159,10 @@ def main():
             resize(desktop,'desktop-client')
             desktop.locator('#btn-close-audit').click();desktop.locator('[name="rounding"]').select_option('legacy_term_floor');r,old=replay('desktop-legacy-replay');desktop.locator('[data-view-audit]').first.click()
             check('legacy damage log retained',desktop.locator('.audit-steps tr[data-term="B2"]').count()==1 and '비교 후보 정책' in desktop.locator('#replay-result').inner_text());shot(desktop,'desktop-legacy')
-            desktop.locator('#btn-close-audit').click();desktop.locator('[name="rounding"]').select_option('client_f32');desktop.locator('[name="seconds"]').fill('10')
+            desktop.locator('#btn-close-audit').click();desktop.locator('[name="rounding"]').select_option('client_f32');duration(desktop,10)
         else:
             desktop=ctx.new_page();attach(desktop);desktop.goto(base+'/editor/');desktop.wait_for_selector('body[data-ready="true"]')
-            desktop.locator('[data-tab="raid"]').click();desktop.locator('[name="seconds"]').fill('10');desktop.locator('[name="core"]').check()
+            desktop.locator('[data-tab="raid"]').click();duration(desktop,10);desktop.locator('[name="core"]').check()
         desktop.locator('[data-tab="stats"]').click();desktop.locator('#compute-runs').fill('1');desktop.locator('.compute-advanced summary').click();desktop.locator('#compute-worker-limit').fill('1')
         with desktop.expect_response(lambda r:r.url.endswith('/api/compute/experiments') and r.request.method=='POST',timeout=60000) as pending:desktop.locator('#compute-start').click()
         b=pending.value.json();save('desktop-batch-created',b)
