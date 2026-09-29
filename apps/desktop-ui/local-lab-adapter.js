@@ -1,4 +1,4 @@
-// Local Lab projections and edit callbacks, backed by versioned Nikke-Simul snapshots.
+// Card/detail projections and edit callbacks, backed by versioned Nikke-Simul snapshots.
 import { renderEquipmentDetail, renderSkillDetail, renderCollectionDetail, numericEditor } from './local-lab-detail.js';
 const slots={head:'head',torso:'torso',arm:'arms',leg:'legs'};
 const company={elysion:1,missilis:2,tetra:3,pilgrim:4,abnormal:7};

@@ -302,7 +302,7 @@ export function createBurstTacticsManager({ api, getSnapshot, getMembersWithMeta
           <div class="tactic-nikke-row ${isAllowed ? '' : 'disabled-row'}">
             <label class="allow-label">
               <input type="checkbox" data-tactic-allow="${id}" ${isAllowed ? 'checked' : ''}>
-              <span class="nikke-name">${esc(item?.displayName || id)}</span>
+              <span class="nikke-name">${esc(item?.displayName || '이름 미확인')}</span>
             </label>
             <div class="priority-badges">
               <span class="rank-pill">${index + 1}순위</span>

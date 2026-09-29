@@ -1,0 +1,15 @@
+{
+  "_note": "UI MOCK in the confirmed F2-B shape (Backend aa1b71e, GET /api/presentation/solo-raid-bosses). Names are synthetic placeholders, not real bosses; imageUrl paths are routed by the mock check to local stand-in images. The diagnostic imitates a boss excluded for lack of a Korean name (never listed or shown by name).",
+  "schemaVersion": 1,
+  "defaultBossId": "dummy",
+  "bosses": [
+    { "id": "solo-raid-39", "name": "모의 보스 C (이미지 없음)", "imageUrl": null, "season": 39 },
+    { "id": "dummy", "name": "더미 보스", "imageUrl": null, "season": null },
+    { "id": "solo-raid-41", "name": "모의 보스 A", "imageUrl": "/mock-boss/a.png", "season": 41 },
+    { "id": "solo-raid-40", "name": "모의 보스 B", "imageUrl": "/mock-boss/b.png", "season": 40 }
+  ],
+  "diagnostics": [
+    { "id": "solo-raid-42", "season": 42, "code": "korean_name_unavailable", "displayable": false, "message": "한국어 이름 원천 미확인" }
+  ],
+  "complete": false
+}

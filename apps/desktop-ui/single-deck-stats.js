@@ -8,6 +8,11 @@
  * 우열 미확정 unless the difference interval excludes zero.
  */
 import { COND_WIRE, createConditionState, describeCombatProfileError, describeCompatibility, describePlannedConditions } from './combat-conditions.js';
+import { DEF_WIRE, describeDefensePolicy, describeSavedCombat } from './raid-conditions.js';
+import { optionLabel, reasonLabel, slotLabel } from './display-labels.js';
+
+// Character codes are never shown; names come from the deck (Korean display names).
+const UNKNOWN_NAME = '이름 미확인';
 import {
   COMPUTE_ROUTES,
   describeHardwareProfile,
@@ -28,6 +33,8 @@ export const FIXED_SYNCHRO_LEVEL = 400;
 export const DEFAULT_DURATION_FRAMES = 10800;
 export const DEFAULT_RUNS = 1000;
 export const PHASES = [['pilot', '파일럿'], ['final', '최종'], ['exploration', '탐색']];
+// Phase keys are shown by name (U-FIX-4); unknown values get a generic label, not the raw key.
+const phaseLabel = phase => ({ ...Object.fromEntries(PHASES), warmup: '예열' })[phase] ?? '기타 단계';
 
 function bytes(value) {
   if (typeof value !== 'number' || !Number.isFinite(value)) return UNKNOWN;
@@ -40,9 +47,9 @@ function metricCard(label, value, sub = '') {
 
 function deckSection(model) {
   const input = model.batch.input;
-  const members = model.deckMembers.length ? model.deckMembers : input.characterIds.map(id => ({ characterId: id, displayName: id }));
+  const members = model.deckMembers.length ? model.deckMembers : input.characterIds.map(id => ({ characterId: id, displayName: null }));
   const rows = members.length
-    ? members.map(m => `<li><strong>${esc(m.displayName ?? m.characterId ?? UNKNOWN)}</strong> <span class="pill-badge gray">#${esc(m.characterId ?? UNKNOWN)}</span>${m.burstStep ? ` <span class="pill-badge cyan">버스트 ${esc(['I', 'II', 'III'][m.burstStep - 1] ?? m.burstStep)}</span>` : ''}</li>`).join('')
+    ? members.map(m => `<li data-character-id="${esc(m.characterId ?? '')}"><strong>${esc(m.displayName ?? UNKNOWN_NAME)}</strong>${m.burstStep ? ` <span class="pill-badge cyan">버스트 ${esc(['I', 'II', 'III'][m.burstStep - 1] ?? m.burstStep)}</span>` : ''}</li>`).join('')
     : '<li>편성이 비어 있습니다. 솔로 레이드에서 5인을 저장하세요.</li>';
   return `
     <article class="surface">
@@ -52,9 +59,11 @@ function deckSection(model) {
         ${metricCard('싱크로 레벨', formatNumber(input.synchroLevel ?? FIXED_SYNCHRO_LEVEL), '고정')}
         ${metricCard('전투 시간', input.present ? input.durationSecondsText : `${formatNumber(DEFAULT_DURATION_FRAMES / 60)}초`,
           input.present ? `${formatNumber(input.durationFrames)}프레임` : '기본값 10,800프레임')}
-        ${metricCard('DEF 정책', input.defPolicy ?? '현행 고정 DEF 정책', '자동 20억 전환 없음')}
+        ${model.defensePolicy ? metricCard('DEF 정책', model.defensePolicy.value, model.defensePolicy.sub)
+          : metricCard('DEF 정책', input.defPolicy ?? '현행 고정 DEF 정책', '저장된 정책 그대로 표시')}
         ${metricCard('버스트 전술', model.tacticSummary || UNKNOWN, '솔로 레이드 저장 설정')}
-        ${metricCard('표본 단계', input.phase ?? model.phase, 'warmup은 표본으로 저장하지 않음')}
+        ${metricCard('표본 단계', phaseLabel(input.phase ?? model.phase), '예열(warmup) 실행은 표본으로 저장하지 않음')}
+        ${model.battleSummary ? metricCard('전투 조건', model.battleSummary, '저장된 실험 조건') : ''}
         ${model.conditionSummary ? metricCard('보스 거리·약점', model.conditionSummary, model.batch.id ? '저장된 실험 조건' : '솔로 레이드 전투 조건에서 변경') : ''}
         ${metricCard('대미지 정책', input.present ? (input.roundingPolicy ?? '기록 없음 (client_f32 이전 기록)') : model.roundingPolicy ?? UNKNOWN,
           input.present ? [input.inputSchemaVersion ? `schema ${input.inputSchemaVersion}` : 'schema 기록 없음', input.summaryVersion].filter(Boolean).join(' · ') : '요청 예정 값')}
@@ -109,7 +118,7 @@ function deviceSection(model) {
         <td>${esc(device.backend ?? UNKNOWN)}<br><small class="compute-sub">driver ${esc(device.driver ?? UNKNOWN)}</small></td>
         <td>${device.stages.map(s => `${esc(s.label)} ${esc(s.statusLabel)}`).join('<br>')}</td>
         <td>${device.usable ? '<span class="pill-badge green">사용 가능</span>' : '<span class="pill-badge gray">사용 불가</span>'}
-          ${device.reason ? `<br><small class="compute-sub">${esc(device.reason)}</small>` : ''}</td>
+          ${device.reason ? `<br><small class="compute-sub">${esc(reasonLabel(device.reason))}</small>` : ''}</td>
       </tr>`).join('')
     : '<tr><td colspan="4">탐지된 GPU가 없습니다. CPU로 실행합니다.</td></tr>';
   const options = ['<option value="auto">자동 선택 (권장)</option>', '<option value="cpu">CPU</option>']
@@ -128,8 +137,8 @@ function deviceSection(model) {
         ${metricCard('chunk 크기', formatNumber(selection.chunkSize))}
         ${metricCard('메모리 상한', bytes(selection.memoryLimitBytes))}
       </div>
-      ${selection.reason ? `<p class="microcopy">선택 근거: ${esc(selection.reason)}</p>` : ''}
-      ${selection.fellBack && selection.fallbackReason ? `<p class="microcopy">CPU fallback 원인: ${esc(selection.fallbackReason)}</p>` : ''}
+      ${selection.reason ? `<p class="microcopy">선택 근거: ${esc(reasonLabel(selection.reason))}</p>` : ''}
+      ${selection.fellBack && selection.fallbackReason ? `<p class="microcopy">CPU 대체 원인: ${esc(reasonLabel(selection.fallbackReason))}</p>` : ''}
       ${selection.mismatch ? '<p class="compute-warning">GPU 지정 실행이 불가능해 요청과 다른 backend로 실행되었습니다. GPU 성공으로 표시하지 않습니다.</p>' : ''}
       <div class="summary-metrics-grid">
         ${metricCard('OS', hardware.os ?? UNKNOWN, hardware.architecture ?? '')}
@@ -214,7 +223,7 @@ function olSection(model) {
     return '<article class="surface"><h3>오버로드 후보 비교</h3><p class="microcopy">비교 결과가 없습니다. 기준 실험과 후보 실험이 준비되면 표시합니다.</p></article>';
   }
   const rows = ol.changes.length
-    ? ol.changes.map(change => `<tr><td>${esc(change.displayName)}</td><td>${esc(change.slot ?? UNKNOWN)} · ${change.lineIndex === null ? UNKNOWN : esc(String(change.lineIndex))}번째 줄</td><td>${esc(change.optionId ?? UNKNOWN)} ${esc(change.valueText)}</td></tr>`).join('')
+    ? ol.changes.map(change => `<tr><td>${esc(change.displayName)}</td><td data-slot="${esc(change.slot ?? '')}">${esc(change.slot ? slotLabel(change.slot) : UNKNOWN)} · ${change.lineIndex === null ? UNKNOWN : esc(String(change.lineIndex))}번째 줄</td><td data-option="${esc(change.optionId ?? '')}">${esc(optionLabel(change.optionId) ?? '오버로드 옵션')} ${esc(change.valueText)}</td></tr>`).join('')
     : '<tr><td colspan="3">변경 항목이 없습니다.</td></tr>';
   return `
     <article class="surface">
@@ -265,9 +274,10 @@ export function renderSingleDeckStats(model) {
 /** Builds the view model from contract payloads; missing payloads degrade to explicit unknown states. */
 export function buildStatsModel({ hardware, batch, statistics, comparison, deckMembers = [], tacticSummary = '',
   requestedRuns = DEFAULT_RUNS, phase = 'final', cut = null, endpointStatus = 'unknown', analysisStatus = 'unknown',
-  errors = [], recovered = false, roundingPolicy = null, comparisonStatus = null, conditionSummary = null } = {}) {
+  errors = [], recovered = false, roundingPolicy = null, comparisonStatus = null, conditionSummary = null, battleSummary = null,
+  defensePolicy = null } = {}) {
   const described = describeBatch(batch);
-  const displayNames = new Map(deckMembers.map(m => [m.characterId, m.displayName ?? m.characterId]));
+  const displayNames = new Map(deckMembers.map(m => [m.characterId, m.displayName ?? UNKNOWN_NAME]));
   return {
     endpointStatus,
     analysisStatus,
@@ -280,6 +290,8 @@ export function buildStatsModel({ hardware, batch, statistics, comparison, deckM
     roundingPolicy: typeof roundingPolicy === 'string' && roundingPolicy ? roundingPolicy : null,
     comparisonStatus,
     conditionSummary: typeof conditionSummary === 'string' ? conditionSummary : null,
+    battleSummary: typeof battleSummary === 'string' ? battleSummary : null,
+    defensePolicy: defensePolicy && typeof defensePolicy === 'object' ? defensePolicy : null,
     hardware: describeHardwareProfile(hardware),
     batch: described,
     statistics: describeStatistics(statistics, { memberOrder: described.input.characterIds, displayNames }),
@@ -293,11 +305,11 @@ export function buildStatsModel({ hardware, batch, statistics, comparison, deckM
  * endpoint shows "미연결", and 409 analysis_not_integrated is reported as an explicit state rather
  * than an empty statistics panel.
  */
-export function createSingleDeckStatsView({ api, getSnapshot, getMembersWithMeta, getTacticSummary, getConditions, status, storage } = {}) {
+export function createSingleDeckStatsView({ api, getSnapshot, getMembersWithMeta, getTacticSummary, getConditions, getBossId, status, storage } = {}) {
   const store = storage ?? (typeof localStorage === 'undefined' ? null : localStorage);
   const state = {
     endpointStatus: 'unknown', analysisStatus: 'unknown', requestedRuns: DEFAULT_RUNS, phase: 'final', cut: null,
-    recovered: false, errors: [], hardware: null, batch: null, statistics: null, comparison: null, comparisonStatus: null, compatibility: null,
+    recovered: false, errors: [], hardware: null, batch: null, statistics: null, comparison: null, comparisonStatus: null, compatibility: null, battle: null, defenseRuns: null,
     requestedDevice: 'auto', workerLimit: null, memoryLimitBytes: null, retune: false
   };
   let containerId = 'stats-content';
@@ -308,7 +320,24 @@ export function createSingleDeckStatsView({ api, getSnapshot, getMembersWithMeta
   const model = () => buildStatsModel({ ...state, deckMembers: deckMembers(), tacticSummary: getTacticSummary?.() ?? '',
     roundingPolicy: getConditions?.()?.roundingPolicy ?? null,
     // Boss distance / weak element come from the solo raid form (F-COND-1), shown once that wire is confirmed.
-    conditionSummary: COND_WIRE.confirmed ? conditionSummaryFor(state.batch) : null });
+    conditionSummary: COND_WIRE.confirmed ? conditionSummaryFor(state.batch) : null,
+    battleSummary: DEF_WIRE.confirmed ? battleSummaryFor(state.batch) : null,
+    defensePolicy: DEF_WIRE.confirmed ? defensePolicyFor(state.batch) : null });
+  // F2-Q-1: the DEF card follows the stored policy and the stored runs (switch / no switch / old fixed DEF).
+  function defensePolicyFor(batch) {
+    const names = new Map(deckMembers().map(m => [m.characterId, m.displayName]));
+    if (!batch?.id) return describeDefensePolicy({}, null, { planned: true });
+    const bc = batch.input?.battleConditions ?? (state.battle?.id === batch.id ? state.battle.value : null);
+    const loaded = state.defenseRuns?.id === batch.id ? state.defenseRuns : null;
+    return describeDefensePolicy({ defPolicy: batch.input?.defPolicy ?? null, battleConditions: bc }, loaded?.runs ?? null,
+      { names, partial: loaded?.partial === true });
+  }
+  // Stored battle conditions (DEF mode, time, shotgun, boss) of the experiment; older records via the endpoint.
+  function battleSummaryFor(batch) {
+    if (!batch?.id) return null;
+    const bc = batch.input?.battleConditions ?? (state.battle?.id === batch.id ? state.battle.value : null);
+    return bc ? describeSavedCombat(null, { battleConditions: bc, boss: batch.input?.boss ?? null }) : null;
+  }
   // Stored experiment mode (BatchStatus.input.conditionCompatibility, or the read endpoint for older records);
   // before a batch exists, the conditions the form will send.
   function conditionSummaryFor(batch) {
@@ -332,8 +361,8 @@ export function createSingleDeckStatsView({ api, getSnapshot, getMembersWithMeta
       // Combat profile data errors name the character, field and reason (B-FIX-2); still not an outage.
       const profile = describeCombatProfileError(error, new Map(deckMembers().map(m => [m.characterId, m.displayName])));
       return { ok: false, code: failure.code, reachable: failure.reachable,
-        error: profile ? `${profile.text} (서버 원문: ${profile.raw})`
-          : failure.code ? `${describeComputeError(failure.code)} (${failure.message})` : failure.message };
+        // U-FIX-6: Korean diagnostics only; no server text on screen.
+        error: profile ? profile.text : failure.code ? describeComputeError(failure.code) : failure.message };
     }
   }
 
@@ -348,6 +377,12 @@ export function createSingleDeckStatsView({ api, getSnapshot, getMembersWithMeta
     state.batch = payload;
     const id = payload.id ?? null;
     if (id && store) { try { store.setItem(EXPERIMENT_STORAGE_KEY, id); } catch { /* storage disabled */ } }
+    if (DEF_WIRE.confirmed && id && !payload.input?.battleConditions && state.battle?.id !== id) {
+      state.battle = { id, value: null };
+      Promise.resolve(api(DEF_WIRE.experimentRoute(id)))
+        .then(value => { if (state.battle?.id === id) { state.battle = { id, value }; render(); } })
+        .catch(() => {});
+    }
     // Records made before conditionCompatibility: read the stored mode once (display only, never rewritten).
     if (COND_WIRE.confirmed && id && !payload.input?.conditionCompatibility && state.compatibility?.id !== id) {
       state.compatibility = { id, value: null };
@@ -365,6 +400,14 @@ export function createSingleDeckStatsView({ api, getSnapshot, getMembersWithMeta
   }
 
   async function loadAnalysis(id) {
+    if (DEF_WIRE.confirmed) {
+      const results = await call(COMPUTE_ROUTES.results(id, 0, 1000));
+      if (results.ok) {
+        const runs = Array.isArray(results.data?.runs) ? results.data.runs : [];
+        const valid = Number(results.data?.batch?.valid ?? runs.length);
+        state.defenseRuns = { id, runs: runs.map(r => r?.defense ?? null), partial: valid > runs.length };
+      }
+    }
     const statistics = await call(COMPUTE_ROUTES.statistics(id, state.cut));
     if (statistics.ok) { state.statistics = statistics.data ?? null; state.analysisStatus = 'integrated'; }
     else if (state.analysisStatus !== 'not_integrated') note(`통계를 불러오지 못했습니다. ${statistics.error}`);
@@ -406,6 +449,7 @@ export function createSingleDeckStatsView({ api, getSnapshot, getMembersWithMeta
       snapshotId: snapshot.id,
       characterIds: members,
       conditions: getConditions?.() ?? {},
+      bossId: getBossId?.() ?? null,
       runs: state.requestedRuns,
       phase: state.phase,
       execution: {

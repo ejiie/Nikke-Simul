@@ -267,8 +267,8 @@ const CONTRACT_ERROR_CODES = ['analysis_not_integrated', 'gpu_unavailable', 'sav
  */
 export function classifyApiFailure(error) {
   const status = Number.isInteger(error?.status) ? error.status : null;
-  const message = error?.message ?? String(error);
-  const code = text(error?.code) ?? contractErrorCode(message);
+  const message = error?.message ?? String(error);  // screen text (Korean)
+  const code = text(error?.code) ?? contractErrorCode(error?.serverMessage ?? message);
   const reachable = status !== null && status >= 400 && status < 500;
   return { status, message, code, reachable, outage: !reachable };
 }
@@ -335,7 +335,8 @@ const REASON_SCOPE = { mean_ci_requires_n_at_least_2: ['sampleSd', 'meanCi'] };
 const REASON_TEXT = { mean_ci_requires_n_at_least_2: '평균 CI·표본 표준편차는 표본 2건 이상 필요 (평균·분위수는 제공값 표시)' };
 export function describeUnsupportedReason(reason) {
   const key = text(reason);
-  return key ? REASON_TEXT[key] ? `${REASON_TEXT[key]} · ${key}` : key : null;
+  // U-FIX-6: Korean only; unknown reason codes are not shown raw.
+  return key ? REASON_TEXT[key] ?? '일부 통계 지표를 제공하지 않습니다' : null;
 }
 
 /**
@@ -351,7 +352,7 @@ export function describeStatistics(result, { memberOrder = [], displayNames = nu
   const keys = memberOrder.length
     ? [...memberOrder.filter(id => id in membersSource), ...Object.keys(membersSource).filter(id => !memberOrder.includes(id))]
     : Object.keys(membersSource);
-  const name = id => displayNames?.get?.(id) ?? id;
+  const name = id => displayNames?.get?.(id) ?? '이름 미확인'; // never the character code
   return {
     present: true,
     experimentId: text(result.experimentId),
@@ -369,7 +370,7 @@ export function describeOlChange(change, { displayNames = null } = {}) {
   const value = typeof change?.value === 'number' ? change.value : Number(change?.value);
   return {
     characterId,
-    displayName: displayNames?.get?.(characterId) ?? characterId ?? UNKNOWN,
+    displayName: displayNames?.get?.(characterId) ?? '이름 미확인',
     slot: text(change?.slot),
     lineIndex: isFiniteNumber(change?.lineIndex) ? change.lineIndex : null,
     optionId: text(change?.optionId),
@@ -420,7 +421,7 @@ export function describeOlComparison(comparison, { displayNames = null } = {}) {
  * Backend is correcting), duration is in frames, synchro stays 400 and recordLevel stays summary.
  */
 export function buildExperimentRequest({ snapshotId, characterIds, conditions = {}, runs = 1000, phase = 'final',
-  execution = {}, olChanges = null, baselineExperimentId = null, useSavedTactic = true } = {}) {
+  execution = {}, olChanges = null, baselineExperimentId = null, useSavedTactic = true, bossId = null } = {}) {
   const combat = { ...(conditions.combat ?? {}) };
   if (combat.targetDefense !== undefined) { // never send the documented typo
     if (combat.enemyDefense === undefined) combat.enemyDefense = combat.targetDefense;
@@ -444,5 +445,6 @@ export function buildExperimentRequest({ snapshotId, characterIds, conditions = 
   };
   if (olChanges?.length) request.olChanges = olChanges;
   if (baselineExperimentId) request.baselineExperimentId = baselineExperimentId;
+  if (text(bossId)) request.bossId = bossId; // display-only boss selection (F2-B), not a condition
   return request;
 }

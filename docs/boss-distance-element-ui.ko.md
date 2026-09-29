@@ -1,5 +1,7 @@
 # 보스 거리·약점 속성 조건 — UI (F-COND-U)
 
+> 2026-09-29 후속: 속성 이름 영어 병기·약점 팝업 설명 문장·거리 표의 출처/미확정 문구·예외 캐릭터 코드 표시는 사용자 요구 R1·R2로 바뀌었다 — [F2-U](combat-conditions-cleanup-ui.ko.md). 아래 문구 예시는 당시 기록이다.
+
 2026-09-28~29. **U-FIX-2 완료**(사거리·속성 데이터 오류 진단, 7절). 2026-09-28. **mock 단계 완료**(1~5절, 당시 기록) → **단계 B 완료**(Backend 확정 `796eec3` merge, 확정 wire 연결, 실제 격리 API·브라우저 검증 — 6절). 이 문서는 UI 구현·검증 보고이며 독립 QA 수용·원본 배포 보고가 아니다. 1~5절과 6절이 다르면 6절이 우선한다.
 
 배정: [F-COND-1 지시서](C:/Users/user/orca/workspaces/Nikke-Simul/Director/docs/boss-distance-element-assignments-2026-09-28.ko.md)의 "결정한 기본값"·"공통 기준"·"F-COND-U" 절. 공통 기준은 [client_f32 통합 지시서](C:/Users/user/orca/workspaces/Nikke-Simul/Director/docs/client-f32-integration-assignments-2026-09-28.ko.md)의 "공통 기준·보존"을 따른다. Director 문서는 읽기만 했다.

@@ -198,3 +198,68 @@ runtime `combatProfiles`의 필수 JSON 키는 DTO 생성 전에 검사한다. �
 `reason`: `missing`(키 없음), `null`(명시 null), `wrong_type`(정수/문자열/객체 타입 불일치), `out_of_range`(사거리 범위·순서), `unsupported_value`(속성/무기/스키마 등), `id_mismatch`, `weapon_mismatch`, `hash_mismatch`(출처 sha256/version 불일치). `field`는 combatProfiles부터 시작하는 JSON 경로이고, 카탈로그·출처 수준 오류는 `characterId:null`이다. 성공 응답과 요청 조건 필드는 바뀌지 않는다. UI는 기존 `message`로 오류를 표시할 수 있고 세부 분류에는 code/field/reason을 사용한다.
 
 profile 멤버 전체 누락은 기존 HTTP400 `{message:"combat_member_profile_missing:<id>"}`, 전체 combatProfiles가 없는 옛 catalog의 자료 요구는 기존409 `combat_profile_catalog_missing`를 유지한다. 자료가 전혀 없는 옛 catalog의 metadata 불필요 bool 경로와 기존 기록 읽기는 유지한다. 반면 combatProfiles가 있는 catalog의 필드 손상은 과거 bool 요청이어도 묵인하지 않는다. 이 수정은 정상 계산값·fingerprint·엔진 버전을 바꾸지 않는다.
+
+## F2-B — 전투 조건 정리·보스 선택 확정 wire (2026-09-29)
+
+### 신규 요청과 이전 조건 재현
+
+적용 경로는 `POST /api/runtime/skill-replays`, `POST /api/compute/experiments`다. 요청 최상위 optional `conditionProfile`은 생략 또는 `solo_raid`가 새 규칙, `legacy`는 명시적인 이전 조건 재현이다. **UI 신규 실행에는 legacy를 넣지 않는다.** 과거 조건으로 재실행할 때만 legacy를 넣고 당시 combat 값을 보낸다. 프로필을 조건 값으로 추정하지 않는다.
+
+새 요청의 combat 생략 기본값:
+
+```json
+{"durationFrames":10800,"pelletCoefficientPolicy":"per_trigger","defenseMode":"team_damage_threshold","enemyDefense":30925,"critMode":"sample"}
+```
+
+- durationFrames·pelletCoefficientPolicy·defenseMode는 명시 시 위 값과 같아야 한다. 다른 값/null/타입은400. 오류 message: `solo_raid_duration_fixed_10800`, `solo_raid_pellet_policy_fixed_per_trigger`, `solo_raid_defense_mode_requires_team_damage_threshold`.
+- 자동 모드 enemyDefense는 생략 가능하며 서버가30925로 고정한다. 명시 숫자의 음수·소수·문자열/null은400 `invalid_enemy_defense`; 유효 정수를 보내도 자동 모드의 시작값30925로 정규화해 결과·저장에 남긴다.
+- critMode의 명시 선택과 기존 roundingPolicy 선택은 유지한다. 대미지 정책 생략 기본은 기존 client_f32다. bossDistance/bossWeakElement와 구 bool 혼용 금지는 그대로다.
+- `conditionProfile:"legacy"`는 당시 시간·per_trigger/per_pellet·크리·EnemyDefense를 보존하고 defenseMode=fixed만 허용한다(생략 시 fixed 명시). 다른 모드는400 `legacy_defense_mode_requires_fixed`. 새 사용자 조건과 분리된 비교·구 결과 재현 경로다. 프로필 미지원 값은400 `condition_profile_invalid`.
+- 단일 hit 수동 검산·다중 정책 weapon-reference 경로는 이전 명시 조건을 유지한다. weapon replay에 자동 DEF를 보내면400 `weapon_reference_requires_fixed_defense_use_skill_replay`; 자동 전투는 skill replay를 사용한다.
+
+### DEF 표시·저장
+
+신규 saved skill replay 최상위와 compute `BatchStatus.input`에 `battleConditions`가 들어간다:
+
+```json
+{"profile":"solo_raid","label":"덱 누적 피해에 따라 방어력 자동 전환","defenseMode":"team_damage_threshold","initialDefense":30925,"switchedDefense":31784,"damageThreshold":2000000000,"durationFrames":10800,"pelletCoefficientPolicy":"per_trigger"}
+```
+
+legacy는 `profile:"legacy",label:"이전 방식(고정 방어력)",defenseMode:"fixed"`, initialDefense는 당시 값, switchedDefense/damageThreshold는 null이다. 기존 `conditionCompatibility`는 거리·약점 old/new 전용으로 유지한다. DEF 모드를 그 필드에서 추정하지 않는다.
+
+기존 저장 파일을 수정하지 않고 표시 정보를 얻는 GET:
+
+- `/api/runtime/skill-replays/{id}/battle-conditions`
+- `/api/compute/experiments/{id}/battle-conditions`
+
+모드가 없는 옛 저장 조건은 fixed로 해석한다. 기존 GET/export는 원문을 보존하고 새 기본값을 덧씌우지 않는다. 엔진/rules 버전이 다른 옛 batch resume은 기존409 규칙을 유지한다.
+
+실제 전환 결과는 skill replay `result.defense`와 compute results의 `runs[].defense`다:
+
+```json
+{"mode":"team_damage_threshold","initialDefense":30925,"finalDefense":31784,"damageThreshold":2000000000,"switchAfterHit":{"frame":1133,"hitTraceId":3804,"hitOrdinal":2011,"characterId":"5009","effect":"normal_attack","cumulativeDamage":2001052869,"previousDefense":30925,"newDefense":31784}}
+```
+
+위 값은 합성 검증 예다. 전환 없으면 switchAfterHit=null이며 fixed는 damageThreshold=null이다. 과거 compute 행에는 defense=null일 수 있으며 “기록 없음”으로 취급한다. hitTraceId는 초과를 만든 피해 이벤트 ID다. 그 타격에는 previousDefense, 다음 처리 타격부터 newDefense를 적용한다. trace 미수집/잘림이어도 이 요약은 저장된다. 경계 세부(정확히20억 무전환·다음 타격부터)는 실게임 확인 대기 가설이다.
+
+compute input.defPolicy는 `fixed:<당시 DEF>` 또는 `team_damage_threshold:30925:2000000000:31784`. 조건의 모드와 `cpu-summary.4-defense-switch`, skills/team5 버전으로 fingerprint·튜닝 키를 구분한다. Contracts·DB JSON에 전환 DTO를 보존하며 통계 산술은 변경하지 않는다.
+
+### 보스 목록과 선택 — 표시 전용
+
+`GET /api/presentation/solo-raid-bosses`:
+
+```json
+{"schemaVersion":1,"defaultBossId":"dummy","bosses":[{"id":"dummy","name":"더미 보스","imageUrl":null,"season":null},{"id":"solo-raid-41","name":"리버렐리오 바디","imageUrl":"/editor/assets/bosses/<opaque-id>.png","season":41}],"diagnostics":[{"id":"solo-raid-42","season":42,"code":"korean_name_unavailable","displayable":false,"message":"한국어 이름 원천 미확인"}],"complete":false}
+```
+
+예시 목록은 축약했다. 실제 표시 목록은 한국어 원천을 확인한 항목만이다. 확인하지 못한 보스는 `bosses`에서 제외하고 diagnostics로 반환하며 영어로 대체하지 않는다. `boss_image_unavailable`은 이미지 실패, catalog 미준비는 dummy만 + `boss_catalog_not_prepared`. complete=false면 전체 원천 목록의 일부가 제외된 상태다. UI는 bosses만 선택 대상으로 쓰고 diagnostics를 준비 상태 안내에 사용한다. 원본 영문명/몬스터ID/URL/SHA256은 응답에 없다. 이미지 파일명도 원본 hash가 아닌 불투명 ID다. dummy의 null imageUrl은 기본 더미 표시를 사용한다.
+
+두 POST의 최상위 `bossId`에 선택 ID를 보낸다(생략/null은 dummy). 알 수 없거나 제외된 ID는400 `boss_id_unknown`. 결과 최상위 `boss`(skill replay), `input.boss`(compute)에 선택 당시 `{id,name,imageUrl,season}`를 저장한다. 보스 이름을 클라이언트 입력으로 받지 않는다. 구 저장본의 boss=null은 과거 미기록이며 원문을 다시 쓰지 않는다.
+
+boss 메타데이터는 조건·전투 데이터 버전·fingerprint·튜닝 키에 넣지 않는다. 보스 선택만 달라도 계산 결과·키는 같고 저장 실험 ID와 표시 선택만 구분된다. 보스별 약점/거리/DEF/스킬 자동 변경은 이번 범위가 아니다.
+
+Git 제외 presentation 준비 명령은 `python tools/data-pipeline/prepare_solo_raid_bosses.py --presentation-root <격리 dataRoot>/presentation`. 원본에는 이번 작업에서 실행하지 않았다. 목록/이미지와 코드를 같이 준비해야 실제 보스가 표시되며 상세 범위는 [F2-B 보고서](combat-conditions-cleanup-backend.ko.md)를 따른다.
+
+### 사거리 확인 범위
+
+combat-conditions catalog의 `gameVerified:true`는 사용자 확인을 마친 **캐릭터별 사거리 데이터·RL0–0** 범위다. RL diagnostic은 `rl_zero_range_no_bonus`로 바뀌고 rangeBonusAvailable=false는 유지한다. 전투 전체·보스 기믹·대미지 실측까지 검증됐다는 뜻이 아니다. 경계 양끝 포함은 현 계산 유지·문서상 확인 대기이며 UI 미확정 문구로 표시하지 않는다.

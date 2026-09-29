@@ -132,7 +132,7 @@ def main():
                             return {str(p.relative_to(data)): digest(p) for name in ('weapon-replays', 'skill-replays', 'compute')
                                     for p in (data / name).rglob('*') if p.is_file()}
                         initial_files = persisted_files()
-                        combat = {'durationFrames': 120, 'enemyDefense': 30925, 'critMode': 'off',
+                        combat = {'durationFrames': 120 if args.before_fix else 10800, 'enemyDefense': 30925, 'critMode': 'off',
                                   'pelletCoefficientPolicy': 'per_trigger', 'bossDistance': 35, 'bossWeakElement': 'Fire'}
                         replay = {'snapshotId': snapshot['id'], 'characterIds': ids, 'scenarioLevel': 400,
                                   'conditions': {'roundingPolicy': 'client_f32', 'combat': combat}}

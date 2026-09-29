@@ -7,6 +7,7 @@
 - `apps/desktop-ui/app.js` `renderRaid`: 전투 조건의 `<label>검산 레벨 (선택)<input name="level" …></label>`을 삭제했습니다. hidden input이나 계정 레벨 fallback은 두지 않았습니다. 남은 안내는 기존 microcopy 끝에 한 문장(`검산 스탯은 싱크로 레벨 400 고정입니다.`)입니다.
 - 같은 파일 `#replay-form` submit 처리: `scenarioLevel: form.get('level') === '' ? null : Number(form.get('level'))`를 명명 상수 `SOLO_RAID_SCENARIO_LEVEL = 400`로 바꿨습니다. 상수는 **submit 콜백 안에** 둡니다. `tests/q3/check_ui_contract.mjs`가 이 콜백 본문만 잘라 VM에서 실행하므로 모듈 수준 상수를 참조하면 그 회귀가 깨집니다(실제로 26→23으로 실패해 확인 후 수정).
 - 폼의 다른 조건(시간·방어력·크리티컬·정수화·샷건 계수·코어/거리/우월 코드·직접 조작·차지 방식·버스트 전술·대미지 로그 대상)은 그대로입니다.
+  - 2026-09-29 후속: 시간·샷건 계수 입력은 없어졌고(180초·발사 1회 고정), 크리티컬 기본값은 확률 적용이다([F2-U](combat-conditions-cleanup-ui.ko.md)).
   - 2026-09-28 후속: 거리/우월 코드 체크박스는 보스 거리·약점 속성 조건으로 바뀌었습니다([F-COND-U](boss-distance-element-ui.ko.md)). `tests/ui/check_solo_raid_level.py`는 이제 새 필드(`bossDistance`/`bossWeakElement` 명시 null)와 옛 bool 부재를 확인합니다. 새 조건 필드 계산도 같은 이유로 submit 콜백 안에 둡니다.
 
 ## 변경하지 않은 것

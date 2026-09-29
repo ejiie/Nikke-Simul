@@ -14,7 +14,7 @@ namespace Nikke.Compute.Tests;
 
 public sealed class ClientF32IntegrationTests
 {
-    private static PreparedCompute Prepare(string policy="client_f32",HitContext? hit=null,WeaponReplayConditions? combat=null,int rangeMin=25)
+    private static PreparedCompute Prepare(string policy="client_f32",HitContext? hit=null,WeaponReplayConditions? combat=null,int rangeMin=25,SoloRaidBoss? boss=null)
     {
         var members=Enumerable.Range(0,5).Select(i=>new SkillReplayMember(new WeaponReplayMember(i.ToString(),
             new WeaponDto{weaponType="AR",inputType="DOWN",fireType="Instant",fireRate=12,endFireRate=12,maxAmmo=100,reloadTimeSec=1,reloadBulletRate=1,shotCount=1,muzzleCount=1},
@@ -22,7 +22,32 @@ public sealed class ClientF32IntegrationTests
             new SkillLoadout("fixture",new Dictionary<string,int>{{"skill1",10},{"skill2",10},{"burst",10}},
                 new Dictionary<string,SkillDefinition>{{"skill1",new(){SkillId=1}},{"skill2",new(){SkillId=2}},{"burst",new(){SkillId=3}}}))).ToArray();
         return PreparedCompute.Create(members,new(new Dictionary<int,SkillFunction>(),new Dictionary<int,SkillDefinition>()),
-            new(){RoundingPolicy=policy,Combat=combat??new(){DurationFrames=60,Trace=false}},"synthetic","synthetic","final");
+            new(){RoundingPolicy=policy,Combat=combat??new(){DurationFrames=60,Trace=false}},"synthetic","synthetic","final",boss);
+    }
+    [Fact] public void Defense_summary_survives_storage_and_boss_display_never_partitions_computation()
+    {
+        var c=new WeaponReplayConditions{DurationFrames=60,DefenseMode=DefenseMode.TeamDamageThreshold,EnemyDefense=30925,CritMode="off"};
+        var hit=new HitContext{StatAttack=1_000_000_000};
+        var a=Prepare(hit:hit,combat:c,boss:new("dummy","더미 보스",null));
+        var b=Prepare(hit:hit,combat:c,boss:new("solo-raid-1","합성 한국어 보스",null,1));
+        var fixedInput=Prepare(hit:hit,combat:c with {DefenseMode=DefenseMode.Fixed});
+        Assert.Equal(a.Input.Fingerprint,b.Input.Fingerprint);
+        Assert.Equal(ExecutionPolicy.Conservative(Hardware,a.Input,new()).Fingerprint,ExecutionPolicy.Conservative(Hardware,b.Input,new()).Fingerprint);
+        Assert.NotEqual(a.Input.Fingerprint,fixedInput.Input.Fingerprint);
+        Assert.NotEqual(a.Input.DefPolicy,fixedInput.Input.DefPolicy);
+        Assert.Equal(b.Input.Boss,PreparedCompute.Restore(b.PersistedInput).Input.Boss);
+        var run=a.Run("x",0,1,default);
+        Assert.NotNull(run.Defense!.SwitchAfterHit);Assert.Equal(31784,run.Defense.FinalDefense);
+        Assert.Equal(run.Defense,Wire.Read<RunSummary>(Wire.Serialize(run)).Defense);
+        Assert.Null(fixedInput.Run("x",0,1,default).Defense!.SwitchAfterHit);
+        var root=Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,"../../../../../artifacts/fcond2/storage",Guid.NewGuid().ToString("N")));
+        var store=new BatchStore(root);var batch=store.Create(b,new("synthetic",["0","1","2","3","4"],new(),Runs:1),ExecutionPolicy.Conservative(Hardware,b.Input,new()));
+        store.Running(batch.Id,1,batch.Execution);
+        var row=b.Run(batch.Id,0,1,default);store.Write(batch.Id,1,[new(0,1,row,null)]);store.Finish(batch.Id,1,false);
+        Assert.Equal(row.Defense,Assert.Single(store.Results(batch.Id)).Defense);
+        Assert.Equal(b.Input.Boss,store.Read(batch.Id).Status.Input.Boss);
+        var old=JsonNode.Parse(Wire.Serialize(row))!.AsObject();old.Remove("defense");
+        Assert.Null(Wire.Read<RunSummary>(old.ToJsonString()).Defense);
     }
     private static HardwareProfile Hardware=>HardwareProbe.Normalize(new(),2,8L<<30,"integration","Windows","X64",false);
     [Fact] public void Boss_conditions_metadata_and_explicit_unset_mode_survive_restore_and_partition_cache()

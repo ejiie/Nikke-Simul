@@ -208,7 +208,9 @@ async def run():
                 }""")
                 await page.locator('#compute-start').click()
                 await page.wait_for_function(
-                    "() => document.querySelector('#stats-content')?.textContent.includes('gpu_unavailable')", timeout=15000)
+                    "() => document.querySelector('#stats-content')?.textContent.includes('강제 GPU 요청은 실행 전에 거부됩니다')", timeout=15000)
+                if 'gpu_unavailable' in await panel_text(page):  # U-FIX-6: Korean only, no raw code
+                    problems.append('raw gpu_unavailable code on screen')
                 summary['states']['forcedGpuRejected'] = True
                 await page.evaluate("""() => {
                     const select = document.querySelector('#compute-device');
@@ -255,8 +257,9 @@ async def run():
                 else:
                     combat = (accepted[-1].get('conditions') or {}).get('combat') or {}
                     summary['states']['startCombat'] = combat
-                    if combat.get('enemyDefense') not in (30925, 31784):
-                        problems.append(f"start request enemyDefense={combat.get('enemyDefense')!r}")
+                    # F-COND-2 R4: the solo_raid default DEF switch applies; the UI sends no fixed DEF.
+                    if any(k in combat for k in ('enemyDefense', 'defenseMode')):
+                        problems.append(f"start request sent a fixed DEF {combat.get('enemyDefense')!r}/{combat.get('defenseMode')!r}")
                     if combat.get('durationFrames') != 10800:
                         problems.append(f"start request durationFrames={combat.get('durationFrames')!r}")
                     if 'targetDefense' in combat:

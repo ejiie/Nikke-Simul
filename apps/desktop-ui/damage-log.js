@@ -236,7 +236,7 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, ge
 
     const members = getMembersWithMeta();
     const currentMember = members.find(m => m.id === selectedCharacterId);
-    const memberName = currentMember?.displayName || (selectedCharacterId === '5004' ? '앨리스' : selectedCharacterId);
+    const memberName = currentMember?.displayName || (selectedCharacterId === '5004' ? '앨리스' : '이름 미확인');
 
     const nikkeOptions = members.map(m => `
       <option value="${m.id}" ${m.id === selectedCharacterId ? 'selected' : ''}>

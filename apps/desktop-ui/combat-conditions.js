@@ -42,7 +42,7 @@ export const WEAK_ELEMENTS = Object.freeze([
 export const WEAPON_LABELS = Object.freeze({ SG: '샷건', SMG: '기관단총', AR: '소총', MG: '머신건', SR: '저격소총', RL: '런처' });
 const WEAPON_ORDER = ['SG', 'SMG', 'AR', 'MG', 'SR', 'RL'];
 const PRESENTATION_WEAPONS = { shotgun: 'SG', submachine_gun: 'SMG', assault_rifle: 'AR', machine_gun: 'MG', sniper_rifle: 'SR', rocket_launcher: 'RL' };
-const DIAGNOSTICS = { rl_zero_range_no_bonus_unverified: '데이터 0–0 · 보너스 없음 · 확인 필요' };
+const WEAPON_ICONS = Object.fromEntries(Object.entries(PRESENTATION_WEAPONS).map(([code, type]) => [type, code]));
 
 const isInt = v => Number.isInteger(v);
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -67,14 +67,14 @@ export function parseDistance(value) {
 export const distanceSummary = state => state.bossDistance === null ? '미설정' : String(state.bossDistance);
 export function elementSummary(state) {
   const element = elementByCode(state.bossWeakElement);
-  return element ? `${element.label}(${element.en})` : '없음';
+  return element ? element.label : '없음';
 }
 
 /** Range status of one member profile at a distance. rangeBonusAvailable=false (RL 0-0) is data, not an error. */
 export function rangeStatus(profile, distance) {
   if (!profile || !isInt(profile.min) || !isInt(profile.max)) return { kind: 'unknown', text: '사거리 정보 없음' };
   if (profile.rangeBonusAvailable === false || (profile.min === 0 && profile.max === 0))
-    return { kind: 'no_bonus', text: '보너스 없음(데이터 0–0, 확인 필요)' };
+    return { kind: 'no_bonus', text: '보너스 없음 (0–0)' };
   if (distance === null) return { kind: 'unset', text: `적정 ${profile.min}–${profile.max} · 거리 미설정` };
   return distance >= profile.min && distance <= profile.max
     ? { kind: 'in', text: `적정 거리 (${profile.min}–${profile.max})` }
@@ -127,7 +127,7 @@ export function memberPreview(members, profiles, state) {
     const profile = profiles?.[m.id] ?? null;
     const element = profile?.element ?? elementByCode(m.elementCode)?.code ?? null;
     return {
-      id: m.id, name: m.displayName ?? profile?.name ?? m.id,
+      id: m.id, name: m.displayName ?? '이름 미확인',
       weaponType: profile?.weaponType ?? PRESENTATION_WEAPONS[m.weaponCode] ?? null,
       distance: rangeStatus(profile, state.bossDistance),
       element,
@@ -180,19 +180,21 @@ export function renderConditionControls(state, { legacy = null, catalog = null }
   </div>`;
 }
 
-export function renderDistanceDialog(state, catalog, preview, { error = null, membersError = null } = {}) {
+export function renderDistanceDialog(state, catalog, preview, { error = null, membersError = null, nameOf = x => x.name ?? '이름 미확인' } = {}) {
   const rangeText = r => r.rangeBonusAvailable === false || (r.typical && r.typical.min === 0 && r.typical.max === 0)
-    ? '0–0 · 보너스 없음(확인 필요)' : r.typical ? `${r.typical.min}–${r.typical.max}` : '미확인';
-  const exceptionText = x => `${esc(x.name ?? x.characterId)} (#${esc(x.characterId)}): ${x.min ?? '?'}–${x.max ?? '?'}`;
+    ? '0–0 · 보너스 없음' : r.typical ? `${r.typical.min}–${r.typical.max}` : '미확인';
+  // Character codes are not shown; the Korean display name comes from the app's character data.
+  const exceptionText = x => `${esc(nameOf(x))}: ${x.min ?? '?'}–${x.max ?? '?'}`;
+  const weaponCell = r => `<span class="cond-weapon">${WEAPON_ICONS[r.weaponType] ? `<img src="/editor/assets/ui/weapon-${WEAPON_ICONS[r.weaponType]}.png" alt="">` : ''}<span>${esc(r.label)}</span></span>`;
   const table = catalog?.weaponRanges?.length ? `<div class="table-scroll"><table class="cond-range-table">
-      <thead><tr><th>무기군</th><th>적정 사거리(다수)</th><th>인원</th><th>예외</th></tr></thead><tbody>${catalog.weaponRanges.map(r => `<tr data-weapon="${esc(r.weaponType)}"><td>${esc(r.label)}</td><td>${esc(rangeText(r))}</td><td>${r.characterCount ?? '—'}</td><td>${r.exceptions.length ? r.exceptions.map(exceptionText).join(', ') : '—'}</td></tr>`).join('')}</tbody></table></div>`
+      <thead><tr><th>무기군</th><th>적정 사거리</th><th>인원</th><th>예외</th></tr></thead><tbody>${catalog.weaponRanges.map(r => `<tr data-weapon="${esc(r.weaponType)}"><td>${weaponCell(r)}</td><td>${esc(rangeText(r))}</td><td>${r.characterCount ?? '—'}</td><td>${r.exceptions.length ? r.exceptions.map(exceptionText).join(', ') : '—'}</td></tr>`).join('')}</tbody></table></div>`
     : `<p class="cond-load-error" data-cond-error="catalog" role="alert">무기군별 적정 사거리를 불러오지 못했습니다.${error ? ` ${esc(error)}` : ''}</p>`;
   const members = preview.length ? `<ul class="cond-member-list">${preview.map(m =>
     `<li data-member="${esc(m.id)}" data-distance-kind="${m.distance.kind}"><strong>${esc(m.name)}</strong> <span>${esc(WEAPON_LABELS[m.weaponType] ?? '무기 미확인')}</span> <em>${esc(m.distance.text)}</em></li>`).join('')}</ul>` : '';
   const value = state.bossDistance ?? '';
   return `<form method="dialog" class="cond-dialog-body" data-cond-form="distance">
     <h3 id="cond-distance-title">보스 거리</h3>
-    <p class="microcopy">0~100 정수. 각 니케는 자기 무기의 적정 사거리 안에 거리가 들어가면 적정 거리 보너스를 받습니다(평타만, 양끝 포함 · 잠정). 미설정이면 전원 보너스 없음.</p>
+    <p class="microcopy">0~100 정수. 각 니케는 자기 무기의 적정 사거리 안에 거리가 들어가면 적정 거리 보너스를 받습니다. 미설정이면 전원 보너스 없음.</p>
     <div class="cond-distance-inputs">
       <input type="range" name="distanceRange" min="${DISTANCE_MIN}" max="${DISTANCE_MAX}" step="1" value="${value === '' ? 50 : value}" aria-label="보스 거리 슬라이더">
       <input type="number" name="distance" min="${DISTANCE_MIN}" max="${DISTANCE_MAX}" step="1" inputmode="numeric" value="${value}" placeholder="미설정" aria-label="보스 거리">
@@ -201,7 +203,6 @@ export function renderDistanceDialog(state, catalog, preview, { error = null, me
     <p class="cond-error" role="alert" hidden></p>
     <h4>현재 덱</h4>${membersError ? `<p class="cond-load-error" data-cond-error="members" role="alert">멤버 사거리·속성을 불러오지 못했습니다. ${esc(membersError)}</p>` : ''}${members}
     <h4>무기군별 적정 사거리</h4>${table}
-    <p class="microcopy">무기군 표는 참고용이며 판정은 캐릭터별 값을 씁니다(예외 캐릭터 반영).${catalog?.source ? ` 원천 ${esc(catalog.source)}` : ''}${catalog && !catalog.gameVerified ? ' · 실게임 검증 전' : ''}</p>
     <div class="cond-actions"><button type="button" data-cond-cancel>취소</button><button type="submit" class="primary" value="apply">적용</button></div>
   </form>`;
 }
@@ -210,12 +211,11 @@ export function renderElementDialog(state, preview, catalog = null, { error = nu
   const buttons = WEAK_ELEMENTS.map(e => {
     const members = preview.filter(m => m.element === e.code).map(m => m.name);
     return `<button type="button" class="cond-element ${state.bossWeakElement === e.code ? 'selected' : ''}" data-cond-element="${e.code}" aria-pressed="${state.bossWeakElement === e.code}">
-      <img src="${esc(iconFor(catalog, e.code))}" alt=""><span>${esc(e.label)} <small>${esc(e.en)}</small></span><small class="cond-element-members">${members.length ? `덱: ${esc(members.join(', '))}` : '덱에 없음'}</small></button>`;
+      <img src="${esc(iconFor(catalog, e.code))}" alt=""><span>${esc(e.label)}</span><small class="cond-element-members">${members.length ? `덱: ${esc(members.join(', '))}` : '덱에 없음'}</small></button>`;
   }).join('');
   return `<div class="cond-dialog-body" data-cond-form="element">
     <h3 id="cond-element-title">보스의 약점 속성</h3>
     <p class="cond-emphasis">보스의 약점 속성 — 이 속성 니케가 우월 코드 보너스를 받습니다.</p>
-    <p class="microcopy">니케 자신의 속성이나 보스 자신의 속성이 아닙니다. 속성 상성표는 쓰지 않고, 고른 약점과 같은 속성의 니케만 보너스를 받습니다.</p>
     ${error ? `<p class="cond-load-error" data-cond-error="members" role="alert">덱 멤버 속성을 확인하지 못했습니다. ${esc(error)}</p>` : ''}
     <div class="cond-element-grid">${buttons}
       <button type="button" class="cond-element ${state.bossWeakElement === null ? 'selected' : ''}" data-cond-element="" aria-pressed="${state.bossWeakElement === null}"><span>없음</span><small class="cond-element-members">전원 보너스 없음</small></button></div>
@@ -228,7 +228,7 @@ export function renderElementDialog(state, preview, catalog = null, { error = nu
  * getState(). ESC and the close buttons dismiss without applying. loadCatalog()/loadMembers(ids) call the API.
  */
 export function mountConditionControls(container, { getMembers = () => [], loadCatalog = async () => null,
-  loadMembers = async () => null, onChange = () => {}, legacy = null } = {}) {
+  loadMembers = async () => null, onChange = () => {}, legacy = null, getCharacterName = () => null } = {}) {
   let state = createConditionState();
   let catalog = null, catalogError = null, catalogPromise = null;
   let profiles = null, profilesKey = null, profilesError = null, lastTrigger = null;
@@ -238,7 +238,7 @@ export function mountConditionControls(container, { getMembers = () => [], loadC
   doc.body.append(dialog);
   const preview = (s = state) => memberPreview(getMembers(), profiles, s);
   const paint = () => { container.innerHTML = renderConditionControls(state, { legacy, catalog }); };
-  const names = () => new Map(getMembers().map(m => [String(m.id), m.displayName ?? String(m.id)]));
+  const names = () => new Map(getMembers().map(m => [String(m.id), m.displayName ?? null]));
   const errorText = error => describeCombatProfileError(error, names())?.text ?? error?.message ?? String(error);
   const ensureCatalog = () => catalogPromise ??= Promise.resolve(loadCatalog())
     .then(payload => { catalog = payload ? normalizeCatalog(payload) : null; catalogError = null; return catalog; })
@@ -263,7 +263,8 @@ export function mountConditionControls(container, { getMembers = () => [], loadC
     let draft = state.bossDistance;
     const render = () => {
       dialog.setAttribute('aria-labelledby', 'cond-distance-title');
-      dialog.innerHTML = renderDistanceDialog({ ...state, bossDistance: draft }, catalog, preview({ ...state, bossDistance: draft }), { error: catalogError, membersError: profilesError });
+      dialog.innerHTML = renderDistanceDialog({ ...state, bossDistance: draft }, catalog, preview({ ...state, bossDistance: draft }), { error: catalogError, membersError: profilesError,
+        nameOf: x => getCharacterName(x.characterId) ?? x.name ?? '이름 미확인' });
       const form = dialog.querySelector('form');
       const number = form.elements.distance, slider = form.elements.distanceRange, error = form.querySelector('.cond-error');
       const refresh = () => {
@@ -352,7 +353,7 @@ const PROFILE_REASONS = {
 };
 const PROFILE_FIELDS = { bonusRangeMin: '최소 사거리', bonusRangeMax: '최대 사거리', element: '속성', weaponType: '무기군',
   name: '이름', characterId: '캐릭터 ID' };
-const PREPARE_HINT = '서버 runtime의 사거리·속성 데이터 확인 후 prepare_combat_conditions.py로 다시 준비해야 합니다.';
+const PREPARE_HINT = '사거리·속성 데이터를 확인하고 준비 스크립트(prepare_combat_conditions.py)로 다시 준비해야 합니다.';
 
 /**
  * Korean diagnostic for a combat profile error, or null when the error is something else. `error` is the Error
@@ -362,20 +363,22 @@ export function describeCombatProfileError(error, names = null) {
   const body = error?.details && typeof error.details === 'object' ? error.details : {};
   const message = String(body.message ?? error?.message ?? '');
   const code = text(error?.code) ?? text(body.code) ?? (message.match(/^(combat_profile_invalid|combat_profile_catalog_missing|combat_member_profile_missing)/)?.[1] ?? null);
-  const who = id => { const name = names?.get?.(String(id)) ?? null; return name && name !== String(id) ? `${name}(#${id})` : `#${id}`; };
+  // Character codes are not shown; an unnamed character stays unnamed.
+  const who = id => { const name = names?.get?.(String(id)) ?? null; return name && name !== String(id) ? name : '이름 미확인 캐릭터'; };
   if (code === 'combat_profile_invalid') {
     const field = text(body.field);
     const key = field?.split('.').pop() ?? null;
     const reason = text(body.reason);
     const subject = body.characterId != null ? who(body.characterId) : '카탈로그·출처';
-    const fieldText = key && PROFILE_FIELDS[key] ? `${PROFILE_FIELDS[key]}(${key})` : field ?? '필드 미기록';
+    // U-FIX-6: field meaning in Korean only; the raw path stays in the structured error.
+    const fieldText = key && PROFILE_FIELDS[key] ? PROFILE_FIELDS[key] : /\.source\./.test(field ?? '') ? '출처 정보' : field ? '데이터 항목' : '항목 미기록';
     return { code, characterId: body.characterId ?? null, field, reason,
       text: `사거리·속성 데이터 오류 · ${subject} · ${fieldText} · ${PROFILE_REASONS[reason] ?? reason ?? '사유 미기록'}. ${PREPARE_HINT}`,
       raw: field ? `${code}: ${field}: ${reason ?? '?'}` : message };
   }
   if (code === 'combat_profile_catalog_missing') {
     return { code, characterId: null, field: null, reason: null, raw: message,
-      text: '이 runtime에는 사거리·속성 데이터(combatProfiles)가 준비되지 않았습니다. 보스 거리·약점 조건을 쓰려면 prepare_combat_conditions.py로 데이터를 준비해야 합니다.' };
+      text: '현재 데이터에는 사거리·속성 정보가 준비되지 않았습니다. 보스 거리·약점 조건을 쓰려면 준비 스크립트(prepare_combat_conditions.py)로 데이터를 준비해야 합니다.' };
   }
   if (code === 'combat_member_profile_missing') {
     const id = message.split(':')[1]?.trim() ?? null;

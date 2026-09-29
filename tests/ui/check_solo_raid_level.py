@@ -7,7 +7,8 @@ Checks:
 1. The 검산 레벨 input is gone from the form (no [name="level"], no hidden level field).
 2. The request always sends scenarioLevel 400, even when the account snapshot carries other levels
    and when a rogue level field is injected into the form.
-3. The remaining conditions (time, defense, crit, rounding, pellet, flags, manual control, tactic,
+3. The remaining conditions (crit, rounding, flags, manual control, tactic; fixed 180 s, shotgun "발사 1회" and no
+   fixed DEF since F-COND-2 R3/R4/R7,
    damage log target) keep the values the user selected.
 
 Output: artifacts/ui/solo-raid-level/run-<id>/ (git-ignored). Exit code 1 means NOT accepted.
@@ -97,13 +98,14 @@ def check_conditions(payload):
     conditions = payload.get('conditions', {})
     combat = conditions.get('combat', {})
     # F-COND-1: the deck-wide bools are replaced by boss distance / weak element (explicit null = unset).
-    expected = {'durationFrames': 7200, 'enemyDefense': 31784, 'critMode': 'on', 'core': True, 'bossDistance': None,
-                'bossWeakElement': None, 'pelletCoefficientPolicy': 'per_pellet', 'manualCharacterId': '5004',
+    # F-COND-2: time fixed at 180 s (R3) and shotgun coefficient fixed at per_trigger (R7); no inputs for them.
+    expected = {'durationFrames': 10800, 'critMode': 'on', 'core': True, 'bossDistance': None,
+                'bossWeakElement': None, 'pelletCoefficientPolicy': 'per_trigger', 'manualCharacterId': '5004',
                 'manualStyle': 'tap'}
     for key, value in expected.items():
         if key not in combat or combat.get(key) != value:
             problems.append(f'combat.{key}={combat.get(key, "<absent>")!r} expected {value!r}')
-    for key in ('properDistance', 'elementAdvantage'):
+    for key in ('properDistance', 'elementAdvantage', 'enemyDefense', 'defenseMode'):  # R4: solo_raid DEF switch default
         if key in combat:
             problems.append(f'combat.{key} must be omitted in the new condition mode')
     if conditions.get('roundingPolicy') != 'nested_floor':
@@ -120,11 +122,8 @@ def check_conditions(payload):
 
 
 async def fill_and_submit(page, posts):
-    await page.locator('[name="seconds"]').fill('120')
-    await page.locator('[name="defense"]').select_option('31784')
     await page.locator('[name="crit"]').select_option('on')
     await page.locator('[name="rounding"]').select_option('nested_floor')
-    await page.locator('[name="pellet"]').select_option('per_pellet')
     await page.locator('[name="core"]').check()
     await page.locator('[name="manualCharacter"]').select_option('5004')
     await page.locator('[name="manualStyle"]').select_option('tap')

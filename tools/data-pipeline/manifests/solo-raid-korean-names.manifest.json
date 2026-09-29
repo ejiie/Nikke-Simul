@@ -1,0 +1,810 @@
+{
+  "schemaVersion": 1,
+  "visibility": "internal_only",
+  "reviewedAt": "2026-09-29T02:52:13+00:00",
+  "sources": {
+    "wiki": {
+      "kind": "korean_wiki_mirror",
+      "url": "https://www.namu.moe/w/승리의%20여신:%20니케/콘텐츠",
+      "title": "승리의 여신: 니케/콘텐츠 §6.1 역대 솔로 레이드 보스",
+      "verifiedAt": "2026-09-29T02:52:13+00:00",
+      "verification": "웹 읽기에서 시즌별 표 1~39 확인. 원 나무위키 직접 접근 실패, 미러 직접 Python 요청403; 접근 제한 우회 없음.",
+      "pageRevision": "2026-08-19 13:37:12"
+    },
+    "press2": {
+      "kind": "korean_press_release",
+      "url": "https://m.inven.co.kr/webzine/wznews.php?hashtag=%EC%8B%9C%ED%94%84%ED%8A%B8%EC%97%85&idx=285223&iskin=webzine_main",
+      "title": "승리의 여신: 니케, 신규 SSR '로산나' 업데이트",
+      "verifiedAt": "2026-09-29T02:52:13+00:00",
+      "verification": "시즌2와 보스명 직접 명시"
+    },
+    "press3": {
+      "kind": "korean_news",
+      "url": "https://trees.gamemeca.com/view.php?gid=1739177",
+      "title": "상세한 오버로드 공략에 니케 유저들의 시선 집중",
+      "verifiedAt": "2026-09-29T02:52:13+00:00",
+      "verification": "2023-07-14 기사, 시즌3 하베스터 직접 명시"
+    },
+    "press4": {
+      "kind": "korean_video_title",
+      "url": "https://www.gamechosun.co.kr/webzine/video/view.php?cate=1&num=9064&page=150",
+      "title": "솔로 레이드 시즌4 알트아이젠 MK.VI 공략 준비",
+      "verifiedAt": "2026-09-29T02:52:13+00:00"
+    },
+    "press5": {
+      "kind": "korean_news",
+      "url": "https://trees.gamemeca.com/amp/view.php?gid=1741373",
+      "title": "솔로 레이드 공략, 목표는 대구경 라이플 파괴",
+      "verifiedAt": "2026-09-29T02:52:13+00:00",
+      "verification": "2023-09-19 기사, 9월14일 시작 및 숫자명-한국어 별칭의 동일성 명시. wiki 시즌5 일정과 일치"
+    },
+    "press34": {
+      "kind": "korean_news",
+      "url": "https://trees.gamemeca.com/view.php?gid=1771744",
+      "title": "화제의 니케 보스 앨트루이아 레이드 시작",
+      "verifiedAt": "2026-09-29T02:52:13+00:00",
+      "verification": "2026-02-20 기사 및 공식 라운지 공지 이미지 설명. wiki 시즌34 일정과 일치"
+    },
+    "community33": {
+      "kind": "korean_community",
+      "url": "https://gall.dcinside.com/mgallery/board/view/?id=gov&no=4573578",
+      "title": "시즌33 솔로레이드 온리원 서버별 컷 정리",
+      "verifiedAt": "2026-09-29T02:52:13+00:00"
+    },
+    "summary34": {
+      "kind": "korean_video_summary",
+      "url": "https://vortexgaming.io/postdetail/679661",
+      "title": "솔로 레이드34회 알트루이아",
+      "verifiedAt": "2026-09-29T02:52:13+00:00"
+    },
+    "summary25": {
+      "kind": "korean_video_summary",
+      "url": "https://vortexgaming.io/postdetail/506463",
+      "title": "솔로 레이드 글라토니127억 편성 예시",
+      "verifiedAt": "2026-09-29T02:52:13+00:00"
+    },
+    "translated32": {
+      "kind": "localized_article",
+      "url": "https://bittopup.com/ko/article/NIKKE-Alteisen-Raid-Guide-F2P-Tier-List-70K-Teams",
+      "title": "니케 알테아이젠 레이드 가이드",
+      "verifiedAt": "2026-09-29T02:52:13+00:00",
+      "verification": "시즌32 명시; 명칭 채택에는 사용하지 않음"
+    },
+    "nideck": {
+      "kind": "korean_public_catalog",
+      "url": "https://uouhorwdmaxqdqzpckwz.supabase.co/rest/v1/bosses?select=id,title,image_path,starts_at,ends_at",
+      "title": "NiDeck 한국어 공개 bosses 목록",
+      "verifiedAt": "2026-09-29T02:51:54.493619+00:00",
+      "sha256": "36f0843feab68115943d995a43765db4783f218691a2c01e44b5c8e217872c0a",
+      "verification": "공개 익명 bosses 데이터만 재조회. 기존 F2-B 시즌35~40 매핑의 한국어 표기 대조"
+    },
+    "official41": {
+      "kind": "korean_official_notice_archive",
+      "url": "https://dal.wiki/t/3mfSf1w8xI4j/e/TUCfdar5Gl0J",
+      "title": "솔로 레이드 시즌41 오픈",
+      "verifiedAt": "2026-09-29T02:52:13+00:00",
+      "verification": "시즌41 공지와 리버렐리오 바디 명시"
+    },
+    "user37": {
+      "kind": "user_instruction",
+      "verifiedAt": "2026-09-29T02:52:13+00:00",
+      "text": "37시즌 표시 이름에서 '(수냉솔레)'를 빼고 '울트라'로 표시"
+    },
+    "user42": {
+      "kind": "user_confirmation",
+      "verifiedAt": "2026-09-29T02:52:13+00:00",
+      "text": "시즌 42는 앨트루이아 맞음. 이거로 확정.",
+      "verification": "시즌42 대응은 사용자 확정. 웹에서 시즌42 대응 확인했다고 주장하지 않음. 한국어 표기는 wiki 시즌34 및 한국어 기사와 일치"
+    }
+  },
+  "records": [
+    {
+      "season": 1,
+      "name": "마더 웨일",
+      "expectedSourceName": "Mother Whale",
+      "expectedSourceId": "full_bba001",
+      "adoptedSource": "wiki",
+      "evidence": [
+        {
+          "source": "wiki",
+          "name": "마더 웨일",
+          "season": 1
+        }
+      ],
+      "decision": "한국어 시즌 대응표의 해당 시즌 보스명 원문 표기 채택"
+    },
+    {
+      "season": 2,
+      "name": "블랙스미스",
+      "expectedSourceName": "Black Smith",
+      "expectedSourceId": "full_bbg003",
+      "adoptedSource": "press2",
+      "evidence": [
+        {
+          "source": "wiki",
+          "name": "블랙 스미스",
+          "season": 2
+        },
+        {
+          "source": "press2",
+          "name": "블랙스미스"
+        }
+      ],
+      "decision": "시즌2와 보스명을 직접 적은 한국어 배포 기사 표기를 우선. 위키의 띄어쓰기 차이도 보존."
+    },
+    {
+      "season": 3,
+      "name": "하베스터",
+      "expectedSourceName": "Harvester",
+      "expectedSourceId": "full_bbg001",
+      "adoptedSource": "wiki",
+      "evidence": [
+        {
+          "source": "wiki",
+          "name": "하베스터",
+          "season": 3
+        },
+        {
+          "source": "press3",
+          "name": "하베스터"
+        }
+      ],
+      "decision": "한국어 시즌 대응표의 해당 시즌 보스명 원문 표기 채택"
+    },
+    {
+      "season": 4,
+      "name": "알트아이젠",
+      "expectedSourceName": "Alteisen",
+      "expectedSourceId": "full_mbg001_psid",
+      "adoptedSource": "wiki",
+      "evidence": [
+        {
+          "source": "wiki",
+          "name": "알트아이젠",
+          "season": 4
+        },
+        {
+          "source": "press4",
+          "name": "알트아이젠 MK.VI"
+        }
+      ],
+      "decision": "시즌 대응표의 보스명 알트아이젠 채택. 영상 제목의 모델 접미사 포함 표기도 보존."
+    },
+    {
+      "season": 5,
+      "name": "화이트 스미스",
+      "expectedSourceName": "9810811510911663",
+      "expectedSourceId": "full_bbg003_ce002",
+      "adoptedSource": "press5",
+      "evidence": [
+        {
+          "source": "wiki",
+          "name": "9810811510911663",
+          "season": 5
+        },
+        {
+          "source": "wiki",
+          "name": "화이트스미스"
+        },
+        {
+          "source": "press5",
+          "name": "화이트 스미스"
+        }
+      ],
+      "decision": "숫자 정식명은 내부에 보존. 같은 기간·같은 숫자명을 명시한 한국어 기사의 한국어 별칭 원문 채택. 공식 한국어 정식명이라고 주장하지 않음."
+    },
+    {
+      "season": 6,
+      "name": "모더니아",
+      "expectedSourceName": "Modernia",
+      "expectedSourceId": "full_mbg004",
+      "adoptedSource": "wiki",
+      "evidence": [
+        {
+          "source": "wiki",
+          "name": "모더니아",
+          "season": 6
+        }
+      ],
+      "decision": "한국어 시즌 대응표의 해당 시즌 보스명 원문 표기 채택"
+    },
+    {
+      "season": 7,
+      "name": "울트라",
+      "expectedSourceName": "Ultra",
+      "expectedSourceId": "full_bbg006",
+      "adoptedSource": "wiki",
+      "evidence": [
+        {
+          "source": "wiki",
+          "name": "울트라",
+          "season": 7
+        }
+      ],
+      "decision": "한국어 시즌 대응표의 해당 시즌 보스명 원문 표기 채택"
+    },
+    {
+      "season": 8,
+      "name": "토커티브",
+      "expectedSourceName": "Chatterbox",
+      "expectedSourceId": "full_bbg002",
+      "adoptedSource": "wiki",
+      "evidence": [
+        {
+          "source": "wiki",
+          "name": "토커티브",
+          "season": 8
+        }
+      ],
+      "decision": "한국어 시즌 대응표의 해당 시즌 보스명 원문 표기 채택"
+    },
+    {
+      "season": 9,
+      "name": "마테리얼 H",
+      "expectedSourceName": "Material H",
+      "expectedSourceId": "full_ebg002_dmtr",
+      "adoptedSource": "wiki",
+      "evidence": [
+        {
+          "source": "wiki",
+          "name": "마테리얼 H",
+          "season": 9
+        }
+      ],
+      "decision": "한국어 시즌 대응표의 해당 시즌 보스명 원문 표기 채택"
+    },
+    {
+      "season": 10,
+      "name": "크리스탈 체임버",
+      "expectedSourceName": "Crystal Chamber",
+      "expectedSourceId": "full_xbg001_psid",
+      "adoptedSource": "wiki",
+      "evidence": [
+        {
+          "source": "wiki",
+          "name": "크리스탈 체임버",
+          "season": 10
+        }
+      ],
+      "decision": "한국어 시즌 대응표의 해당 시즌 보스명 원문 표기 채택"
+    },
+    {
+      "season": 11,
+      "name": "스톰브링어",
+      "expectedSourceName": "Storm Bringer",
+      "expectedSourceId": "full_eba001_anmi",
+      "adoptedSource": "wiki",
+      "evidence": [
+        {
+          "source": "wiki",
+          "name": "스톰브링어",
+          "season": 11
+        }
+      ],
+      "decision": "한국어 시즌 대응표의 해당 시즌 보스명 원문 표기 채택"
+    },
+    {
+      "season": 12,
+      "name": "니힐리스타",
+      "expectedSourceName": "Nihilister",
+      "expectedSourceId": "full_mba002",
+      "adoptedSource": "wiki",
+      "evidence": [
+        {
+          "source": "wiki",
+          "name": "니힐리스타",
+          "season": 12
+        }
+      ],
+      "decision": "한국어 시즌 대응표의 해당 시즌 보스명 원문 표기 채택"
+    },
+    {
+      "season": 13,
+      "name": "인디빌리아",
+      "expectedSourceName": "Indivilia",
+      "expectedSourceId": "full_ebg003",
+      "adoptedSource": "wiki",
+      "evidence": [
+        {
+          "source": "wiki",
+          "name": "인디빌리아",
+          "season": 13
+        }
+      ],
+      "decision": "한국어 시즌 대응표의 해당 시즌 보스명 원문 표기 채택"
+    },
+    {
+      "season": 14,
+      "name": "그레이브 디거",
+      "expectedSourceName": "Grave Digger",
+      "expectedSourceId": "full_mbg002_raid",
+      "adoptedSource": "wiki",
+      "evidence": [
+        {
+          "source": "wiki",
+          "name": "그레이브 디거",
+          "season": 14
+        }
+      ],
+      "decision": "한국어 시즌 대응표의 해당 시즌 보스명 원문 표기 채택"
+    },
+    {
+      "season": 15,
+      "name": "황금 크라켄",
+      "expectedSourceName": "Golden Kraken",
+      "expectedSourceId": "full_bbg004_golden",
+      "adoptedSource": "wiki",
+      "evidence": [
+        {
+          "source": "wiki",
+          "name": "황금 크라켄",
+          "season": 15
+        }
+      ],
+      "decision": "한국어 시즌 대응표의 해당 시즌 보스명 원문 표기 채택"
+    },
+    {
+      "season": 16,
+      "name": "미러 컨테이너",
+      "expectedSourceName": "Mirror Container",
+      "expectedSourceId": "full_xba001_psid",
+      "adoptedSource": "wiki",
+      "evidence": [
+        {
+          "source": "wiki",
+          "name": "미러 컨테이너",
+          "season": 16
+        }
+      ],
+      "decision": "한국어 시즌 대응표의 해당 시즌 보스명 원문 표기 채택"
+    },
+    {
+      "season": 17,
+      "name": "거대 질량체",
+      "expectedSourceName": "Massive Object",
+      "expectedSourceId": "full_eba004",
+      "adoptedSource": "wiki",
+      "evidence": [
+        {
+          "source": "wiki",
+          "name": "거대 질량체",
+          "season": 17
+        }
+      ],
+      "decision": "한국어 시즌 대응표의 해당 시즌 보스명 원문 표기 채택"
+    },
+    {
+      "season": 18,
+      "name": "랜드 이터",
+      "expectedSourceName": "Land Eater",
+      "expectedSourceId": "full_ebg001",
+      "adoptedSource": "wiki",
+      "evidence": [
+        {
+          "source": "wiki",
+          "name": "랜드 이터",
+          "season": 18
+        }
+      ],
+      "decision": "한국어 시즌 대응표의 해당 시즌 보스명 원문 표기 채택"
+    },
+    {
+      "season": 19,
+      "name": "베히모스",
+      "expectedSourceName": "Behemoth",
+      "expectedSourceId": "full_mbg003_psid",
+      "adoptedSource": "wiki",
+      "evidence": [
+        {
+          "source": "wiki",
+          "name": "베히모스",
+          "season": 19
+        }
+      ],
+      "decision": "한국어 시즌 대응표의 해당 시즌 보스명 원문 표기 채택"
+    },
+    {
+      "season": 20,
+      "name": "백빙룡",
+      "expectedSourceName": "White Ice Dragon",
+      "expectedSourceId": "full_mba002_whiteice_psid",
+      "adoptedSource": "wiki",
+      "evidence": [
+        {
+          "source": "wiki",
+          "name": "백빙룡",
+          "season": 20
+        }
+      ],
+      "decision": "한국어 시즌 대응표의 해당 시즌 보스명 원문 표기 채택"
+    },
+    {
+      "season": 21,
+      "name": "모더니아",
+      "expectedSourceName": "Modernia",
+      "expectedSourceId": "full_mbg004_anmi",
+      "adoptedSource": "wiki",
+      "evidence": [
+        {
+          "source": "wiki",
+          "name": "모더니아",
+          "season": 21
+        }
+      ],
+      "decision": "한국어 시즌 대응표의 해당 시즌 보스명 원문 표기 채택"
+    },
+    {
+      "season": 22,
+      "name": "마테리얼 H",
+      "expectedSourceName": "Material H",
+      "expectedSourceId": "full_ebg002_hsta",
+      "adoptedSource": "wiki",
+      "evidence": [
+        {
+          "source": "wiki",
+          "name": "마테리얼 H",
+          "season": 22
+        }
+      ],
+      "decision": "한국어 시즌 대응표의 해당 시즌 보스명 원문 표기 채택"
+    },
+    {
+      "season": 23,
+      "name": "거대 질량체 Q",
+      "expectedSourceName": "Massive Object Q",
+      "expectedSourceId": "full_eba004_dmtr",
+      "adoptedSource": "wiki",
+      "evidence": [
+        {
+          "source": "wiki",
+          "name": "거대 질량체 Q",
+          "season": 23
+        }
+      ],
+      "decision": "한국어 시즌 대응표의 해당 시즌 보스명 원문 표기 채택"
+    },
+    {
+      "season": 24,
+      "name": "검은 뱀",
+      "expectedSourceName": "Black Snake",
+      "expectedSourceId": "full_bbg008_hsta",
+      "adoptedSource": "wiki",
+      "evidence": [
+        {
+          "source": "wiki",
+          "name": "검은 뱀",
+          "season": 24
+        }
+      ],
+      "decision": "한국어 시즌 대응표의 해당 시즌 보스명 원문 표기 채택"
+    },
+    {
+      "season": 25,
+      "name": "글러트니",
+      "expectedSourceName": "Gluttony",
+      "expectedSourceId": "full_bbg009_anmi",
+      "adoptedSource": "wiki",
+      "evidence": [
+        {
+          "source": "wiki",
+          "name": "글러트니",
+          "season": 25
+        },
+        {
+          "source": "summary25",
+          "name": "글라토니"
+        }
+      ],
+      "decision": "시즌25를 직접 대응한 한국어 위키 원문 글러트니 채택. 영상 요약의 표기 글라토니는 미채택."
+    },
+    {
+      "season": 26,
+      "name": "프로비던스",
+      "expectedSourceName": "Providence",
+      "expectedSourceId": "full_xbg002_zeus",
+      "adoptedSource": "wiki",
+      "evidence": [
+        {
+          "source": "wiki",
+          "name": "프로비던스",
+          "season": 26
+        }
+      ],
+      "decision": "한국어 시즌 대응표의 해당 시즌 보스명 원문 표기 채택"
+    },
+    {
+      "season": 27,
+      "name": "환영 크라켄",
+      "expectedSourceName": "Hologram Kraken",
+      "expectedSourceId": "full_bbg004_hologram_hsta",
+      "adoptedSource": "wiki",
+      "evidence": [
+        {
+          "source": "wiki",
+          "name": "환영 크라켄",
+          "season": 27
+        }
+      ],
+      "decision": "한국어 시즌 대응표의 해당 시즌 보스명 원문 표기 채택"
+    },
+    {
+      "season": 28,
+      "name": "지즈",
+      "expectedSourceName": "Ziz",
+      "expectedSourceId": "full_eba005_anmi",
+      "adoptedSource": "wiki",
+      "evidence": [
+        {
+          "source": "wiki",
+          "name": "지즈",
+          "season": 28
+        }
+      ],
+      "decision": "한국어 시즌 대응표의 해당 시즌 보스명 원문 표기 채택"
+    },
+    {
+      "season": 29,
+      "name": "마더 웨일",
+      "expectedSourceName": "Mother Whale",
+      "expectedSourceId": "full_bba001_zeus",
+      "adoptedSource": "wiki",
+      "evidence": [
+        {
+          "source": "wiki",
+          "name": "마더 웨일",
+          "season": 29
+        }
+      ],
+      "decision": "한국어 시즌 대응표의 해당 시즌 보스명 원문 표기 채택"
+    },
+    {
+      "season": 30,
+      "name": "차가운 심판자",
+      "expectedSourceName": "The Merciless Judge",
+      "expectedSourceId": "full_bbg009_bh_psid",
+      "adoptedSource": "wiki",
+      "evidence": [
+        {
+          "source": "wiki",
+          "name": "차가운 심판자",
+          "season": 30
+        }
+      ],
+      "decision": "한국어 시즌 대응표의 해당 시즌 보스명 원문 표기 채택"
+    },
+    {
+      "season": 31,
+      "name": "퀸 001",
+      "expectedSourceName": "Queen 001",
+      "expectedSourceId": "full_xba002_dmtr",
+      "adoptedSource": "wiki",
+      "evidence": [
+        {
+          "source": "wiki",
+          "name": "퀸 001",
+          "season": 31
+        }
+      ],
+      "decision": "한국어 시즌 대응표의 해당 시즌 보스명 원문 표기 채택"
+    },
+    {
+      "season": 32,
+      "name": "알트아이젠",
+      "expectedSourceName": "Alteisen",
+      "expectedSourceId": "full_mbg001",
+      "adoptedSource": "wiki",
+      "evidence": [
+        {
+          "source": "wiki",
+          "name": "알트아이젠",
+          "season": 32
+        },
+        {
+          "source": "translated32",
+          "name": "알테아이젠"
+        }
+      ],
+      "decision": "한국어 위키 시즌32 표의 알트아이젠 채택. 번역형 기사 표기 알테아이젠은 미채택."
+    },
+    {
+      "season": 33,
+      "name": "온리 원",
+      "expectedSourceName": "Only One",
+      "expectedSourceId": "full_xbg003_hsta",
+      "adoptedSource": "wiki",
+      "evidence": [
+        {
+          "source": "wiki",
+          "name": "온리 원",
+          "season": 33
+        },
+        {
+          "source": "community33",
+          "name": "온리원"
+        }
+      ],
+      "decision": "한국어 시즌표의 온리 원 띄어쓰기 유지. 커뮤니티 제목 온리원도 내부 보존."
+    },
+    {
+      "season": 34,
+      "name": "앨트루이아",
+      "expectedSourceName": "Altruia",
+      "expectedSourceId": "full_xbg004_zeus",
+      "adoptedSource": "wiki",
+      "evidence": [
+        {
+          "source": "wiki",
+          "name": "앨트루이아",
+          "season": 34
+        },
+        {
+          "source": "press34",
+          "name": "앨트루이아"
+        },
+        {
+          "source": "summary34",
+          "name": "알트루이아"
+        }
+      ],
+      "decision": "한국어 시즌표와 공식 라운지 공지를 다룬 한국어 기사가 일치하는 앨트루이아 채택. 영상 요약의 알트루이아 미채택."
+    },
+    {
+      "season": 35,
+      "name": "크리스탈 체임버",
+      "expectedSourceName": "Crystal Chamber",
+      "expectedSourceId": "full_xbg001_anmi",
+      "adoptedSource": "wiki",
+      "evidence": [
+        {
+          "source": "wiki",
+          "name": "크리스탈 체임버",
+          "season": 35
+        },
+        {
+          "source": "nideck",
+          "name": "크리스탈 챔버",
+          "recordId": "f2cc3de5-b918-424d-aa2b-1ac9ae2928e0"
+        }
+      ],
+      "decision": "시즌35를 명시한 한국어 시즌표의 크리스탈 체임버 채택. 기존 NiDeck의 크리스탈 챔버 표기도 내부 보존."
+    },
+    {
+      "season": 36,
+      "name": "에고비스타",
+      "expectedSourceName": "Egovista",
+      "expectedSourceId": "full_xbg005_psid",
+      "adoptedSource": "wiki",
+      "evidence": [
+        {
+          "source": "wiki",
+          "name": "에고비스타",
+          "season": 36
+        },
+        {
+          "source": "nideck",
+          "name": "에고비스타",
+          "recordId": "7fb2b973-bf5b-4b54-9bb5-2d109c6dfbcd"
+        }
+      ],
+      "decision": "한국어 시즌 대응표의 해당 시즌 보스명 원문 표기 채택"
+    },
+    {
+      "season": 37,
+      "name": "울트라",
+      "expectedSourceName": "Ultra",
+      "expectedSourceId": "full_bbg006_hsta",
+      "adoptedSource": "wiki",
+      "evidence": [
+        {
+          "source": "wiki",
+          "name": "울트라",
+          "season": 37
+        },
+        {
+          "source": "nideck",
+          "name": "울트라(수냉솔레)",
+          "recordId": "87072f50-0aee-4040-9cb5-f6aabf4a9d57"
+        },
+        {
+          "source": "user37",
+          "name": "울트라"
+        }
+      ],
+      "decision": "사용자 지시로 수냉솔레 주석 제거. 시즌37 한국어 표의 울트라와 일치."
+    },
+    {
+      "season": 38,
+      "name": "애니힐리오",
+      "expectedSourceName": "Annihilio",
+      "expectedSourceId": "full_xba003_dmtr",
+      "adoptedSource": "wiki",
+      "evidence": [
+        {
+          "source": "wiki",
+          "name": "애니힐리오",
+          "season": 38
+        },
+        {
+          "source": "nideck",
+          "name": "애니힐리오",
+          "recordId": "2f3ad99d-e6fd-4bd7-b5e5-25348bdd0cba"
+        }
+      ],
+      "decision": "한국어 시즌 대응표의 해당 시즌 보스명 원문 표기 채택"
+    },
+    {
+      "season": 39,
+      "name": "아일랜드 이터",
+      "expectedSourceName": "Island Eater",
+      "expectedSourceId": "full_ebg001_island_zeus",
+      "adoptedSource": "wiki",
+      "evidence": [
+        {
+          "source": "wiki",
+          "name": "아일랜드 이터",
+          "season": 39
+        },
+        {
+          "source": "nideck",
+          "name": "아일랜드 이터",
+          "recordId": "8461f50c-ee62-43bb-a289-f4a19b564e16"
+        }
+      ],
+      "decision": "한국어 시즌 대응표의 해당 시즌 보스명 원문 표기 채택"
+    },
+    {
+      "season": 40,
+      "name": "사치스러운 거미",
+      "expectedSourceName": "Luxurious Spider",
+      "expectedSourceId": "full_bbg001_rich_anmi",
+      "adoptedSource": "nideck",
+      "evidence": [
+        {
+          "source": "nideck",
+          "name": "사치스러운 거미",
+          "recordId": "8337b763-38bc-4dab-89eb-952b34e0c3dc"
+        }
+      ],
+      "decision": "기존 F2-B 시즌40 매핑 유지. 한국어 공개 목록 title 사치스러운 거미와 2026-08-20~26 일정 재확인."
+    },
+    {
+      "season": 41,
+      "name": "리버렐리오 바디",
+      "expectedSourceName": "Liberalio Body",
+      "expectedSourceId": "full_eba002_hsta",
+      "adoptedSource": "official41",
+      "evidence": [
+        {
+          "source": "official41",
+          "name": "리버렐리오 바디",
+          "season": 41
+        }
+      ],
+      "decision": "공식 한국어 시즌41 공지 아카이브의 보스명 원문 유지."
+    },
+    {
+      "season": 42,
+      "name": "앨트루이아",
+      "expectedSourceName": "Altruia",
+      "expectedSourceId": "full_xbg004_psid",
+      "adoptedSource": "user42",
+      "evidence": [
+        {
+          "source": "user42",
+          "name": "앨트루이아",
+          "season": 42
+        },
+        {
+          "source": "wiki",
+          "name": "앨트루이아",
+          "season": 34
+        },
+        {
+          "source": "press34",
+          "name": "앨트루이아"
+        }
+      ],
+      "decision": "사용자가 시즌42=앨트루이아를 명시 확정. 동일 한국어 표기는 공개 한국어 원천에서 확인. 웹의 시즌42 직접 대응은 미확보였음."
+    }
+  ]
+}

@@ -21,6 +21,9 @@ public class ClientF32ReplayEvidenceTests
         var members=fixture.Members.Select(m=>m with { Weapon=m.Weapon with { Hit=m.Weapon.Hit with { StatAttack=100000 } } }).ToArray();
         var result=SkillReplay.Run(members,fixture.Graph,conditions);
         Assert.Equal(5,result.Members.Count);
+        Assert.Equal(policy=="client_f32"?1346863834d:1346859763d,result.TotalDamage);
+        Assert.Equal("fixed",result.Defense.Mode);
+        Assert.Null(result.Defense.SwitchAfterHit);
         var summary=PreparedSkillReplay.Create(members,fixture.Graph,conditions).Run();
         Assert.Equal(result.TotalDamage,summary.TeamDamage);
         Assert.Equal(result.Members.Select(m=>m.Damage),summary.Members.Select(m=>m.Damage));

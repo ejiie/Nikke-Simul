@@ -266,7 +266,7 @@ async def desktop_checks(browser, base, api, out, problems):
     result['raidPolicyOptions'] = options
     if [o['value'] for o in options] != ['client_f32', 'legacy_term_floor', 'final_round_even', 'nested_floor'] or not options[0]['selected']:
         problems.append(f'desktop: raid policy options {options}')
-    await page.locator('[name="seconds"]').fill('20')
+    # F-COND-2 R3: battle time is fixed at 180 s (no input).
     await page.locator('[name="core"]').check()
     async with page.expect_response(lambda r: r.request.method == 'POST' and r.url.endswith('/api/runtime/skill-replays'), timeout=240000) as pending:
         await page.locator('#run-replay').click()
@@ -400,8 +400,8 @@ async def stats_fix_checks(page, base, api, out, problems, result, experiment_id
     for label in ('표본 표준편차', '평균 CI'):
         if probe['cards'].get(label) != '미지원':
             problems.append(f'U-FIX-1 n1: {label} shows {probe["cards"].get(label)!r} for a null API value')
-    if 'mean_ci_requires_n_at_least_2' not in probe['text']:
-        problems.append('U-FIX-1 n1: scoped reason not shown')
+    if '표본 2건 이상 필요' not in probe['text'] or 'mean_ci_requires_n_at_least_2' in probe['text']:
+        problems.append('U-FIX-1/U-FIX-6 n1: scoped reason not shown in Korean only')
     _, batch = api.call('compute/experiments/' + experiment_id)
     order = batch['input']['characterIds']
     if len(probe['members']) != len(order):

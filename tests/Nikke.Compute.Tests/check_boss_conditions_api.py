@@ -27,6 +27,7 @@ def main():
     parser.add_argument('--dotnet', required=True)
     parser.add_argument('--catalog-only', action='store_true')
     parser.add_argument('--baseline', type=Path)
+    parser.add_argument('--cleanup-presentation', type=Path)
     args = parser.parse_args()
     run = ROOT / 'artifacts/boss-conditions/api' / uuid.uuid4().hex
     data = run / 'data'
@@ -41,6 +42,13 @@ def main():
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(src, dst)
     try:
+        if args.cleanup_presentation:
+            for src in args.cleanup_presentation.rglob('*'):
+                if src.is_file():
+                    hashes[str(src.resolve())]=digest(src)
+                    dst=data/'presentation'/src.relative_to(args.cleanup_presentation)
+                    dst.parent.mkdir(parents=True,exist_ok=True)
+                    shutil.copyfile(src,dst)
         public_copy(Path('game-catalog.json'))
         for folder in ('calculation', 'runtime'):
             public_copy(Path(folder) / 'current.json')
@@ -87,13 +95,13 @@ def main():
         env = dict(os.environ, NIKKE_DATA_ROOT=str(data), NIKKE_PROJECT_ROOT=str(ROOT), NIKKE_PORT=str(port), NIKKE_TEST_FIXTURE='1')
         env.pop('NIKKE_GAME_CATALOG', None)
         token = ''
-        def call(path, payload=None, expected=200):
-            request = urllib.request.Request(f'http://127.0.0.1:{port}/api/' + path,
+        def call(path, payload=None, expected=200, binary=False):
+            request = urllib.request.Request(f'http://127.0.0.1:{port}' + (path if path.startswith('/') else '/api/' + path),
                 data=None if payload is None else json.dumps(payload).encode(),
                 headers={'Content-Type': 'application/json', 'X-Nikke-Token': token})
             try:
                 with urllib.request.urlopen(request, timeout=60) as response:
-                    status, body = response.status, json.load(response)
+                    status, body = response.status, response.read() if binary else json.load(response)
             except urllib.error.HTTPError as error:
                 status, raw_body = error.code, error.read()
                 try:
@@ -127,7 +135,7 @@ def main():
         assert deck['members'][0]['bonusRangeMin'] == 15 and deck['members'][2]['element'] == 'Fire'
         call('snapshots/' + snapshot['id'] + '/combat-conditions?characterIds=missing', expected=400)
         checks.append('source hash, 192-row dynamic aggregation, SR exception/RL data, ordered owned deck profiles')
-        base = {'snapshotId': snapshot['id'], 'characterIds': ids, 'scenarioLevel': 400,
+        base = {'snapshotId': snapshot['id'], 'characterIds': ids, 'scenarioLevel': 400, 'conditionProfile':'legacy',
             'conditions': {'roundingPolicy': 'client_f32', 'combat': {'durationFrames': 120, 'enemyDefense': 30925,
                 'critMode': 'off', 'pelletCoefficientPolicy': 'per_trigger', 'properDistance': True, 'elementAdvantage': True}}}
         legacy = call('runtime/skill-replays', base)
@@ -141,6 +149,9 @@ def main():
         checks.append('legacy bool replay saved/read without changing conditions')
         if not args.catalog_only:
             verify_integrated(call, base, report)
+        if args.cleanup_presentation:
+            from check_cleanup_api import verify_cleanup
+            verify_cleanup(call,base,report,data)
         assert call('snapshots/' + snapshot['id']) == initial
         report['status'] = 'passed'
     finally:
@@ -197,7 +208,7 @@ def verify_integrated(call, base, report):
     report['checks'].append('new mixed-deck member hit flags, null mode preserved, saved profiles, 7 invalid/mixed wire errors')
     def batch(conditions):
         request={'snapshotId':'synthetic-boss-ol','characterIds':base['characterIds'],'conditions':conditions,
-                 'runs':1,'phase':'final','useSavedTactic':False,'execution':{'requested':'cpu','maxWorkers':1}}
+                 'runs':1,'phase':'final','useSavedTactic':False,'execution':{'requested':'cpu','maxWorkers':1},'conditionProfile':'legacy'}
         created=call('compute/experiments',request,202)
         for _ in range(1200):
             end=call('compute/experiments/'+created['id'])
@@ -229,7 +240,7 @@ def verify_integrated(call, base, report):
     bad_conditions=copy.deepcopy(modern['conditions'])
     bad_conditions['combat']['properDistance']=False
     report['errors'].append(call('compute/experiments',{'snapshotId':'synthetic-boss-ol','characterIds':base['characterIds'],
-                           'conditions':bad_conditions,'runs':1,'useSavedTactic':False},400))
+                           'conditions':bad_conditions,'runs':1,'useSavedTactic':False,'conditionProfile':'legacy'},400))
     report['checks'].append('three 1-run compute batches: mode/fingerprints/cache separated; elemental OL only matching members; legacy all/unset none')
 
 

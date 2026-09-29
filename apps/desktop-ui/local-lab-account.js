@@ -1,4 +1,4 @@
-// Account cards adapted from Local Lab c05fc1c editor.js; same markup/classes.
+// Account cards (shared editor markup/classes).
 const byId=id=>document.getElementById(id);
 let state={presentation:{supportDefinitions:[]},currentProfile:null};
 let selectedAccountCubeUid=null,levels={},drafts={};

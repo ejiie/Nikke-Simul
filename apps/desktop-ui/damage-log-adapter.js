@@ -12,6 +12,7 @@
  */
 
 import { CLIENT_F32, CLIENT_F32_WIRE, policyInfo, readWireLong } from './hit-policy.js';
+import { basisLabel, describeSourceKey } from './display-labels.js';
 
 export const DAMAGE_LOG_SCHEMA_VERSION = 1;
 export const DAMAGE_LOG_PROVISIONAL_NOTICE = '잠정 정확도 · 실게임 관측 대조 전 합성 시뮬레이션';
@@ -43,7 +44,7 @@ export function auditBurstTactics(membersWithMeta, tactics) {
     issues.push({
       code: 'stale_id',
       level: 'warning',
-      message: `편성에서 제외된 니케가 버스트 설정에 남아 있습니다: ${staleIds.join(', ')}`,
+      message: `편성에서 제외된 니케 ${staleIds.length}명이 버스트 설정에 남아 있습니다.`, // U-FIX-6: no character codes
       staleIds
     });
   }
@@ -405,16 +406,22 @@ export function createAuditContext(replay, membersWithMeta = []) {
 function auditNikkeText(id, ctx) {
   if (id == null || id === '') return '출처 미기록';
   const name = ctx?.names?.get(String(id));
-  return name ? `${name} (#${id})` : `니케 #${id}`;
+  return name ?? '이름 미확인 니케'; // character codes are not shown
+}
+
+// U-FIX-6: log-target notices name characters in Korean, never by code.
+function memberName(members, id) {
+  const m = (members ?? []).find(x => String(x?.id) === String(id));
+  return m?.displayName && String(m.displayName) !== String(id) ? m.displayName : '이름 미확인 니케';
 }
 
 function auditOriginText(sourceId, functionId, burstCastId, ctx) {
   const parts = [];
-  if (functionId == null) parts.push('함수 ID 미기록');
+  // U-FIX-5: function numbers are not shown; a resolved slot is named, anything else is just "스킬 효과".
+  if (functionId == null) parts.push('스킬 정보 미기록');
   else {
     const slot = ctx?.slots?.get(`${sourceId}:${functionId}`);
-    if (slot) parts.push(`${AUDIT_SLOT_LABELS[slot] ?? slot} · 함수 ${functionId}`);
-    else parts.push(ctx?.hasInputs ? `함수 ${functionId} · 슬롯 미확인(하위 스킬·연결 함수)` : `함수 ${functionId}`);
+    parts.push(slot ? AUDIT_SLOT_LABELS[slot] ?? '스킬 효과' : '스킬 효과');
   }
   if (burstCastId != null) parts.push(`버스트 시전 이벤트 #${burstCastId}`);
   return parts.join(' · ');
@@ -428,8 +435,8 @@ export function describeBuffSnapshot(snapshot, frame, ctx = null) {
   const value = isFiniteNumber(effect.value) ? effect.value : null;
   const stacks = Number.isInteger(effect.stacks) && effect.stacks > 0 ? effect.stacks : null;
   const basis = typeof effect.basis === 'string' && effect.basis ? effect.basis : null;
-  const rawBasisText = basis ? `basis ${basis}` : 'basis 미기록';
-  let label = def ? def.label : `미해석 효과 (type ${effect.type ?? '미기록'})`;
+  const rawBasisText = basisLabel(basis); // never the raw basis key
+  let label = def ? def.label : '미해석 효과';
   let unit = 'raw';
   let basisText = rawBasisText;
   let note = def ? null : '추정 단위 없이 원값 표시';
@@ -709,9 +716,20 @@ export function buildHitAudit(entry, ctx = null) {
     return { ...desc, ...cls };
   });
   const hit = entry?.hit && typeof entry.hit === 'object' ? entry.hit : null;
+  // function:<id> carries no character: find the owner and slot among the saved skill slots, if any.
+  const resolveFunction = fid => {
+    for (const [key, slot] of ctx?.slots ?? []) {
+      const [owner, id] = key.split(':');
+      if (id === String(fid)) return `${auditNikkeText(owner, ctx)} · ${AUDIT_SLOT_LABELS[slot] ?? '스킬 효과'}`;
+    }
+    return null;
+  };
+  // Source keys stay in the data; the screen shows names (U-FIX-4): skill -> character · slot/function,
+  // overload -> character · slot n번 줄 · option, cube/collection/equipment/manual/other -> Korean labels.
   const sourceText = source => {
     const match = /^skill:([^:]+):(\d+)$/.exec(source ?? '');
-    return match ? `${auditNikkeText(match[1], ctx)} · ${auditOriginText(match[1], Number(match[2]), null, ctx)}` : String(source ?? '출처 미기록');
+    if (match) return `${auditNikkeText(match[1], ctx)} · ${auditOriginText(match[1], Number(match[2]), null, ctx)}`;
+    return source ? describeSourceKey(source, { nameOf: id => ctx?.names?.get(String(id)) ?? null, resolveFunction }) : '출처 미기록';
   };
   const rateText = b => Number.isInteger(b?.stacks) && b.stacks > 1
     ? `스택당 ${formatRate(b.rate)} × ${b.stacks}` : formatRate(b?.rate);
@@ -834,7 +852,7 @@ export async function fetchDamageLog(api, replayId, characterId, replayData, mem
           schemaVersion: null,
           truncated: false,
           log: null,
-          message: `현재 리플레이는 ${embeddedLog.characterId}의 대미지 로그만 수집되었습니다. ${characterId}의 로그를 수집하려면 대상을 선택하고 다시 검산하세요.`
+          message: `현재 리플레이는 ${memberName(membersWithMeta, embeddedLog.characterId)}의 대미지 로그만 수집되었습니다. ${memberName(membersWithMeta, characterId)}의 로그를 수집하려면 대상을 선택하고 다시 검산하세요.`
         };
       }
     } else {
@@ -916,7 +934,7 @@ export async function fetchDamageLog(api, replayId, characterId, replayData, mem
               schemaVersion: null,
               truncated: false,
               log: null,
-              message: `현재 리플레이는 ${serverLog.characterId}의 대미지 로그만 수집되었습니다. ${characterId}의 로그를 수집하려면 대상을 선택하고 다시 검산하세요.`
+              message: `현재 리플레이는 ${memberName(membersWithMeta, serverLog.characterId)}의 대미지 로그만 수집되었습니다. ${memberName(membersWithMeta, characterId)}의 로그를 수집하려면 대상을 선택하고 다시 검산하세요.`
             };
           }
         } else if (serverLog.schemaVersion && serverLog.schemaVersion !== DAMAGE_LOG_SCHEMA_VERSION) {

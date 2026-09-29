@@ -146,7 +146,7 @@ async def run(args):
             await page.locator('dialog [name="distance"]').fill('35')
             d = await page.evaluate(DIALOG_PROBE)
             report['distanceDialog'] = d
-            if d['labelledBy'] != 'cond-distance-title' or len(d['weapons']) != 6 or not any('0–0 · 보너스 없음(확인 필요)' in w for w in d['weapons']):
+            if d['labelledBy'] != 'cond-distance-title' or len(d['weapons']) != 6 or not any('0–0 · 보너스 없음' in w for w in d['weapons']):
                 problems.append(f'distance dialog content {d.get("weapons")}')
             if [m[1] for m in d['members']] != ['in', 'in', 'no_bonus', 'out', 'in']:
                 problems.append(f'distance preview {d["members"]}')
@@ -187,7 +187,7 @@ async def run(args):
             await page.keyboard.press('Enter')
             summary = await page.evaluate(SUMMARY)
             report['afterElement'] = summary
-            if summary != ['적정 거리 · 35', '약점 · 작열(Fire)']:
+            if summary != ['적정 거리 · 35', '약점 · 작열']:  # R1: Korean names only
                 problems.append(f'element apply {summary}')
 
             for width in WIDTHS:
@@ -237,7 +237,7 @@ async def run(args):
             await page.wait_for_selector('#compute-start')
             card = await page.evaluate("() => [...document.querySelectorAll('#stats-content .metric-card')].find(c => c.querySelector('span')?.textContent.trim() === '보스 거리·약점')?.querySelector('strong')?.textContent.trim() ?? null")
             report['statisticsCard'] = card
-            if card != '보스 거리 35 · 약점 작열(Fire) (멤버별 판정)':
+            if card != '보스 거리 35 · 약점 작열 (멤버별 판정)':
                 problems.append(f'statistics condition card {card!r}')
             await page.locator('#compute-start').click()
             for _ in range(50):

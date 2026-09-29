@@ -1,4 +1,4 @@
-// Renderer functions copied verbatim from Nikke-Local-Lab c05fc1c editor.js.
+// Nikke detail renderer functions.
 // Snapshot projection and edit operations live in local-lab-adapter.js.
 import { state, effectiveProfileValue, configuredSynchroLevel, queueIntegerValue,
   queueControlledValue, queueReferenceValue, queueExactValue, upsertProfileOperations,

@@ -52,7 +52,7 @@ def expected_kind(profile, distance):
 def typical_text(row):
     typical = next((r for r in row['ranges'] if r['isTypical']), None)
     if row['rangeBonusAvailable'] is False or (typical and typical['min'] == 0 and typical['max'] == 0):
-        return '0–0 · 보너스 없음(확인 필요)'
+        return '0–0 · 보너스 없음'
     return f"{typical['min']}–{typical['max']}" if typical else '미확인'
 
 
@@ -95,7 +95,12 @@ async def run(args):
     hashes, snapshot, _ = prepare_data(source, data)
     extra_sources = {str(roster): digest(roster)}
     (data / 'presentation/assets/ui').mkdir(parents=True)
-    for icon in sorted(assets.glob('code-*.png')):
+    # Presentation catalog (Korean names, weapon icons) from the same isolated copy as the icons, read only.
+    presentation_src = assets.parent.parent / 'presentation.json'
+    extra_sources[str(presentation_src)] = digest(presentation_src)
+    shutil.copyfile(presentation_src, data / 'presentation/presentation.json')
+    korean_names = {str(c['characterUid']): c['displayName'] for c in json.loads(presentation_src.read_text(encoding='utf-8-sig'))['characters']}
+    for icon in sorted(list(assets.glob('code-*.png')) + list(assets.glob('weapon-*.png'))):
         extra_sources[str(icon)] = digest(icon)
         shutil.copyfile(icon, data / 'presentation/assets/ui' / icon.name)
     prep = subprocess.run([sys.executable, str(ROOT / 'tools/data-pipeline/prepare_combat_conditions.py'), '--runtime-root', str(data / 'runtime'),
@@ -151,7 +156,6 @@ async def run(args):
             await page.goto(base + '/editor/')
             await page.wait_for_function("document.body.dataset.ready==='true'", timeout=90000)
             await page.locator('[data-tab="raid"]').click()
-            await page.locator('[name="seconds"]').fill('10')
             names = await page.evaluate("() => [...document.querySelector('#replay-form').elements].map(e => e.name).filter(Boolean)")
             if 'distance' in names or 'element' in names:
                 problems.append('old checkboxes still in the form')
@@ -171,9 +175,11 @@ async def run(args):
             if len(d['weapons']) != len(catalog['weaponRanges']):
                 problems.append('weapon row count')
             exceptions = [x for row in catalog['weaponRanges'] for x in row['exceptions']]
+            # R2: exception characters by Korean display name (presentation catalog), never by code.
             for x in exceptions:
-                if f"#{x['characterId']}): {x['bonusRangeMin']}–{x['bonusRangeMax']}" not in d['text']:
-                    problems.append(f'exception {x["characterId"]} not shown')
+                korean = korean_names.get(x['characterId'])
+                if not korean or f"{korean}: {x['bonusRangeMin']}–{x['bonusRangeMax']}" not in d['text'] or f"#{x['characterId']}" in d['text']:
+                    problems.append(f'exception {x["characterId"]} not shown by Korean name ({korean})')
             summary['exceptions'] = [[x['characterId'], x['name'], x['bonusRangeMin'], x['bonusRangeMax']] for x in exceptions]
             for width in WIDTHS:
                 await page.set_viewport_size({'width': width, 'height': 900})
