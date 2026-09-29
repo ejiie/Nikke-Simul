@@ -6,7 +6,7 @@
   - 엔진 보고 검증: Core/Engine 196/196(기존 174 + 신규 22). 정확히 20억 무전환, 20억+1, 같은 프레임 멤버·추가타·SG 펠릿, Frame 0, 고정 경로, 팀 합, 자동 버스트, summary·병렬·취소. 기존 5인 180초 client 1,346,863,834 / legacy 1,346,859,763 동일.
   - 결과 계약: `SkillReplayResult.Defense`·`SkillRunSummary.Defense`(Mode·InitialDefense·FinalDefense·DamageThreshold·SwitchAfterHit — Frame·HitTraceId·HitOrdinal·CharacterId·Effect·CumulativeDamage·Previous/NewDefense), trace `defense_switch`. 버전 `skills.5-defense-switch`·`team.5-defense-switch`·`cpu-summary.4-defense-switch`.
   - Backend 후속(엔진 보고): 새 요청에 자동 모드 명시·구 fixed 저장 호환, `PreparedCompute.Create`의 fixed 라벨 수정, `PreparedCompute.Run`에서 새 `result.Defense`를 Contracts·저장 DTO로 전달(현재 매핑 없음). 다중 정책 `WeaponReplay` 참조는 자동 모드를 거부하므로 SkillReplay를 써야 한다.
-- **F2-B:** 진행 중. 엔진 `1a86ec9` merge 통지(2026-09-29). **F2-U:** 진행 중(mock).
+- **F2-B:** 진행 중. 엔진 `1a86ec9` merge 통지(2026-09-29) — `term_e5d05982…` 요청 `eebad101-6fd8-4a9a-a8fb-b8203c2cf1ab`, accepted=true·`input_accepted`(작업 중 턴에 전달, 재전송 없음). **F2-U:** 진행 중(mock).
 
 ## 근거
 
