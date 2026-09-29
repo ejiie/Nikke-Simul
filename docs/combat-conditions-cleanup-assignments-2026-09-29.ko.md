@@ -52,7 +52,7 @@
   - 같은 유형 정리: audit 적용 기준, 미해석 효과(type N), 통계 OL 비교 표 부위·옵션, 표본 단계 이름, 고급 진단 이슈 path.
   - 유지(UI 판단): 타격·발사·함수 번호, replay ID, fingerprint·규칙·summary 버전·schema, 대미지 정책 id, 사거리 진단 서버 원문. **"함수 id"는 내부 번호가 화면에 남는 경우라 사용자 원칙("화면에서는 이름으로")과의 부합 여부를 사용자에게 확인한다.**
   - UI 보고 실제 격리 API + Chromium: QA 재현과 같은 replay 타격 #200 "상시 비율 · 앨리스 · 머리 1번 줄 · 공격력 +4.77%", 패널의 원문 키·코드 0, 조회 전후 저장본·총피해 동일, 기존 저장 replay 파일 hash 불변. 회귀 통과.
-- **F2-Q 재수용 통지(2026-09-29):** UI `00911ce` 기준 F2-Q-2 재검 + 회귀.
+- **F2-Q 재수용 통지(2026-09-29):** UI `00911ce` 기준 F2-Q-2 재검 + 회귀. 전달 `term_234e279b…` 요청 `2d024b4c-aaac-4890-a480-111eccc6fbab`, accepted=true·`input_accepted`·`turn_started`. 남은 내부 번호의 화면 노출은 목록으로 기록만 하고 결함 판정하지 않도록 지시(사용자 확인 대상).
 - **F2-U 2단계 통지(2026-09-29):** Backend `aa1b71e` 기준 R4·R8 실제 연결 + 앱 화면·코드 주석의 Nikke-Local-Lab 출처 표기 삭제.
 - (이전) 엔진 `1a86ec9` merge 통지(2026-09-29) — `term_e5d05982…` 요청 `eebad101-6fd8-4a9a-a8fb-b8203c2cf1ab`, accepted=true·`input_accepted`(작업 중 턴에 전달, 재전송 없음). **F2-U:** 진행 중.
 - **F2-U 1단계: 완료, Director 검토 수용.** UI `889b679`(`e98db6a` ff 위), [보고서](C:/Users/user/orca/workspaces/Nikke-Simul/UI/docs/combat-conditions-cleanup-ui.ko.md). 변경은 `apps/desktop-ui`·UI tests·UI 문서뿐(제품 `src`·QA `tests/q3` 0). Director가 mock 캡처(전투 조건 폼·보스 선택·거리 팝업, 1500px)를 확인했다.
