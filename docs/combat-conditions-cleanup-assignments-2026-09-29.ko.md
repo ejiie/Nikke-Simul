@@ -55,6 +55,12 @@
 - **U-FIX-5 배정(2026-09-29, F2-U 담당):** function source 표시에서 함수 번호 제거 — 스킬 이름·슬롯으로 해석되면 그 이름, 아니면 "스킬 효과"만. 다른 화면의 함수 번호 표시도 같은 기준. 나머지 내부 번호는 유지. QA는 `00911ce` 재수용 결과에 이 변경분 확인을 더해 판정한다.
   - **U-FIX-5: 완료, Director 검토 수용.** UI `1168819`(`00911ce` 후속), 보고서 9절. Director 확인: 제품 `src`·QA `tests/q3` 변경 0, `apps/desktop-ui` 전체에 "함수" 문자열 0건, QA 브랜치와 충돌 없이 merge된다. function source → 저장 스킬 슬롯으로 해석되면 "누아르 · 스킬 1", 아니면 "스킬 효과"(기록 없음 "스킬 정보 미기록"). UI 보고 실제 격리 API + Chromium: 타격 #200 "고정 가산 · 누아르 · 스킬 1 +12,717", 기존 저장 replay "고정 가산 · 누아르 · 스킬 1 +17,191"(파일 hash 불변). 부수 발견: U-FIX-3 때 주석 삽입으로 실행되지 않던 audit 단언(originText)을 분리·복구.
   - QA에 `1168819` 변경분 추가 통지(재수용 진행 중 턴에 전달).
+- **F2-Q U-FIX-4/5 재수용: F2-Q-2·함수 번호 제거 수용, 전체 수용 보류(F2-Q-3~5).** 검수 `02b63fb`(UI `00911ce` merge `14eca15` → `1168819` merge `1e81ee6`), QA 보고서 최신 절, 근거 검수 `artifacts/single-deck-qa/f2-ufix5-preparation/evidence-index.json`(`identifier-inventory.json`에 유지 식별자 위치). QA 커밋 제품 변경 0.
+  - 최신 576검사 중 572 통과·4 실패(아래 세 경로). 원래 375 수용 조건 충족, 새 피해 19,462건 독립 검산·팀 24,007,922,311 = replay = compute, DEF 6조합·통계 회귀 유지. source 17종 × 정책 4개 표시(QA 합성 버프 창으로 검증 — 실제 큐브·소장품 육성 효과 수용과 구분). 사용자 확정 유지 번호는 결함으로 보지 않았다.
+  - **F2-Q-3(UI):** 다른 니케 로그를 요청하면 "현재 리플레이는 5004의 대미지 로그만 수집되었습니다. 5011의 로그를…"처럼 캐릭터 코드 노출(`damage-log-adapter.js` 841·923행 부근).
+  - **F2-Q-4(UI):** 솔로 레이드 결과의 "저장 결과 원문"을 펼치면 `JSON.stringify(saved)`가 그대로 보여 source 키·캐릭터 코드·함수 번호가 노출(`app.js` 325행 부근).
+  - **F2-Q-5(UI):** 409 `combat_profile_invalid` 안내의 "서버 원문: combat_profile_invalid: combatProfiles.characters.5004.bonusRangeMin: missing" 노출(`app.js` 318행, `single-deck-stats.js` 364행). U-FIX-2 때 의도한 서버 원문 병기였으나 최종 화면 원칙으로 재분류.
+- **U-FIX-6 배정(2026-09-29, F2-U 담당, 화면 표시 원칙 적용):** (1) F2-Q-3 — 현재/요청 캐릭터를 한글 이름으로 안내(Replay ID 배지는 유지). (2) F2-Q-4 — 화면의 저장 결과 원문 JSON 표시를 없앤다. API·저장·JSON/CSV 내보내기(파일)는 그대로 둔다. (3) F2-Q-5 — 한국어 진단(캐릭터 이름·필드 의미·사유·준비 안내)만 표시하고 서버 원문 문자열은 화면에서 뺀다(구조화 오류·409·저장 0·연결 유지는 보존). (4) 남은 화면 전체를 한 번 더 훑어 코드·원문 키 노출을 정리하고 목록 보고. 실제 격리 API·브라우저 확인, 원본 `data/local`·5180/5181 불변. 이후 QA 재수용.
 - **F2-Q 재수용 통지(2026-09-29):** UI `00911ce` 기준 F2-Q-2 재검 + 회귀. 전달 `term_234e279b…` 요청 `2d024b4c-aaac-4890-a480-111eccc6fbab`, accepted=true·`input_accepted`·`turn_started`. 남은 내부 번호의 화면 노출은 목록으로 기록만 하고 결함 판정하지 않도록 지시(사용자 확인 대상).
 - **F2-U 2단계 통지(2026-09-29):** Backend `aa1b71e` 기준 R4·R8 실제 연결 + 앱 화면·코드 주석의 Nikke-Local-Lab 출처 표기 삭제.
 - (이전) 엔진 `1a86ec9` merge 통지(2026-09-29) — `term_e5d05982…` 요청 `eebad101-6fd8-4a9a-a8fb-b8203c2cf1ab`, accepted=true·`input_accepted`(작업 중 턴에 전달, 재전송 없음). **F2-U:** 진행 중.
