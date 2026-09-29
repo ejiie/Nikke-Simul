@@ -8,7 +8,7 @@ import { toServerTacticDto } from './damage-log-adapter.js';
 import { createSingleDeckStatsView } from './single-deck-stats.js';
 import { defaultPolicy, policyOptions } from './hit-policy.js';
 import { COND_WIRE, conditionWire, describeCombatProfileError, describeCompatibility, mountConditionControls } from './combat-conditions.js';
-import { BOSS_WIRE, DEF_WIRE, DEFAULT_CRIT_MODE, DURATION_FRAMES, PELLET_POLICY, conditionsNote, critOptionsHtml, defenseFields, describeSavedCombat, mountBossSelector } from './raid-conditions.js';
+import { BOSS_WIRE, DEF_WIRE, DEFAULT_CRIT_MODE, DURATION_FRAMES, PELLET_POLICY, conditionsNote, critOptionsHtml, defenseFields, describeDefenseResult, describeSavedCombat, mountBossSelector } from './raid-conditions.js';
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -54,6 +54,8 @@ const getMembersWithMeta=()=>{
 const tacticsManager=createBurstTacticsManager({api,getSnapshot:()=>snapshot,getMembersWithMeta,getFormationSlots:()=>formation.slots(),status});
 const damageLogViewer=createDamageLogViewer({api,getSnapshot:()=>snapshot,getMembersWithMeta,getToken:()=>boot.token,status});
 const statsView=createSingleDeckStatsView({api,getSnapshot:()=>snapshot,getMembersWithMeta,status,
+  // R8: the selected boss is stored with the experiment (top-level bossId; display only, not in the fingerprint).
+  getBossId:()=>BOSS_WIRE.confirmed&&bossSelector?bossSelector.getSelectedId():null,
   getTacticSummary:()=>{
     const tactics=tacticsManager.getTactics?.();
     const order=(tactics?.burst3Rotation?.length?tactics.burst3Rotation:tactics?.priority?.stage3)??[];
@@ -66,7 +68,6 @@ const statsView=createSingleDeckStatsView({api,getSnapshot:()=>snapshot,getMembe
     const data=new FormData(form);
     return {
       roundingPolicy:data.get('rounding')??defaultPolicy(),
-      ...(BOSS_WIRE.confirmed&&bossSelector?BOSS_WIRE.conditionFields(bossSelector.getSelectedId()):{}),
       casts:[],
       combat:{
         manualCharacterId:data.get('manualCharacter')??'',
@@ -245,7 +246,7 @@ formation.render=()=>{
 
 function renderDiagnostics(){
   const issues=(snapshot?.issues??[]).filter(i=>i.code!=='duplicate_identical');
-  $('advanced-content').innerHTML=`<div class="section-heading"><div><h2>고급 진단</h2><p>누락된 스펙과 저장 출처를 확인합니다.</p></div></div><article class="surface"><h3>수집 확인</h3>${issues.length?`<ul>${issues.map(i=>`<li>${esc(i.path)} · ${esc(i.message)}</li>`).join('')}</ul>`:'<p>검토할 항목이 없습니다.</p>'}</article><article class="surface"><h3>최근 변경</h3><ul>${(snapshot?.changes??[]).slice(0,30).map(v=>`<li>${esc(v)}</li>`).join('')}</ul></article><article class="surface"><h3>화면·이미지 출처</h3><p>화면: Nikke-Local-Lab · 이미지: 블라블라 및 사용자 제공 ZIP</p><p>캐릭터 ${state.presentation.characters.length}명 · ZIP 연결 ${state.presentation.importedPortraits??0}명 · 미수집 ${state.presentation.unresolved?.length??0}개</p></article>`;
+  $('advanced-content').innerHTML=`<div class="section-heading"><div><h2>고급 진단</h2><p>누락된 스펙과 저장 출처를 확인합니다.</p></div></div><article class="surface"><h3>수집 확인</h3>${issues.length?`<ul>${issues.map(i=>`<li>${esc(i.path)} · ${esc(i.message)}</li>`).join('')}</ul>`:'<p>검토할 항목이 없습니다.</p>'}</article><article class="surface"><h3>최근 변경</h3><ul>${(snapshot?.changes??[]).slice(0,30).map(v=>`<li>${esc(v)}</li>`).join('')}</ul></article><article class="surface"><h3>이미지 출처</h3><p>이미지: 블라블라 및 사용자 제공 ZIP</p><p>캐릭터 ${state.presentation.characters.length}명 · ZIP 연결 ${state.presentation.importedPortraits??0}명 · 미수집 ${state.presentation.unresolved?.length??0}개</p></article>`;
 }
 // R4: the fixed-DEF select stays only until the automatic switch wire is confirmed.
 const DEF_SELECT=()=>DEF_WIRE.confirmed?'':'<label>적 방어력<select name="defense"><option value="30925">30,925 · 누적 20억 전</option><option value="31784">31,784 · 누적 20억 후</option></select></label>';
@@ -280,7 +281,7 @@ function renderRaid(){
     // docs/solo-raid-challenge-level.ko.md). New mode sends only bossDistance/bossWeakElement (explicit null = unset).
     // R3/R7 fixed values, R4 DEF mode, R8 boss (display-only metadata). typeof guards keep this body runnable alone.
     const defenseConditionFields = typeof defenseFields === 'function' ? defenseFields(form.get('defense')) : { enemyDefense: Number(form.get('defense')) };
-    const bossMetadata = typeof bossSelector !== 'undefined' && bossSelector && typeof BOSS_WIRE !== 'undefined' ? BOSS_WIRE.conditionFields(bossSelector.getSelectedId()) : {};
+    const bossRequestFields = typeof bossSelector !== 'undefined' && bossSelector && typeof BOSS_WIRE !== 'undefined' ? BOSS_WIRE.requestFields(bossSelector.getSelectedId()) : {};
     const bossConditionFields = typeof combatConditions !== 'undefined' && combatConditions
       ? conditionWire(combatConditions.getState())
       : { properDistance: form.has('distance'), elementAdvantage: form.has('element') };
@@ -288,11 +289,11 @@ function renderRaid(){
       snapshotId: snapshot.id,
       characterIds: members,
       scenarioLevel: SOLO_RAID_SCENARIO_LEVEL,
+      ...bossRequestFields,
       conditions: {
         damageLog: { characterId: targetDamageLogCharId },
         autoBurst: autoBurstPayload,
         roundingPolicy: form.get('rounding'),
-        ...bossMetadata,
         casts: [],
         combat: {
           manualCharacterId: form.get('manualCharacter'),
@@ -324,14 +325,23 @@ function renderReplay(saved){
   $('replay-result').innerHTML=`<article class="surface"><p class="eyebrow">검산 결과 · ${time(saved.createdAt)}</p><h2>총 대미지 ${num(saved.result.totalDamage)}</h2><p>실측 오차 검증 전 · 지정한 조건의 시뮬레이션 결과</p>${savedCombatLine(saved)}${COND_WIRE.confirmed?conditionModeLine(describeCompatibility(saved.conditionCompatibility)):''}<div id="burst-timeline-comparison"></div>${renderBurstSummary(saved.result.teamBurst)}<div class="simul-result-grid">${saved.result.members.map(m=>`<article><h3>${esc(state.presentationByCharacter.get(m.characterId)?.displayName??m.characterId)}</h3><strong>${num(m.damage)}</strong><dl>${Object.entries(m.effects).map(([effect,dmg],index)=>`<div><dt>${esc(effectLabel(saved,m.characterId,effect,index))}</dt><dd>${num(dmg)}</dd></div>`).join('')}</dl></article>`).join('')}</div><div id="damage-log-container"></div><details><summary>저장 결과 원문</summary><pre>${esc(JSON.stringify(saved,null,2))}</pre></details></article>`;
   tacticsManager.renderTimelineComparison($('burst-timeline-comparison'),saved.result?.teamBurst?.fullBursts,getMembersWithMeta());
   damageLogViewer.setReplay(saved);
+  // Records saved before battleConditions existed: the read-only endpoint gives the conditions used (fixed DEF).
+  if(DEF_WIRE.confirmed&&!saved.battleConditions&&saved.id)api(DEF_WIRE.replayRoute(saved.id))
+    .then(bc=>{const line=document.querySelector('#replay-result [data-saved-combat]');if(line&&lastReplay?.id===saved.id){
+      const text=describeSavedCombat(savedCombat(saved),{battleConditions:bc,boss:saved.boss??null});if(text)line.textContent=text;}})
+    .catch(()=>{});
   // Records saved before conditionCompatibility existed are described by the read-only compatibility endpoint.
   if(COND_WIRE.confirmed&&!saved.conditionCompatibility&&saved.id)api(COND_WIRE.replayCompatibilityRoute(saved.id))
     .then(compat=>{const line=document.querySelector('#replay-result [data-cond-mode]');if(line&&lastReplay?.id===saved.id)line.outerHTML=conditionModeLine(describeCompatibility(compat));})
     .catch(()=>{});
 }
+// Saved replays keep their conditions under result.conditions (older/mock shapes: top-level conditions).
+const savedCombat=saved=>saved?.result?.conditions?.combat??saved?.conditions?.combat??null;
 function savedCombatLine(saved){
-  const line=describeSavedCombat(saved.conditions?.combat,{defenseMode:saved.defenseMode??null,boss:saved.boss??null});
-  return line?`<p class="microcopy" data-saved-combat>${esc(line)}</p>`:'';
+  const names=new Map(getMembersWithMeta().map(m=>[m.id,m.displayName]));
+  const line=describeSavedCombat(savedCombat(saved),{battleConditions:saved.battleConditions??null,boss:saved.boss??null});
+  const defense=describeDefenseResult(saved.result?.defense,{names});
+  return (line?`<p class="microcopy" data-saved-combat>${esc(line)}</p>`:'')+(defense?`<p class="cond-result-mode" data-defense-result>${esc(defense)}</p>`:'');
 }
 function conditionModeLine(mode){
   return `<p class="cond-result-mode ${mode.mode==='legacy'?'warning':''}" data-cond-mode="${mode.mode}">${esc(mode.text)}</p>`;

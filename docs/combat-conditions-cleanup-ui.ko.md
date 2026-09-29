@@ -1,6 +1,6 @@
 # 전투 조건 정리·보스 선택 — UI (F2-U, R1~R8)
 
-2026-09-29. **1단계 완료**: R1·R2·R3·R5·R6·R7은 기존 wire만으로 연결해 실제 격리 API에서도 확인했다. **R4(방어력 자동 전환)·R8(보스 선택)은 mock으로 화면을 만들었고 Backend 확정 wire는 Director 통지 대기**다. 이 문서는 UI 구현·검증 보고이며 독립 QA·원본 배포 보고가 아니다.
+2026-09-29. **1단계 완료**(R1·R2·R3·R5·R6·R7 실제 연결, R4·R8 mock — 1~5절, 당시 기록) → **2단계 완료**(R4·R8 확정 wire 연결, 출처 표기 삭제, 실제 격리 API 검증 — 6절). 이 문서는 UI 구현·검증 보고이며 독립 QA·원본 배포 보고가 아니다. 1~5절과 6절이 다르면 6절이 우선한다.
 
 배정: Director [F-COND-2 지시서](C:/Users/user/orca/workspaces/Nikke-Simul/Director/docs/combat-conditions-cleanup-assignments-2026-09-29.ko.md)의 "근거"·"공통 기준"·"F2-U" 절, 요구 원문 [R1~R8](C:/Users/user/orca/workspaces/Nikke-Simul/Director/docs/user-requests-2026-09-29.ko.md). Director 문서는 읽기만 했다.
 
@@ -26,7 +26,7 @@
 | 결과 카드 | 저장된 조건을 저장값 그대로 한 줄 표시: `180초 · 방어력 자동 전환 (30,925 → 31,784) · 크리티컬 확률 적용 · 샷건 계수 발사 1회`, 이전 기록은 `120초 · 방어력 30,925 고정 · 크리티컬 끔 · 샷건 계수 펠릿마다`처럼 당시 값. Backend가 방어력 모드 표시 객체를 주면 그 label을 쓴다 | — |
 | 단일 덱 통계 | 같은 폼 조건을 쓰므로 같은 규칙(180초·발사 1회·크리 기본·DEF 모드·보스 메타데이터) | — |
 
-잠정 wire 세부는 `raid-conditions.js` 한 곳에 있다: `DEF_WIRE.combatFields()` = `{enemyDefenseMode:'cumulative_switch'}`, `BOSS_WIRE.listRoute` = `GET /api/runtime/solo-raid-bosses`, 응답 `{bosses:[{id,name,season,imageUrl,weakElement,dummy}]}`, 요청 `conditions.boss = {id}`. 둘 다 `confirmed:false`. Backend 계약 확정 후 교체하고 true로 바꾼다.
+1단계 당시 잠정 wire(`enemyDefenseMode`, `GET /api/runtime/solo-raid-bosses`, `conditions.boss`)는 `raid-conditions.js` 한 곳에 두었고 두 flag가 false였다. 2단계에서 확정 wire로 교체했다(6절 — 잠정 필드는 Backend가 채택하지 않음).
 
 Q3 하니스(`tests/q3/check_ui_contract.mjs`)가 submit 콜백 본문만 실행하므로 콜백 안의 새 값은 상수·`typeof` 가드로 자기완결을 유지했다(26/26).
 
@@ -56,15 +56,59 @@ Q3 하니스(`tests/q3/check_ui_contract.mjs`)가 submit 콜백 본문만 실행
 
 `tests/q3/check_ui_contract.mjs` 26/26, `single_deck_stats`·`client_f32_mock`·`damage_audit` 단위, vitest 13/13, `check_combat_conditions_mock.py`, `check_solo_raid_level.py`(기대값을 180초·발사 1회 고정으로 갱신), `check_client_f32_mock_browser.py`, `check_single_deck_stats_browser.py` 모두 통과. 기존 live 검사들은 시간 입력 제거에 맞게 시간 입력 조작을 뺐다. 전체 실행 중 `check_solo_raid_level.py` 1회, `check_single_deck_stats_browser.py` 1회가 앱 준비 대기 60초 초과로 실패했고, 코드 변경 없이 곧바로 재실행하면 각각 3/3·2/2 통과했다(빌드 직후 부하 시점과 겹침, 원인 확정 안 함).
 
-## 4. 확정 wire 연결 시 할 일 (Director 통지 후)
+## 4. 확정 wire 연결 시 할 일 (당시 계획 — 모두 수행, 6절)
 
 1. Backend 확정 커밋 merge, 계약의 방어력 모드 필드·보스 목록 경로·응답 형태·선택 저장 필드로 `DEF_WIRE`·`BOSS_WIRE`·`normalizeBosses` 교체 후 `confirmed:true`.
 2. 저장 결과의 방어력 모드·보스 표시 형태(예: compatibility 류 표시 객체)가 있으면 결과 카드·통계 카드에 연결. 이전 고정 DEF 기록은 저장값 그대로.
 3. 실제 격리 API·브라우저: 방어력 자동 전환 요청·결과 표시(전환 시점 표시가 있으면 연결), 보스 목록·이미지·선택 저장, 기존 회귀. EXE 배포 안 함.
 
-## 5. 미실행·한계
+## 5. 1단계 미실행·한계 (당시 기록)
 
-- R4·R8 실제 API 연결 없음(wire 미확정). 잠정 필드 이름은 바뀔 수 있다.
-- 보스 이미지·이름은 mock 합성(`모의 보스 A` 등)이며 실제 솔로 레이드 보스 데이터가 아니다.
+- 1단계에서는 R4·R8 실제 API 연결이 없었다(6절에서 수행).
+- mock 보스 이름·이미지(`모의 보스 A` 등)는 합성이다.
 - 예외 캐릭터 한글 이름은 presentation 카탈로그에 의존한다. 카탈로그에 없는 캐릭터는 API의 영문 이름으로 대체된다(코드는 표시하지 않음).
 - EXE 빌드·배포 없음.
+
+## 6. 2단계 — R4·R8 확정 wire, 출처 표기 삭제 (2026-09-29)
+
+Director 통지: Backend 확정 `aa1b71e`(엔진 `1a86ec9` 포함) merge(`92aef7b`, 충돌 0), 이어서 보스 한국어 이름 보완 `b977e77`(aa1b71e 직계, src/apps 변경 0) merge(`bcdd73a`, 충돌 0). 확정 wire는 Backend `docs/single-deck-compute-contract.ko.md` F2-B 절, 배경 `docs/combat-conditions-cleanup-backend.ko.md`.
+
+### 6.1 연결
+
+| 항목 | 연결 |
+|---|---|
+| R4 요청 | `DEF_WIRE.confirmed=true`. 새 요청은 `conditionProfile`을 보내지 않고(solo_raid 기본) `enemyDefense`·`defenseMode`도 보내지 않는다 — 서버 기본값(자동 전환, 시작 30,925)을 쓴다. `durationFrames 10800`·`per_trigger`는 기본값과 같은 값으로 명시(허용됨). `legacy` 프로필은 UI가 보내지 않는다 |
+| R4 표시 | 결과 카드 조건 줄: 저장 `battleConditions`의 label과 값(`180초 · 덱 누적 피해에 따라 방어력 자동 전환 (30,925 → 31,784) · 크리티컬 확률 적용 · 샷건 계수 발사 1회 · 보스 …`). 이전 기록은 `…/skill-replays/{id}/battle-conditions`로 당시 조건(`이전 방식(고정 방어력) · 방어력 31,784`, 당시 시간·샷건). 실제 전환은 `result.defense`: `방어력 30,925 → 31,784 · 8.13초(488프레임) 블랑 타격 후 전환 · 누적 2,000,645,839` 또는 `방어력 전환 없음 · 끝까지 30,925 (누적 피해 20억 이하)`, fixed는 `방어력 31,784 고정`, 기록 없음(null)은 줄을 만들지 않음. 내부 hitTraceId는 표시하지 않음 |
+| R4 통계 | 실험 `input.battleConditions`(없으면 `…/compute/experiments/{id}/battle-conditions`)와 `input.boss`로 `전투 조건` 카드 |
+| R8 목록 | `BOSS_WIRE.confirmed=true`, `GET /api/presentation/solo-raid-bosses`. `bosses`만 선택 대상(기본 `defaultBossId`, 더미 우선, 나머지 최신 시즌 순). `diagnostics`가 있을 때만 `일부 보스 이름 준비 중`(`boss_catalog_not_prepared`는 `보스 목록 준비 중 · 지금은 더미 보스만 선택할 수 있습니다.`) — 제외 보스 이름·영문·원문 메시지는 표시하지 않음. 이미지 없는 항목은 그라데이션 자리표시, 더미는 줄무늬 |
+| R8 저장 | 두 POST 최상위 `bossId`(솔로 레이드 replay, 통계 실험 — `buildExperimentRequest`에 `bossId` 추가). 결과·실험의 `boss.name`을 조건 줄에 표시 |
+| 결과 조건 위치 | 실제 저장 replay는 조건을 `result.conditions`에 둔다(최상위 `conditions` 없음) — 조건 줄은 `result.conditions.combat`을 우선 읽는다. 1단계 mock은 최상위를 가정해 실제 API에서 크리티컬이 빠지는 것을 2단계 live 검사로 발견·수정 |
+| 출처 표기 삭제(사용자 지시) | `app.js` 고급 진단 `화면·이미지 출처`의 `화면: Nikke-Local-Lab ·` 삭제(제목 `이미지 출처`, 이미지 출처 문구는 유지). 출처 서술 주석 정리: `cards.js`·`local-lab-detail.js` 첫 줄, 같은 성격의 `local-lab-account.js`·`local-lab-adapter.js` 첫 줄과 `simul.css` 주석 2곳. 파일 이름·함수 이름(`renderLocalLabDetail` 등)은 바꾸지 않음. 내부 설계 기록 문서(`docs/desktop-ui-migration.ko.md` 등)의 이식 이력은 역사 기록이라 손대지 않았다 |
+| 기타 | 더미 카드 자리표시의 `더미` 글자 제거(이름과 중복) |
+
+### 6.2 검증 — 실제 격리 API + Chromium
+
+`python tests/ui/check_raid_conditions_live.py --dotnet … --source-data <Backend I-BE 격리 run의 data> --source-roster <공개 roster> --assets <격리 아이콘 사본> --boss-presentation <격리 보스 캐시> --expect-bosses 43` → **통과** `artifacts/ui/raid-conditions-live/run-45c85a7260d5`(b977e77 기준; aa1b71e 기준 `run-5a127a70f632`도 통과).
+
+- 준비: 새 dataRoot·새 합성 계정·임의 포트, `prepare_combat_conditions.py`는 격리 runtime에만. 보스는 **`tools/data-pipeline/prepare_solo_raid_bosses.py --presentation-root artifacts/ui/boss-presentation-cache/<ts>-b977e77/presentation`**(격리 캐시, 네트워크)로 준비 → `{"displayed":43,"excluded":0,"complete":true}`, 이미지 42장. 원본 `data/local` 미실행. 원천·roster·아이콘·보스 파일 해시 전후 동일. 합성 HTTP는 bootstrap 연결·combat-powers `{}`뿐.
+- 보스: API 43개(더미 + 시즌 1~42, 제외 0, complete true) = 대화상자 카드 43장, 이름 전부 API의 한국어 이름, 이미지 42장 로드, diagnostics 0이라 안내 없음. 기본 더미.
+- 기본 replay(시즌 42 `앨트루이아` 선택): 요청 `bossId` 최상위, `conditionProfile`·`enemyDefense`·`defenseMode` 없음, 180초·per_trigger·sample. 응답 `battleConditions` solo_raid, `boss.name` 일치. 화면 조건 줄·방어력 줄(전환 없음)이 응답과 일치.
+- 전환 replay: 나가는 요청에만 Backend 임계값 fixture와 같은 합성 100배 공격력 창(`attackBuffWindows`)을 추가(응답 실제). 실제 `result.defense.switchAfterHit`(488프레임·블랑·누적 2,000,645,839) → 화면 `방어력 30,925 → 31,784 · 8.13초(488프레임) 블랑 타격 후 전환 · 누적 2,000,645,839`. 1500/850/500px 넘침 0.
+- 이전 방식 replay: 나가는 요청을 `conditionProfile:"legacy"`·120초·per_pellet·DEF 31,784 fixed로 바꿔 전송(UI는 보내지 않는 경로). 실제 `battleConditions.profile=legacy` → `120초 · 이전 방식(고정 방어력) · 방어력 31,784 · … · 샷건 계수 펠릿마다`, `방어력 31,784 고정`. endpoint 값 동일.
+- 통계 runs 1: 요청 최상위 `bossId`, batch completed, `input.boss.name`·`battleConditions`·`defPolicy team_damage_threshold:30925:2000000000:31784`, 카드에 label·보스 이름. JS 오류 0.
+
+### 6.3 mock·기존 회귀 (최종 코드)
+
+| 명령 | 결과 |
+|---|---|
+| `node tests/ui/raid_conditions.test.mjs` | 5/5 (확정 wire: DEF 필드 미전송·endpoint, battleConditions 문구 새/이전, result.defense 전환/없음/fixed/null, 보스 목록 확정 형태·diagnostics 있을 때만 안내·제외 보스 미표시·escape) |
+| `python tests/ui/check_raid_conditions_mock.py --assets …` | 통과 `raid-conditions-mock/run-189e8e9e0fd9`(확정 route·필드, 이전 기록 battle-conditions 조회) |
+| `check_combat_conditions_live.py`, `check_combat_profile_errors_ui.py`, `check_client_f32_live.py` (실제 격리 API) | 통과 `run-973814429ac2`, `run-e4d8e48e4b62`, `run-f6401de85a6b` |
+| Q3 26/26, `combat_conditions` 12/12, `single_deck_stats`, `client_f32_mock`, `damage_audit`, vitest 13/13, `check_combat_conditions_mock.py`, `check_client_f32_mock_browser.py`, `check_damage_audit_browser.py --real-replay` | 통과 |
+| `check_solo_raid_level.py`, `check_single_deck_stats_browser.py` | 방어력 선택이 없어져 기대값 갱신(고정 DEF 미전송 확인) 후 통과 |
+
+### 6.4 미실행·한계
+
+- EXE 빌드·배포 없음. 원본 경로·5180/5181·원본 `data/local` 미접촉. **배포 시 원본 presentation에 `prepare_solo_raid_bosses.py`, runtime에 `prepare_combat_conditions.py` 준비가 필요**하다(Backend 보고와 같음). 준비 전에는 보스 목록이 더미만 + `보스 목록 준비 중` 안내다.
+- 20억 초과 전환은 합성 100배 공격력 창으로만 재현했다(합성 계정 180초 기본 피해는 20억 미만). 경계 세부(정확히 20억 무전환·다음 타격부터)는 Backend 문서상 실게임 확인 대기 가설이다.
+- 보스 선택은 표시·저장만 한다(보스별 약점·거리·DEF 반영은 다음 단계).

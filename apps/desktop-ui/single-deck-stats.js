@@ -8,6 +8,7 @@
  * 우열 미확정 unless the difference interval excludes zero.
  */
 import { COND_WIRE, createConditionState, describeCombatProfileError, describeCompatibility, describePlannedConditions } from './combat-conditions.js';
+import { DEF_WIRE, describeSavedCombat } from './raid-conditions.js';
 import {
   COMPUTE_ROUTES,
   describeHardwareProfile,
@@ -55,6 +56,7 @@ function deckSection(model) {
         ${metricCard('DEF 정책', input.defPolicy ?? '현행 고정 DEF 정책', '자동 20억 전환 없음')}
         ${metricCard('버스트 전술', model.tacticSummary || UNKNOWN, '솔로 레이드 저장 설정')}
         ${metricCard('표본 단계', input.phase ?? model.phase, 'warmup은 표본으로 저장하지 않음')}
+        ${model.battleSummary ? metricCard('전투 조건', model.battleSummary, '저장된 실험 조건') : ''}
         ${model.conditionSummary ? metricCard('보스 거리·약점', model.conditionSummary, model.batch.id ? '저장된 실험 조건' : '솔로 레이드 전투 조건에서 변경') : ''}
         ${metricCard('대미지 정책', input.present ? (input.roundingPolicy ?? '기록 없음 (client_f32 이전 기록)') : model.roundingPolicy ?? UNKNOWN,
           input.present ? [input.inputSchemaVersion ? `schema ${input.inputSchemaVersion}` : 'schema 기록 없음', input.summaryVersion].filter(Boolean).join(' · ') : '요청 예정 값')}
@@ -265,7 +267,7 @@ export function renderSingleDeckStats(model) {
 /** Builds the view model from contract payloads; missing payloads degrade to explicit unknown states. */
 export function buildStatsModel({ hardware, batch, statistics, comparison, deckMembers = [], tacticSummary = '',
   requestedRuns = DEFAULT_RUNS, phase = 'final', cut = null, endpointStatus = 'unknown', analysisStatus = 'unknown',
-  errors = [], recovered = false, roundingPolicy = null, comparisonStatus = null, conditionSummary = null } = {}) {
+  errors = [], recovered = false, roundingPolicy = null, comparisonStatus = null, conditionSummary = null, battleSummary = null } = {}) {
   const described = describeBatch(batch);
   const displayNames = new Map(deckMembers.map(m => [m.characterId, m.displayName ?? m.characterId]));
   return {
@@ -280,6 +282,7 @@ export function buildStatsModel({ hardware, batch, statistics, comparison, deckM
     roundingPolicy: typeof roundingPolicy === 'string' && roundingPolicy ? roundingPolicy : null,
     comparisonStatus,
     conditionSummary: typeof conditionSummary === 'string' ? conditionSummary : null,
+    battleSummary: typeof battleSummary === 'string' ? battleSummary : null,
     hardware: describeHardwareProfile(hardware),
     batch: described,
     statistics: describeStatistics(statistics, { memberOrder: described.input.characterIds, displayNames }),
@@ -293,11 +296,11 @@ export function buildStatsModel({ hardware, batch, statistics, comparison, deckM
  * endpoint shows "미연결", and 409 analysis_not_integrated is reported as an explicit state rather
  * than an empty statistics panel.
  */
-export function createSingleDeckStatsView({ api, getSnapshot, getMembersWithMeta, getTacticSummary, getConditions, status, storage } = {}) {
+export function createSingleDeckStatsView({ api, getSnapshot, getMembersWithMeta, getTacticSummary, getConditions, getBossId, status, storage } = {}) {
   const store = storage ?? (typeof localStorage === 'undefined' ? null : localStorage);
   const state = {
     endpointStatus: 'unknown', analysisStatus: 'unknown', requestedRuns: DEFAULT_RUNS, phase: 'final', cut: null,
-    recovered: false, errors: [], hardware: null, batch: null, statistics: null, comparison: null, comparisonStatus: null, compatibility: null,
+    recovered: false, errors: [], hardware: null, batch: null, statistics: null, comparison: null, comparisonStatus: null, compatibility: null, battle: null,
     requestedDevice: 'auto', workerLimit: null, memoryLimitBytes: null, retune: false
   };
   let containerId = 'stats-content';
@@ -308,7 +311,14 @@ export function createSingleDeckStatsView({ api, getSnapshot, getMembersWithMeta
   const model = () => buildStatsModel({ ...state, deckMembers: deckMembers(), tacticSummary: getTacticSummary?.() ?? '',
     roundingPolicy: getConditions?.()?.roundingPolicy ?? null,
     // Boss distance / weak element come from the solo raid form (F-COND-1), shown once that wire is confirmed.
-    conditionSummary: COND_WIRE.confirmed ? conditionSummaryFor(state.batch) : null });
+    conditionSummary: COND_WIRE.confirmed ? conditionSummaryFor(state.batch) : null,
+    battleSummary: DEF_WIRE.confirmed ? battleSummaryFor(state.batch) : null });
+  // Stored battle conditions (DEF mode, time, shotgun, boss) of the experiment; older records via the endpoint.
+  function battleSummaryFor(batch) {
+    if (!batch?.id) return null;
+    const bc = batch.input?.battleConditions ?? (state.battle?.id === batch.id ? state.battle.value : null);
+    return bc ? describeSavedCombat(null, { battleConditions: bc, boss: batch.input?.boss ?? null }) : null;
+  }
   // Stored experiment mode (BatchStatus.input.conditionCompatibility, or the read endpoint for older records);
   // before a batch exists, the conditions the form will send.
   function conditionSummaryFor(batch) {
@@ -348,6 +358,12 @@ export function createSingleDeckStatsView({ api, getSnapshot, getMembersWithMeta
     state.batch = payload;
     const id = payload.id ?? null;
     if (id && store) { try { store.setItem(EXPERIMENT_STORAGE_KEY, id); } catch { /* storage disabled */ } }
+    if (DEF_WIRE.confirmed && id && !payload.input?.battleConditions && state.battle?.id !== id) {
+      state.battle = { id, value: null };
+      Promise.resolve(api(DEF_WIRE.experimentRoute(id)))
+        .then(value => { if (state.battle?.id === id) { state.battle = { id, value }; render(); } })
+        .catch(() => {});
+    }
     // Records made before conditionCompatibility: read the stored mode once (display only, never rewritten).
     if (COND_WIRE.confirmed && id && !payload.input?.conditionCompatibility && state.compatibility?.id !== id) {
       state.compatibility = { id, value: null };
@@ -406,6 +422,7 @@ export function createSingleDeckStatsView({ api, getSnapshot, getMembersWithMeta
       snapshotId: snapshot.id,
       characterIds: members,
       conditions: getConditions?.() ?? {},
+      bossId: getBossId?.() ?? null,
       runs: state.requestedRuns,
       phase: state.phase,
       execution: {

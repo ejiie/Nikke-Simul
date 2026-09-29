@@ -1,5 +1,4 @@
-// Adapted from Nikke-Local-Lab c05fc1c392a523b9e17ebe0cbd4811bed9c19adb editor.js.
-// Card DOM, icon rails, growth strip and filters retained; account adapter lives in app.js.
+// Nikke card DOM, icon rails, growth strip and filters; the account adapter lives in app.js.
 import { bindCardGesture } from './card-gesture.js';
 const byId=id=>document.getElementById(id);
 const value=id=>byId(id).value.trim();

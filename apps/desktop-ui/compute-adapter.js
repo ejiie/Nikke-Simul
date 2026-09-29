@@ -420,7 +420,7 @@ export function describeOlComparison(comparison, { displayNames = null } = {}) {
  * Backend is correcting), duration is in frames, synchro stays 400 and recordLevel stays summary.
  */
 export function buildExperimentRequest({ snapshotId, characterIds, conditions = {}, runs = 1000, phase = 'final',
-  execution = {}, olChanges = null, baselineExperimentId = null, useSavedTactic = true } = {}) {
+  execution = {}, olChanges = null, baselineExperimentId = null, useSavedTactic = true, bossId = null } = {}) {
   const combat = { ...(conditions.combat ?? {}) };
   if (combat.targetDefense !== undefined) { // never send the documented typo
     if (combat.enemyDefense === undefined) combat.enemyDefense = combat.targetDefense;
@@ -444,5 +444,6 @@ export function buildExperimentRequest({ snapshotId, characterIds, conditions = 
   };
   if (olChanges?.length) request.olChanges = olChanges;
   if (baselineExperimentId) request.baselineExperimentId = baselineExperimentId;
+  if (text(bossId)) request.bossId = bossId; // display-only boss selection (F2-B), not a condition
   return request;
 }

@@ -255,8 +255,9 @@ async def run():
                 else:
                     combat = (accepted[-1].get('conditions') or {}).get('combat') or {}
                     summary['states']['startCombat'] = combat
-                    if combat.get('enemyDefense') not in (30925, 31784):
-                        problems.append(f"start request enemyDefense={combat.get('enemyDefense')!r}")
+                    # F-COND-2 R4: the solo_raid default DEF switch applies; the UI sends no fixed DEF.
+                    if any(k in combat for k in ('enemyDefense', 'defenseMode')):
+                        problems.append(f"start request sent a fixed DEF {combat.get('enemyDefense')!r}/{combat.get('defenseMode')!r}")
                     if combat.get('durationFrames') != 10800:
                         problems.append(f"start request durationFrames={combat.get('durationFrames')!r}")
                     if 'targetDefense' in combat:

@@ -1,5 +1,5 @@
-// F2-U (F-COND-2 R3-R8) model checks. Evidence type: MOCK ONLY (fixtures/solo-raid-bosses-mock.json, provisional
-// DEF/boss wire). No browser, no network. Usage: node tests/ui/raid_conditions.test.mjs
+// F2-U (F-COND-2 R3-R8) model checks against the confirmed F2-B wire shape. Evidence type: MOCK ONLY
+// (fixtures/solo-raid-bosses-mock.json). No browser, no network. Usage: node tests/ui/raid_conditions.test.mjs
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -24,44 +24,68 @@ await check('fixed_values_and_crit_default', () => {
   assert.ok(html.includes('>끔<') && html.includes('>항상 크리<'));
 });
 
-await check('def_mode_until_and_after_wire', () => {
-  assert.equal(raid.DEF_WIRE.confirmed, false);
-  assert.deepEqual(raid.defenseFields('31784'), { enemyDefense: 31784 });       // live before the wire: old select
-  assert.deepEqual(raid.defenseFields('31784', true), { enemyDefenseMode: 'cumulative_switch' });
-  assert.ok(!('enemyDefense' in raid.defenseFields(null, true)));
-  assert.match(raid.conditionsNote(false), /자동 전환은 아직 적용하지 않습니다/);
-  const note = raid.conditionsNote(true);
+await check('def_mode_confirmed_wire', () => {
+  assert.equal(raid.DEF_WIRE.confirmed, true);
+  // solo_raid defaults: nothing DEF-related is sent (no conditionProfile, no enemyDefense, no defenseMode).
+  assert.deepEqual(raid.defenseFields('31784'), {});
+  assert.deepEqual(raid.defenseFields('31784', false), { enemyDefense: 31784 });   // pre-wire comparison only
+  assert.equal(raid.DEF_WIRE.replayRoute('r 1'), '/runtime/skill-replays/r%201/battle-conditions');
+  assert.equal(raid.DEF_WIRE.experimentRoute('e1'), '/compute/experiments/e1/battle-conditions');
+  const note = raid.conditionsNote();
   assert.match(note, /전투 시간 180초 · 샷건 계수 발사 1회 고정/);
   assert.match(note, /30,925로 시작해 이 덱의 누적 대미지가 20억을 넘은 뒤부터 31,784로 자동 전환/);
-  assert.equal(raid.DEF_SWITCH_DAMAGE, 2000000000);
 });
 
-await check('saved_combat_shows_stored_values', () => {
-  assert.equal(raid.describeSavedCombat({ durationFrames: 10800, enemyDefenseMode: 'cumulative_switch', critMode: 'sample', pelletCoefficientPolicy: 'per_trigger' }),
-    '180초 · 방어력 자동 전환 (30,925 → 31,784) · 크리티컬 확률 적용 · 샷건 계수 발사 1회');
-  // Older records keep their own time, fixed DEF and shotgun setting; nothing is reinterpreted.
-  assert.equal(raid.describeSavedCombat({ durationFrames: 7200, enemyDefense: 31784, critMode: 'off', pelletCoefficientPolicy: 'per_pellet' }),
-    '120초 · 방어력 31,784 고정 · 크리티컬 끔 · 샷건 계수 펠릿마다');
-  assert.equal(raid.describeSavedCombat({ durationFrames: 10800, enemyDefense: 30925 }, { defenseMode: { label: '방어력 자동 전환(서버 표시)' }, boss: { name: '더미 보스' } }),
-    '180초 · 방어력 자동 전환(서버 표시) · 보스 더미 보스');
+await check('saved_conditions_from_battle_conditions', () => {
+  const solo = { profile: 'solo_raid', label: '덱 누적 피해에 따라 방어력 자동 전환', defenseMode: 'team_damage_threshold', initialDefense: 30925,
+    switchedDefense: 31784, damageThreshold: 2000000000, durationFrames: 10800, pelletCoefficientPolicy: 'per_trigger' };
+  assert.equal(raid.describeSavedCombat({ critMode: 'sample' }, { battleConditions: solo, boss: { id: 'solo-raid-41', name: '모의 보스 A' } }),
+    '180초 · 덱 누적 피해에 따라 방어력 자동 전환 (30,925 → 31,784) · 크리티컬 확률 적용 · 샷건 계수 발사 1회 · 보스 모의 보스 A');
+  // Older records: the endpoint's legacy label and the values stored at the time; nothing reinterpreted.
+  const legacy = { profile: 'legacy', label: '이전 방식(고정 방어력)', defenseMode: 'fixed', initialDefense: 31784, switchedDefense: null,
+    damageThreshold: null, durationFrames: 7200, pelletCoefficientPolicy: 'per_pellet' };
+  assert.equal(raid.describeSavedCombat({ critMode: 'off', durationFrames: 7200, enemyDefense: 31784, pelletCoefficientPolicy: 'per_pellet' }, { battleConditions: legacy }),
+    '120초 · 이전 방식(고정 방어력) · 방어력 31,784 · 크리티컬 끔 · 샷건 계수 펠릿마다');
+  assert.equal(raid.describeSavedCombat({ durationFrames: 7200, enemyDefense: 30925 }), '120초 · 방어력 30,925 고정');
   assert.equal(raid.describeSavedCombat(null), null);
 });
 
-await check('boss_list_dummy_first_and_display_only', () => {
-  assert.equal(raid.BOSS_WIRE.confirmed, false);
-  assert.deepEqual(raid.BOSS_WIRE.conditionFields('mock-a'), { boss: { id: 'mock-a' } });
-  const list = raid.normalizeBosses({ bosses: [...bosses.bosses].reverse() });
-  assert.equal(list[0].id, 'dummy'); assert.equal(list[0].dummy, true);
-  assert.equal(list.length, 4);
-  const selector = raid.renderBossSelector(list, 'dummy');
-  assert.ok(selector.includes('더미 보스') && selector.includes('data-boss-open') && selector.includes('표시·저장만'));
-  const dialog = raid.renderBossDialog(list, 'mock-a');
+await check('defense_result_switch_and_none', () => {
+  const names = new Map([['5009', '누아르']]);
+  const switched = { mode: 'team_damage_threshold', initialDefense: 30925, finalDefense: 31784, damageThreshold: 2000000000,
+    switchAfterHit: { frame: 1133, hitTraceId: 3804, hitOrdinal: 2011, characterId: '5009', effect: 'normal_attack',
+      cumulativeDamage: 2001052869, previousDefense: 30925, newDefense: 31784 } };
+  assert.equal(raid.describeDefenseResult(switched, { names }), '방어력 30,925 → 31,784 · 18.88초(1,133프레임) 누아르 타격 후 전환 · 누적 2,001,052,869');
+  assert.equal(raid.describeDefenseResult({ ...switched, finalDefense: 30925, switchAfterHit: null }), '방어력 전환 없음 · 끝까지 30,925 (누적 피해 20억 이하)');
+  assert.equal(raid.describeDefenseResult({ mode: 'fixed', initialDefense: 31784, finalDefense: 31784, damageThreshold: null, switchAfterHit: null }), '방어력 31,784 고정');
+  assert.equal(raid.describeDefenseResult(null), null);  // older results: not recorded
+  assert.ok(!raid.describeDefenseResult(switched).includes('3804'), 'internal trace ids stay hidden');
+});
+
+await check('boss_list_confirmed_shape_and_notice', () => {
+  assert.equal(raid.BOSS_WIRE.confirmed, true);
+  assert.equal(raid.BOSS_WIRE.listRoute, '/presentation/solo-raid-bosses');
+  assert.deepEqual(raid.BOSS_WIRE.requestFields('solo-raid-41'), { bossId: 'solo-raid-41' });
+  assert.deepEqual(raid.BOSS_WIRE.requestFields(null), {});
+  const list = raid.normalizeBosses(bosses);
+  assert.deepEqual(list.bosses.map(b => b.id), ['dummy', 'solo-raid-41', 'solo-raid-40', 'solo-raid-39']);  // default first, then newest season
+  assert.equal(list.defaultId, 'dummy');
+  assert.equal(list.notice, '일부 보스 이름 준비 중');
+  assert.equal(raid.normalizeBosses({ defaultBossId: 'dummy', bosses: [{ id: 'dummy', name: '더미 보스' }], diagnostics: [{ code: 'boss_catalog_not_prepared' }] }).notice,
+    '보스 목록 준비 중 · 지금은 더미 보스만 선택할 수 있습니다.');
+  assert.equal(raid.normalizeBosses({ defaultBossId: 'dummy', bosses: [{ id: 'dummy', name: '더미 보스' }], diagnostics: [], complete: true }).notice, null);
+  assert.equal(raid.normalizeBosses({ defaultBossId: 'dummy', bosses: [{ id: 'dummy', name: '더미 보스' }], diagnostics: [], complete: false }).notice, null);
+  // Excluded bosses are never listed, and a row without a Korean name is not selectable.
+  assert.ok(!list.bosses.some(b => b.id === 'solo-raid-42'));
+  assert.equal(raid.normalizeBosses({ bosses: [{ id: 'x', name: null }] }).bosses.length, 0);
+  const selector = raid.renderBossSelector(list.bosses, 'dummy', { notice: list.notice });
+  assert.ok(selector.includes('더미 보스') && selector.includes('data-boss-open') && selector.includes('일부 보스 이름 준비 중'));
+  const dialog = raid.renderBossDialog(list.bosses, 'solo-raid-41', { notice: list.notice });
   assert.equal((dialog.match(/data-boss-id=/g) ?? []).length, 4);
-  assert.match(dialog, /data-boss-id="mock-a" aria-pressed="true"/);
-  assert.ok(dialog.includes('SEASON 41') && dialog.includes('기본 약점 작열') && dialog.includes('/editor/assets/ui/code-fire.png'));
-  assert.ok(dialog.includes('기본 약점 전격'));
-  assert.ok(!/enikk|https?:\/\//i.test(dialog), 'no source shown in the UI');
-  const evil = raid.renderBossDialog(raid.normalizeBosses({ bosses: [{ id: '<x>', name: '<img src=x>', imageUrl: '"><script>' }] }), null);
+  assert.match(dialog, /data-boss-id="solo-raid-41" aria-pressed="true"/);
+  assert.ok(dialog.includes('SEASON 41') && dialog.includes('일부 보스 이름 준비 중') && !dialog.includes('42'));
+  assert.ok(!/enikk|https?:\/\/|한국어 이름 원천 미확인/i.test(dialog), 'no source or raw diagnostic text in the UI');
+  const evil = raid.renderBossDialog(raid.normalizeBosses({ bosses: [{ id: '<x>', name: '<img src=x>', imageUrl: '"><script>' }] }).bosses, null);
   assert.ok(!evil.includes('<img src=x>') && !evil.includes('"><script>'));
 });
 
