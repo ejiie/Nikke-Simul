@@ -20,6 +20,12 @@
   - 확정 목록: 1 마더 웨일, 2 블랙스미스, 3 하베스터, 4 알트아이젠, 5 화이트 스미스, 6 모더니아, 7 울트라, 8 토커티브, 9 마테리얼 H, 10 크리스탈 체임버, 11 스톰브링어, 12 니힐리스타, 13 인디빌리아, 14 그레이브 디거, 15 황금 크라켄, 16 미러 컨테이너, 17 거대 질량체, 18 랜드 이터, 19 베히모스, 20 백빙룡, 21 모더니아, 22 마테리얼 H, 23 거대 질량체 Q, 24 검은 뱀, 25 글러트니, 26 프로비던스, 27 환영 크라켄, 28 지즈, 29 마더 웨일, 30 차가운 심판자, 31 퀸 001, 32 알트아이젠, 33 온리 원, 34 앨트루이아, 35 크리스탈 체임버, 36 에고비스타, 37 울트라, 38 애니힐리오, 39 아일랜드 이터, 40 사치스러운 거미, 41 리버렐리오 바디, 42 앨트루이아.
   - Backend 보고 검증: Python 6/6, 격리 API 목록 43·제외 0·이미지 42개 HTTP 바이트/hash 일치·내부 manifest 경로 404. 원본 `data/local` 불변. 배포 시 새 준비 스크립트 실행 필요.
   - 통합·QA 기준은 UI 2단계 커밋에 `b977e77`을 합친 트리로 한다. UI에 `b977e77` merge·격리 목록 재준비(43개) 통지 — 요청 `35e71556…`, `input_accepted`(UI는 사용 한도 대기 후 자동 재개해 작업 중이던 턴에 전달).
+- **F2-U 2단계: 완료, Director 검토 수용.** UI `92aef7b`(Backend `aa1b71e` merge) → `bcdd73a`(`b977e77` merge, 충돌 0) → `dae1949`, 보고서 6절. Director 확인: 변경은 `apps/desktop-ui`·UI tests·UI 문서(제품 `src`·QA `tests/q3` 0), 앱 코드에 "Local-Lab" 표기 0, 엔진 `1a86ec9`·Backend `aa1b71e`·`b977e77` 포함, QA 브랜치와 충돌 없이 merge된다.
+  - R4: 새 요청은 `conditionProfile`·`enemyDefense`·`defenseMode` 미전송(solo_raid 기본), 결과 카드에 `battleConditions`(구 기록은 `/battle-conditions`), `result.defense` 전환 표시(시작→최종 DEF·시각·캐릭터·누적, 전환 없음·fixed 구분). R8: 한국어 보스 목록(더미 기본·최신 시즌 순), 두 POST 최상위 `bossId`, `diagnostics`가 있을 때만 "일부 보스 이름 준비 중".
+  - 발견·수정: 실제 저장 replay는 조건이 `result.conditions`에 있어 조건 줄에서 크리티컬이 빠지던 문제(1단계 mock 가정) 수정.
+  - 출처 삭제: 고급 진단 "화면: Nikke-Local-Lab", `cards.js`·`local-lab-detail.js`·`local-lab-account.js`·`local-lab-adapter.js` 첫 줄 주석, `simul.css` 주석 2곳. 파일·함수 이름 유지.
+  - UI 보고 실제 격리 API + Chromium(`b977e77` 기준): 보스 43개·제외 0·이미지 42, 한국어 이름 카드, 기본 replay 요청 필드·저장 boss, 합성 100배 공격으로 실제 전환(488프레임 블랑 누적 2,000,645,839) 표시, legacy 프로필 → 이전 방식 고정 방어력 표시, 통계 카드, 1500/850/500 넘침 0·JS 오류 0. 기존 회귀 통과.
+- **F2-Q 배정 준비:** 통합·QA 기준 트리 = UI `dae1949`(엔진·Backend·보스 이름 모두 포함). 사고 수준 QA high, R4 경계 xhigh — 검수 세션 설정 확인 후 전달.
 - **F2-U 2단계 통지(2026-09-29):** Backend `aa1b71e` 기준 R4·R8 실제 연결 + 앱 화면·코드 주석의 Nikke-Local-Lab 출처 표기 삭제.
 - (이전) 엔진 `1a86ec9` merge 통지(2026-09-29) — `term_e5d05982…` 요청 `eebad101-6fd8-4a9a-a8fb-b8203c2cf1ab`, accepted=true·`input_accepted`(작업 중 턴에 전달, 재전송 없음). **F2-U:** 진행 중.
 - **F2-U 1단계: 완료, Director 검토 수용.** UI `889b679`(`e98db6a` ff 위), [보고서](C:/Users/user/orca/workspaces/Nikke-Simul/UI/docs/combat-conditions-cleanup-ui.ko.md). 변경은 `apps/desktop-ui`·UI tests·UI 문서뿐(제품 `src`·QA `tests/q3` 0). Director가 mock 캡처(전투 조건 폼·보스 선택·거리 팝업, 1500px)를 확인했다.
