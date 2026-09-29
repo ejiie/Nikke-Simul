@@ -2,6 +2,7 @@
 import hashlib,json,sqlite3
 from copy import deepcopy
 from public_fixture import read,digest
+from check_f2_ufix3 import scan_codes
 
 def verify(s,ctx):
  pointer=s.data/'runtime/current.json';original=pointer.read_bytes();catalog=read(s.data/'runtime'/read(pointer)['id']/'catalog.json')
@@ -17,9 +18,11 @@ def verify(s,ctx):
     r,v=s.call(path,body);s.check('F-COND missing '+field+' '+path,r.status==409 and v.get('code')=='combat_profile_invalid' and v.get('characterId')=='5004' and v.get('field')=='combatProfiles.characters.5004.'+field and v.get('reason')=='missing',v)
    s.check('F-COND missing '+field+' no storage',counts()==before)
    if field=='bonusRangeMin':
-    page=ctx.new_page();page.goto(s.base+'/editor/');page.wait_for_selector('body[data-ready="true"]');page.locator('[data-tab="raid"]').click();page.locator('[data-cond-open="distance"]').click();page.wait_for_selector('[data-cond-error="members"]');text=page.locator('dialog[open]').inner_text();s.check('F-COND real Korean malformed popup',all(x in text for x in ['앨리스(#5004)','bonusRangeMin','prepare_combat_conditions.py']));page.screenshot(path=str(s.run/'regression-malformed-popup.png'),full_page=True);page.locator('dialog[open] button[type="submit"]').click();page.locator('[data-cond-open="element"]').click();page.locator('[data-cond-element="fire"]').click();page.locator('[data-tab="stats"]').click();page.locator('#compute-runs').fill('1')
+    page=ctx.new_page();page.goto(s.base+'/editor/');page.wait_for_selector('body[data-ready="true"]');page.locator('[data-tab="raid"]').click();page.locator('[data-cond-open="distance"]').click();page.wait_for_selector('[data-cond-error="members"]');text=page.locator('dialog[open]').inner_text();s.check('F-COND real Korean malformed popup',all(x in text for x in ['앨리스','bonusRangeMin','prepare_combat_conditions.py']) and '#5004' not in text);scan_codes(s,page,'malformed distance popup');page.screenshot(path=str(s.run/'regression-malformed-popup.png'),full_page=True);page.locator('dialog[open] button[type="submit"]').click();page.locator('[data-cond-open="element"]').click();page.wait_for_selector('[data-cond-error="members"]');scan_codes(s,page,'malformed weakness popup');page.locator('[data-cond-element="fire"]').click()
+    with page.expect_response(lambda r:r.url.endswith('/api/runtime/skill-replays') and r.request.method=='POST') as pending:page.locator('#run-replay').click()
+    page.wait_for_selector('[data-profile-error]');scan_codes(s,page,'malformed replay');s.save('ufix3-profile-replay',dict(response=pending.value.json(),text=page.locator('#replay-result').inner_text()));page.locator('[data-tab="stats"]').click();page.locator('#compute-runs').fill('1')
     with page.expect_response(lambda r:r.url.endswith('/api/compute/experiments') and r.request.method=='POST') as pending:page.locator('#compute-start').click()
-    page.wait_for_function('document.querySelector("#stats-content").innerText.includes("사거리·속성 데이터 오류")');text=page.locator('#stats-content').inner_text();s.check('F-COND real409 keeps API connected',pending.value.status==409 and '실제 API 응답' in text and 'compute API 미연결' not in text);s.save('profile-error-browser',dict(text=text,response=pending.value.json()));page.close()
+    page.wait_for_function('document.querySelector("#stats-content").innerText.includes("사거리·속성 데이터 오류")');text=page.locator('#stats-content').inner_text();s.check('F-COND real409 keeps API connected',pending.value.status==409 and '실제 API 응답' in text and 'compute API 미연결' not in text);scan_codes(s,page,'malformed statistics');s.save('profile-error-browser',dict(text=text,response=pending.value.json()));page.close()
  finally:s.stop();pointer.write_bytes(original)
 
 if __name__=='__main__':

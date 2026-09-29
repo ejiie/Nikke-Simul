@@ -4,6 +4,7 @@ from copy import deepcopy
 from check_client_f32 import context as reference
 from check_f2_conditions import clean_hit
 from actual_stats import metric
+from check_f2_ufix3 import scan_codes,planned,verify_defense
 
 def browser_checks(s,ctx):
  check=s.check;page=ctx.new_page();page.on('pageerror',lambda e:s.report['errors'].append(str(e)))
@@ -12,7 +13,9 @@ def browser_checks(s,ctx):
    try:s.traffic.append(dict(url=r.url,status=r.status,request=r.request.post_data_json,response=r.json()))
    except Exception:pass
  page.on('response',record);page.goto(s.base+'/editor/');page.wait_for_selector('body[data-ready="true"]');page.locator('[data-tab="raid"]').click();page.wait_for_selector('[data-boss-open]')
- def shot(name):page.screenshot(path=str(s.run/(name+'.png')),full_page=True)
+ def shot(name):
+  page.screenshot(path=str(s.run/(name+'.png')),full_page=True)
+  scan_codes(s,page,name)
  def layout(label):
   for width in [1500,850,500]:
    page.set_viewport_size(dict(width=width,height=1000));page.wait_for_timeout(100)
@@ -25,6 +28,7 @@ def browser_checks(s,ctx):
  check('R6 client_f32 and three historical candidates',page.locator('[name="rounding"]').input_value()=='client_f32' and page.locator('[name="rounding"] option').evaluate_all('(es)=>es.map(e=>e.value)')==['client_f32','legacy_term_floor','final_round_even','nested_floor'])
  check('R8 default dummy below policy',page.locator('[data-boss-open]').inner_text().startswith('더미 보스') and page.locator('#raid-boss').bounding_box()['y']>page.locator('[name="rounding"]').bounding_box()['y'])
  note=page.locator('[data-conditions-note]').inner_text();check('fixed 180s pellet and strict greater guidance',all(x in note for x in ['180초','발사 1회','30,925','31,784','20억을 넘은 뒤','400']))
+ planned(s,page)
  source_free('raid form');layout('raid-form')
  page.locator('[data-cond-open="distance"]').focus();page.keyboard.press('Enter');page.wait_for_selector('.cond-range-table');page.wait_for_selector('.cond-member-list [data-member]')
  text=page.locator('dialog[open]').inner_text();check('R2 Korean exception/header/no uncertain source',all(x in text for x in ['적정 사거리','하란: 25–45','0–0 · 보너스 없음']) and not any(x.lower() in text.lower() for x in ['Harran','5042','(다수)','sha256','출처','원천','확인 필요','잠정','실게임 검증 전','양끝']))
@@ -94,4 +98,5 @@ def browser_checks(s,ctx):
  page.reload();page.wait_for_selector('body[data-ready="true"]');page.locator('[data-tab="stats"]').click();page.wait_for_selector('[data-comparison-state="no_baseline"]')
  cards=page.locator('#stats-content .metric-card').evaluate_all('(es)=>Object.fromEntries(es.map(e=>[e.querySelector("span").textContent,e.innerText]))');s.save('defect-F2-Q-1',dict(batchId=cid,batch=crossing['batch'],runs=crossing['results']['runs'],cards=cards,text=page.locator('#stats-content').inner_text()));shot('defect-F2-Q-1')
  check('F2-Q-1 automatic policy must not say no transition',all(r['defense']['switchAfterHit'] is not None for r in crossing['results']['runs']) and '자동 20억 전환 없음' not in cards['DEF 정책'],cards['DEF 정책'])
+ verify_defense(s,ctx,page)
  check('no Chromium page exceptions',not s.report['errors'],s.report['errors']);page.close()

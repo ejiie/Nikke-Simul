@@ -78,7 +78,12 @@ def main():
                 try:traffic.append(dict(url=response.url,status=response.status,request=response.request.post_data_json if response.request.post_data else None,response=response.json()))
                 except Exception:pass
         def attach(page):page.on('response',record);page.on('pageerror',lambda e:report['errors'].append(str(e)))
-        def shot(page,name):page.screenshot(path=str(run/(name+'.png')),full_page=True)
+        def shot(page,name):
+            page.screenshot(path=str(run/(name+'.png')),full_page=True)
+            if a.f2_legacy_regression:
+                from types import SimpleNamespace
+                from check_f2_ufix3 import scan_codes
+                scan_codes(SimpleNamespace(ids=ids,report=report,check=check),page,'F32 '+name)
         def resize(page,label):
             for width in [1500,850,500]:
                 page.set_viewport_size(dict(width=width,height=1000));page.wait_for_timeout(100)

@@ -23,7 +23,7 @@ def clean_hit(hit):
 
 class Session:
  def __init__(self,dotnet):
-  self.dotnet=dotnet;self.run=ROOT/'artifacts/single-deck-qa'/('f2-'+uuid.uuid4().hex[:12]);self.data=self.run/'data';self.data.mkdir(parents=True)
+  self.dotnet=dotnet;self.run=ROOT/'artifacts/single-deck-qa'/('f2-ufix3-'+uuid.uuid4().hex[:12]);self.data=self.run/'data';self.data.mkdir(parents=True)
   self.source=ROOT/'artifacts/single-deck-qa/load1000-3db71912a601/data';self.hashes,self.game,self.snapshot,self.ids=create(self.source,self.data)
   rec=next(r for r in read(ROOT/'docs/p03-source-manifest.json') if r.get('inputKey')=='sourceRoles');self.rosterpath=Path(rec['sourceRoot'])/rec['path'];self.rosterhash=digest(self.rosterpath);assert self.rosterhash==rec['sha256'];self.roster=read(self.rosterpath)['roster']
   subprocess.run([sys.executable,str(ROOT/'tools/data-pipeline/prepare_combat_conditions.py'),'--runtime-root',str(self.data/'runtime'),'--source-roster',str(self.rosterpath)],check=True,capture_output=True)
@@ -39,7 +39,7 @@ class Session:
   rawdir=self.data/'raw'/rawid;rawdir.mkdir(parents=True);raw=json.dumps(dict(source='QA_SYNTHETIC',characters=[dict(name_code=i,combat=0) for i in self.ids]));(rawdir/'envelope.json').write_text(raw,encoding='utf-8');(rawdir/'manifest.json').write_text(json.dumps(dict(envelopeHash=hashlib.sha256(raw.encode()).hexdigest())),encoding='utf-8')
   with socket.socket() as s:s.bind(('127.0.0.1',0));self.port=s.getsockname()[1]
   assert self.port not in(5180,5181);self.base=f'http://127.0.0.1:{self.port}';self.process=None;self.log=None;self.token='';self.traffic=[]
-  self.report=dict(status='running',checks=[],errors=[],port=self.port,responseMocks=False,product='dae1949',scope='synthetic small functional acceptance')
+  self.report=dict(status='running',checks=[],errors=[],port=self.port,responseMocks=False,product='ad6d3f0',scope='synthetic small functional acceptance; U-FIX-3 readmission')
   self.env=dict(os.environ,NIKKE_PROJECT_ROOT=str(ROOT),NIKKE_DATA_ROOT=str(self.data),NIKKE_PORT=str(self.port),NIKKE_TEST_FIXTURE='1');self.env.pop('NIKKE_GAME_CATALOG',None)
  def save(self,name,value):(self.run/(name+'.json')).write_text(json.dumps(value,ensure_ascii=False,indent=2),encoding='utf-8')
  def check(self,name,ok,detail=None):

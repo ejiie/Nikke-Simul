@@ -1,4 +1,94 @@
-# F2-Q 독립 수용 — R1~R8 (2026-09-29)
+# F2-Q 독립 재수용 — U-FIX-3 (2026-09-29)
+
+**최종 판정: F2-Q-1 해결·이전 375항목 회귀 통과. 전체 수용은 화면 코드 노출 1종으로 보류한다.** 저장 DEF 카드는 자동 무전환/실제 전환/legacy 고정을 올바르게 구분한다. 남은 **F2-Q-2**는 피해 로그의 공격력 근거에 `overload:5004:head:1:StatAtk` 원천 키가 일반 텍스트로 표시되는 경우다. 엔진·API 계산 실패는 관측하지 않았다.
+
+## 이번 재검 기준과 범위
+
+- 자기 QA `09c9d8a`에서 제품 `ad6d3f0`을 `git merge --no-edit ad6d3f0`으로 일반 merge했다. merge `e1a2c27`, 충돌 없음. 기존 이력과 미추적 `package-lock.json`을 보존했다.
+- Director 지시서 전체의 최신 상태/U-FIX-3와 UI 보고서 `combat-conditions-cleanup-ui.ko.md` 7절을 읽었다. 담당 검사·mock·정답은 판정에 사용하지 않았다. 아래 검사는 모두 본인 QA 코드이며 기존 통과 결과를 복사하지 않았다.
+- 공개 파일로 새 합성 계정·새 격리 dataRoot를 만들고, 자체 준비 코드에서 `prepare_combat_conditions.py`를 실행했다. 보스 43개/이미지42개는 이전 QA가 준비한 본인 공개 presentation 사본을 hash 대조하여 재사용했다. 실제 API와 Chromium을 사용했고 API 응답 대체는 없다.
+- 엔진 입력/독립 Fraction·binary32 산술, 실제 공개 5인/400레벨/180초 replay, 최대 n=2·CPU worker1 실험, 브라우저를 새로 실행했다. 부하 측정이나 성능 비교가 아니다. 기존 짧은 client_f32 회귀는 명시 legacy 요청으로 구분했다.
+- 본인 제품 소스는 직접 수정하지 않았다. `git diff ad6d3f0 -- src apps tools package-lock.json` 차이 0. QA 코드·본 보고서·새 Git 제외 artifacts만 변경했다.
+
+## 새 실행 결과
+
+아래 경로는 모두 본인 worktree `C:/Users/user/orca/workspaces/Nikke-Simul/검수/` 기준이다.
+
+| 범위 | 결과 | 새 근거 |
+|---|---|---|
+| API Release 빌드 | 경고0·오류0 | `artifacts/single-deck-qa/f2-ufix3-preparation/api-build.log` |
+| 자체 엔진 독립 산술 | 87/87 | `f2-ufix3-preparation/engine-audit.json`, `engine-results.json` |
+| 실제 F2 API·Chromium·profile 회귀 | 261/262 | `f2-ufix3-554048887882/summary.json` |
+| 실제 client_f32·통계 회귀 + 새 코드 스캔 | 108/113 | `f32-b2-44bc8203db35/summary.json` |
+| 이전 통과375개 수용 항목 대조 | **375/375, 누락0** | `f2-ufix3-preparation/regression-coverage.json` |
+
+새 물리 검사 **462개 중 456 통과, 코드 노출 관측 6개 실패**다. 6개는 별개 결함이 아니라 같은 원천 키의 F2/기존 정책/화면 폭별 반복 관측이다. 이전 375개는 엔진87·F2 178·client_f32 91·profile19를 이름으로 대조했다. 이번에는 profile 회귀를 F2 세션에 포함했으므로 공개 입력/package-lock 보존 2개 검사가 두 기존 범위의 조건을 함께 충족한다. 375라는 회귀 수용 항목 수를 서로 다른 새 검사 375건이라고 중복 집계하지 않는다.
+
+새 본 검사 포트는 F2 최종 **58357**, client_f32 **49981**이다. API 재시작에 사용한 다른 격리 포트와 본인 PID는 로그에 남겼다. summary의 `ownApiStopped=true`, JS 예외0. 모든 완료 서버는 본인이 생성한 프로세스만 종료했다.
+
+### F2-Q-1: 해결·수용
+
+실제 저장 실험을 브라우저에서 조회하여 카드와 `runs[].defense`를 대조했다. 응답이나 저장 결과는 바꾸지 않았다. 표시는 조회 전후 결과 DTO가 동일했고, 각 조합에서 1500/850/500 화면 가로 넘침이 없었다.
+
+| 실제 저장 조합 | 확인한 표시 |
+|---|---|
+| 자동·전환 없음, n=1 | 자동30925→31784, `전환 없음 · 1회 모두 누적 20억 이하` |
+| 자동·전환 없음, n=2 | `전환 없음 · 2회 모두 누적 20억 이하` |
+| 자동·전환 있음, n=1 | 12.5초/750프레임, 앨리스, 누적2,013,492,851, 30925→31784 |
+| 자동·전환 있음, n=2 | `2회 중 2회 전환 · 첫 결과`, 위 전환 기록 일치 |
+| legacy fixed30925, n=2 | `이전 방식`, 30,925 고정, 당시 조건 |
+| legacy fixed31784, n=1 | `이전 방식`, 31,784 고정, 당시 조건(2초·per_pellet) |
+
+실행 전 예정 카드는 `20억 초과 후 다음 타격부터 전환`이라고 설명한다. 실제 전환 실험에 잘못된 `자동 20억 전환 없음` 문구는 없다. 근거는 `f2-ufix3-554048887882/ufix3-planned.json`, `ufix3-display-*.json`, `ufix3-*-1500.png`/`850.png`/`500.png`다. 스크린샷의 복구 폼 기본값1000은 실행 표본 수가 아니다. 이번 실험의 실제 n은1또는2다.
+
+### 이전 회귀: 수용
+
+- 엔진 독립87검사 재실행: 정확히20억은 전환 없음, +1을 만든 타격까지30925, 다음 타격부터31784. 같은 프레임 멤버·SG펠릿·추가타·frame0·과거 정책을 재검산했다.
+- 새 실제 API 피해 **19,462건** 전부 독립 계산. 팀 합 **24,007,922,311** = 멤버 합 = replay = compute. 전환 frame750/hit3076/ordinal1543/앨리스/누적2,013,492,851. 제품 DEF 플래그를 기대값으로 재사용하지 않았다.
+- fixed legacy 총6,573,008/멤버/effect 일치, 과거 저장 GET/export 불변, 기본값·36개 HTTP400·저장 전 거부·키 분리·보스만 변경 시 키/피해 동일을 재확인했다.
+- 한국어 보스43개·실제 이미지42개, 거리/약점 팝업·미리보기·키보드/ESC·포커스·전술·레벨400·버스트·저장 복구·n1/n2 통계·client_f32 네 정책·exact 큰 정수·실제400/409를 재확인했다.
+- 손상 profile min/max/element 각각 조회2종/replay/compute의 구조화409·저장 증가0, 한국어 진단·연결 유지가 통과했다. client_f32 회귀의 명시적 HTTP503/transport 주입과 n=0 표시 경계는 기존과 같은 검사이며 자연 장애나 n=0 API 표본으로 주장하지 않는다.
+
+### F2-Q-2: 피해 로그 원천 키에 캐릭터 코드 표시 — UI 잔여 항목
+
+**담당: F2-U(UI).** 일반 이름/배지의 `#5004` 제거, 통계 덱 목록·전술·조건 멤버·전환 캐릭터 이름 표시는 통과했다. 하지만 실제 피해 로그의 공격력 근거가 다음처럼 표시된다.
+
+```text
+최종 공격력 입력 (hit 기록)
+상시 비율 · overload:5004:head:1:StatAtk +4.77%
+```
+
+- 최소 재현: 공개 합성5인 중 앨리스에 head 1번 줄 StatAtk 4.77% → 실제 솔로레이드 실행 → 앨리스 타격의 `검산 근거` → `최종 공격력 입력 (hit 기록)` 확인. client_f32 및 과거 정책, 1500/850/500에서도 같은 표시다.
+- 실제 응답의 내부 `source` 키는 정상 보존 대상이다. 문제로 분류한 곳은 일반 사용자가 읽는 공격력 근거의 표시 문자열이다. `apps/desktop-ui/damage-log-adapter.js:712`의 `sourceText`가 `skill:<캐릭터>:<함수>`만 이름으로 바꾸고 다른 source는 그대로 반환한다. 이 때문에 OL source의 캐릭터 코드가 보인다.
+- 사용자 확인(2026-09-29): 위 원천 키 표시가 내부 키 예외인지 질문했고 **“화면에서는 이름으로 표시해야 함”**이라는 답변을 받았다. 따라서 일반 근거 문구의 OL source 노출을 **F2-Q-2 수용 차단 결함으로 확정**한다. API/저장 내부 키는 계속 보존한다. 서버 진단의 구조화 필드 경로(`combatProfiles.characters.5004.bonusRangeMin`), DOM 데이터 속성·타격/함수/replay 번호는 원래 허용 범위로 기록했다.
+- 근거: `f2-ufix3-554048887882/browser-audit.png`, `summary.json`의 `U-FIX-3 no character codes browser-audit`, `f32-b2-44bc8203db35/summary.json`의 동일 원인5건. `trace.zip`과 실제 요청/응답도 보존했다. 총57개 화면 상태의 본문 스캔 중51개 통과, 위6개는 같은 원인이다.
+- 수정 수용 조건: API/저장 source 및 데이터 속성은 보존하고 일반 화면의 OL 공격력 출처를 한글 이름/장비 부위/줄 설명으로 표시한다(예: 앨리스 · 머리 · 1번 줄 · 공격력). 실제 기존 저장 replay에서 새 계산 없이도 표시를 확인하고 client_f32/과거 정책·3개 폭·저장값 불변을 재검한다. QA는 제품을 직접 수정하지 않았다.
+
+## 보존과 미판정
+
+- 공개 입력/roster/presentation hash 불변. 미추적 `package-lock.json` SHA256 **`2ef4178aa07ddd9ac2e4d47422038d02d8adaadfb15586cee6a2f1995253c767`** 유지, 커밋 제외.
+- 원본 `data/local`·계정·세션·캐시·EXE·5180/5181 미접촉, 다른 worktree 편집 없음. 사용자 실제 실행 경로는 계속 `C:/Users/user/Documents/GitHub/Nikke-Simul/artifacts/desktop/win-x64/Nikke Simul.exe`이며 이번에는 실행/갱신하지 않았다.
+- 부하/Q-CPU-10K/GPU/배포/push/새 worker/Run/Dispatch/lifecycle 수행 없음. 원본 배포 완료를 주장하지 않는다.
+- 실게임 경계 가설·실사용자 덱·장시간/대량 실험·1000행 초과 DEF 설명·전환/무전환이 섞인 다수 run·모든 역사 저장 형식·미확인 캐릭터 전체 카탈로그는 이번에 확장 검증하지 않았다. 화면 코드 검사는 실제 합성5인과 하란 예외가 나오는 화면 상태를 대상으로 했다.
+- 통합 근거 목록: `artifacts/single-deck-qa/f2-ufix3-preparation/evidence-index.json`. 보고서와 QA 도구의 확정 커밋을 기존 Director 터미널에 한 번 인계한다.
+
+## 이번 재현 명령
+
+```text
+<dotnet> build src/Nikke.Api/Nikke.Api.csproj -c Release --no-restore
+<dotnet> run --project tests/single_deck_compute_qa/DefenseProbe/Probe.csproj -c Release -- artifacts/single-deck-qa/f2-ufix3-preparation/engine-results.json
+<python> tests/single_deck_compute_qa/check_defense_probe.py artifacts/single-deck-qa/f2-ufix3-preparation/engine-results.json
+<python> tests/single_deck_compute_qa/check_f2_conditions.py --dotnet <dotnet>
+<python> tests/single_deck_compute_qa/check_f32_b2.py --dotnet <dotnet> --f2-legacy-regression
+```
+
+이번 재검에서는 `--reuse` 없이 API 로그·실험·브라우저를 새로 실행했다.
+
+---
+
+# 이전 F2-Q 최초 판정 — 역사 기록 (제품 dae1949 / QA09c9d8a)
+
+아래는 U-FIX-3 전의 기록이다. 현재 판정은 위 재수용 절을 따른다. 아래 F2-Q-1 차단은 이번 재검에서 해소됐다.
 
 **최종 판정: 전체 수용 차단.** 엔진 R4 산술·API 조건/저장/키·보스 데이터는 통과했다. 통계 화면의 DEF 카드가 자동 전환 실험에도 **“자동 20억 전환 없음”**이라고 표시하는 **F2-Q-1**을 UI 담당에게 수정 요청한다. 제품 파일은 수정하지 않았다.
 
