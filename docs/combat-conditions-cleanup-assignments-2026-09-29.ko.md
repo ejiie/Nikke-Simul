@@ -46,7 +46,7 @@
   - 새 검사 462 중 456 통과·6 실패(한 원인). 이전 수용 375항목 375/375 재확인. F2-Q-1: 자동 무전환·전환·legacy 30925/31784 총 6조합이 `runs[].defense`와 일치. 새 피해 19,462건 독립 산술, 팀 24,007,922,311 = replay = compute.
   - 사용자가 QA 질문에 **"화면에서는 이름으로 표시해야 함"**이라고 명시 확인했다.
   - **F2-Q-2(UI):** 앨리스 머리 1번 줄 StatAtk 4.77% replay의 타격 검산 근거에 `상시 비율 · overload:5004:head:1:StatAtk +4.77%`가 화면 텍스트로 노출(정책·폭 6관측, 한 원인). Director 확인: `apps/desktop-ui/damage-log-adapter.js`의 `sourceText`가 `skill:` 키만 이름으로 바꾸고 나머지 source 키는 원문 그대로 반환한다.
-- **U-FIX-4 배정(2026-09-29, F2-U 담당):** `sourceText`가 모든 source 키 종류(overload·장비·큐브·소장품·기타)를 한글 표시로 바꾼다(예: "앨리스 · 머리 1번 줄 · 공격력"). 모르는 키 형식은 코드·원문을 보이지 말고 일반 한국어 라벨로. API·저장 source 키는 보존하고 표시 문자열만 바꾼다. 같은 유형(내부 키가 화면에 그대로 나오는 곳)을 다른 화면에서도 찾아 정리·보고. 실제 기존 저장 replay·1500/850/500·계산/저장 불변 확인. 이후 QA 재수용.
+- **U-FIX-4 배정(2026-09-29, F2-U 담당):** `sourceText`가 모든 source 키 종류(overload·장비·큐브·소장품·기타)를 한글 표시로 바꾼다(예: "앨리스 · 머리 1번 줄 · 공격력"). 모르는 키 형식은 코드·원문을 보이지 말고 일반 한국어 라벨로. API·저장 source 키는 보존하고 표시 문자열만 바꾼다. 같은 유형(내부 키가 화면에 그대로 나오는 곳)을 다른 화면에서도 찾아 정리·보고. 실제 기존 저장 replay·1500/850/500·계산/저장 불변 확인. 이후 QA 재수용. 전달 `term_c322a450…` 요청 `8cef6d31-7c23-4963-bf48-e68bcf66ad22`, accepted=true·`input_accepted`.
 - **F2-U 2단계 통지(2026-09-29):** Backend `aa1b71e` 기준 R4·R8 실제 연결 + 앱 화면·코드 주석의 Nikke-Local-Lab 출처 표기 삭제.
 - (이전) 엔진 `1a86ec9` merge 통지(2026-09-29) — `term_e5d05982…` 요청 `eebad101-6fd8-4a9a-a8fb-b8203c2cf1ab`, accepted=true·`input_accepted`(작업 중 턴에 전달, 재전송 없음). **F2-U:** 진행 중.
 - **F2-U 1단계: 완료, Director 검토 수용.** UI `889b679`(`e98db6a` ff 위), [보고서](C:/Users/user/orca/workspaces/Nikke-Simul/UI/docs/combat-conditions-cleanup-ui.ko.md). 변경은 `apps/desktop-ui`·UI tests·UI 문서뿐(제품 `src`·QA `tests/q3` 0). Director가 mock 캡처(전투 조건 폼·보스 선택·거리 팝업, 1500px)를 확인했다.
