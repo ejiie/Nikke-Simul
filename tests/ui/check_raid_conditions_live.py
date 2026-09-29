@@ -208,7 +208,7 @@ async def run(args):
                 await page.wait_for_selector('.damage-audit-panel', timeout=15000)
                 panel = await page.locator('.damage-audit-panel').inner_text()
                 lines = await page.evaluate("() => [...document.querySelectorAll('.damage-audit-panel [data-audit-group=\"attack\"] li')].map(li => li.textContent.replace(/\\s+/g, ' ').trim())")
-                raw = re.findall(r'overload:|cube:|collection:|skill:\d|function:|StatAtk|native_|basis |\b50\d\d\b', panel)
+                raw = re.findall(r'overload:|cube:|collection:|skill:\d|function:|StatAtk|native_|basis |\b50\d\d\b|함수 ?\d+', panel)  # U-FIX-5: no function numbers
                 src = next(b['source'] for b in entry['hit']['attackBuffs'] if b['source'].startswith('overload:'))
                 parts = src.split(':')
                 want = f"{names.get(parts[1], '이름 미확인')} · {({'head': '머리', 'torso': '몸통', 'arm': '팔', 'leg': '다리'})[parts[2]]} {parts[3]}번 줄 · {'공격력' if parts[4] == 'StatAtk' else parts[4]}"

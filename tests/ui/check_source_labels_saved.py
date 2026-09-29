@@ -18,7 +18,7 @@ from playwright.async_api import async_playwright
 
 from check_damage_audit_browser import ROOT, WIDTHS, capture, serve
 
-RAW = re.compile(r'overload:|cube:|collection:|equipment:|skill:\d|function:|StatAtk|StatAmmo|StatCritical|native_|basis |\b50\d\d\b|#50')
+RAW = re.compile(r'overload:|cube:|collection:|equipment:|skill:\d|function:|StatAtk|StatAmmo|StatCritical|native_|basis |\b50\d\d\b|#50|함수 ?\d+')  # U-FIX-5
 NAMES = {'5011': '리타', '5008': '블랑', '5009': '누아르', '5004': '앨리스', '5044': '모더니아'}
 SLOTS = {'head': '머리', 'torso': '몸통', 'arm': '팔', 'leg': '다리'}
 OPTIONS = {'StatAtk': '공격력', 'StatAmmoLoad': '최대 장탄 수', 'StatCritical': '크리티컬 확률', 'StatCriticalDamage': '크리티컬 대미지',

@@ -25,11 +25,12 @@ export const basisLabel = key => key ? BASIS_LABELS[key] ?? '적용 기준 미�
 
 /**
  * Display text for a buff source key such as `overload:5004:head:1:StatAtk`, `cube:<id>:<type>`,
- * `collection:<id>:<type>`, `equipment:<slot>`, `manual:attack:<n>`, `function:<id>`. `skill:<character>:<function>`
+ * `collection:<id>:<type>`, `equipment:<slot>`, `manual:attack:<n>`, `function:<id>` (resolved by `resolveFunction`, else
+ * "스킬 효과"; function numbers are never shown). `skill:<character>:<function>`
  * is handled by the caller (it knows the skill slots); here it becomes the character name only.
  * `nameOf(characterId)` returns a Korean name or null.
  */
-export function describeSourceKey(source, { nameOf = () => null } = {}) {
+export function describeSourceKey(source, { nameOf = () => null, resolveFunction = () => null } = {}) {
   const parts = String(source ?? '').split(':');
   const name = id => (id && nameOf(String(id))) || '이름 미확인';
   switch (parts[0]) {
@@ -41,7 +42,8 @@ export function describeSourceKey(source, { nameOf = () => null } = {}) {
     case 'collection': return optionLabel(parts[2]) ? `소장품 · ${optionLabel(parts[2])}` : '소장품 효과';
     case 'equipment': return `장비 · ${slotLabel(parts[1])}`;
     case 'manual': return /^\d+$/.test(parts[2] ?? '') ? `직접 입력한 버프 ${parts[2]}` : '직접 입력한 버프';
-    case 'function': return /^\d+$/.test(parts[1] ?? '') ? `스킬 효과 · 함수 ${parts[1]}` : '스킬 효과';
+    // U-FIX-5: never the function number; the caller may resolve it to "character · slot".
+    case 'function': return (/^\d+$/.test(parts[1] ?? '') && resolveFunction(parts[1])) || '스킬 효과';
     case 'skill': return `${name(parts[1])} · 스킬 효과`;
     default: return '기타 효과';
   }

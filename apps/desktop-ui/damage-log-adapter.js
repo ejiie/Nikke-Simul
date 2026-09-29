@@ -411,11 +411,11 @@ function auditNikkeText(id, ctx) {
 
 function auditOriginText(sourceId, functionId, burstCastId, ctx) {
   const parts = [];
-  if (functionId == null) parts.push('함수 ID 미기록');
+  // U-FIX-5: function numbers are not shown; a resolved slot is named, anything else is just "스킬 효과".
+  if (functionId == null) parts.push('스킬 정보 미기록');
   else {
     const slot = ctx?.slots?.get(`${sourceId}:${functionId}`);
-    if (slot) parts.push(`${AUDIT_SLOT_LABELS[slot] ?? slot} · 함수 ${functionId}`);
-    else parts.push(ctx?.hasInputs ? `함수 ${functionId} · 슬롯 미확인(하위 스킬·연결 함수)` : `함수 ${functionId}`);
+    parts.push(slot ? AUDIT_SLOT_LABELS[slot] ?? '스킬 효과' : '스킬 효과');
   }
   if (burstCastId != null) parts.push(`버스트 시전 이벤트 #${burstCastId}`);
   return parts.join(' · ');
@@ -710,12 +710,20 @@ export function buildHitAudit(entry, ctx = null) {
     return { ...desc, ...cls };
   });
   const hit = entry?.hit && typeof entry.hit === 'object' ? entry.hit : null;
+  // function:<id> carries no character: find the owner and slot among the saved skill slots, if any.
+  const resolveFunction = fid => {
+    for (const [key, slot] of ctx?.slots ?? []) {
+      const [owner, id] = key.split(':');
+      if (id === String(fid)) return `${auditNikkeText(owner, ctx)} · ${AUDIT_SLOT_LABELS[slot] ?? '스킬 효과'}`;
+    }
+    return null;
+  };
   // Source keys stay in the data; the screen shows names (U-FIX-4): skill -> character · slot/function,
   // overload -> character · slot n번 줄 · option, cube/collection/equipment/manual/other -> Korean labels.
   const sourceText = source => {
     const match = /^skill:([^:]+):(\d+)$/.exec(source ?? '');
     if (match) return `${auditNikkeText(match[1], ctx)} · ${auditOriginText(match[1], Number(match[2]), null, ctx)}`;
-    return source ? describeSourceKey(source, { nameOf: id => ctx?.names?.get(String(id)) ?? null }) : '출처 미기록';
+    return source ? describeSourceKey(source, { nameOf: id => ctx?.names?.get(String(id)) ?? null, resolveFunction }) : '출처 미기록';
   };
   const rateText = b => Number.isInteger(b?.stacks) && b.stacks > 1
     ? `스택당 ${formatRate(b.rate)} × ${b.stacks}` : formatRate(b?.rate);

@@ -164,7 +164,7 @@ Director 통지: Backend 확정 `aa1b71e`(엔진 `1a86ec9` 포함) merge(`92aef7
 | `cube:<id>:<옵션>` / `collection:<id>:<옵션>` | `큐브 · 공격력` / `소장품 · 크리티컬 대미지`, 옵션을 모르면 `큐브 효과` / `소장품 효과` |
 | `equipment:<부위>` | `장비 · 몸통` |
 | `manual:attack:<n>` | `직접 입력한 버프 n` |
-| `function:<id>` | `스킬 효과 · 함수 <id>` (함수 번호는 허용 범위 유지) |
+| `function:<id>` | U-FIX-4 당시 `스킬 효과 · 함수 <id>` → U-FIX-5에서 번호 제거(9절) |
 | `skill:<캐릭터>:<함수>` | 기존대로 `누아르 · 스킬 1 · 함수 …`(이름만, 코드 없음) |
 | 그 밖(합성 창 source 등) | `기타 효과` — 코드·원문 없음 |
 
@@ -179,7 +179,7 @@ Director 통지: Backend 확정 `aa1b71e`(엔진 `1a86ec9` 포함) merge(`92aef7
 | `single-deck-stats.js` 표본 단계 카드 | `final`/`pilot` 원문 | `최종`/`파일럿`/`탐색`/`예열` |
 | `app.js` 고급 진단 수집 확인 | 이슈 `path`(내부 경로·캐릭터 코드 포함 가능) · 메시지 | 메시지만(`data-issue-path` 보존) |
 
-유지(내부 키가 아닌 기술 식별자·허용 범위): 타격·발사·함수·버스트 시전 번호, replay ID, 통계 화면의 입력 fingerprint·rules/summary 버전·schema, 대미지 정책 id(`client_f32` 등 선택지와 같은 정책 이름), 검산 단계 표의 엔진 연산 설명(`저장된 연산` 열), 사거리·속성 진단의 서버 원문(QA가 구조화 필드 경로를 허용 범위로 기록).
+유지(내부 키가 아닌 기술 식별자·허용 범위, 당시 기록 — 함수 번호는 9절에서 제거): 타격·발사·함수·버스트 시전 번호, replay ID, 통계 화면의 입력 fingerprint·rules/summary 버전·schema, 대미지 정책 id(`client_f32` 등 선택지와 같은 정책 이름), 검산 단계 표의 엔진 연산 설명(`저장된 연산` 열), 사거리·속성 진단의 서버 원문(QA가 구조화 필드 경로를 허용 범위로 기록).
 
 ### 8.3 검증
 
@@ -187,3 +187,19 @@ Director 통지: Backend 확정 `aa1b71e`(엔진 `1a86ec9` 포함) merge(`92aef7
 - **실제 기존 저장 replay(재계산 없음)** `python tests/ui/check_source_labels_saved.py --saved-replay <Director 격리 live ui-response.json>` → 통과 `artifacts/ui/source-labels/run-eec83adc0ec8`: 저장본 그대로 제공(합성 HTTP), overload·skill source 타격 #184 `상시 비율 · 앨리스 · 머리 1번 줄 · 공격력 +11.11%` 등, 원문 키·코드 0건, 1500/850/500, 저장 파일 SHA-256 전후 동일. 이 저장본의 cube·collection 키는 타격 공격력 입력 밖에만 있어 해당 라벨은 단위 테스트로 확인했다.
 - 단위: `display_labels.test.mjs` 3/3(키 14종·기준·미해석, 패널 텍스트, 저장 entry 불변), damage_audit 19/19(기준·미해석 기대값 갱신), 통계 19/19·조건 12/12·raid 6/6.
 - 기존 회귀: Q3 26/26, vitest 13/13, raid·combat·client_f32 mock, 솔로 레이드·통계·damage audit 브라우저, combat-conditions·profile-errors·client_f32 live 모두 통과. EXE·원본 `data/local`·5180/5181 미접촉.
+
+## 9. U-FIX-5 — 함수 번호 표시 제거 (2026-09-29, 사용자 결정)
+
+화면 표시 원칙(사용자 결정): **함수 번호는 화면에서 지운다.** 타격·발사 번호, replay ID, fingerprint·규칙·summary 버전·schema, 대미지 정책 id는 유지한다. 기준 `00911ce`, 새 merge 없음. 내부 키·데이터 속성은 그대로다.
+
+| 위치 | 이전 | 이후 |
+|---|---|---|
+| `display-labels.js` `function:<id>` source | `스킬 효과 · 함수 127131004` | 저장 스킬 슬롯으로 해석되면 `누아르 · 스킬 1`, 아니면 `스킬 효과` |
+| `damage-log-adapter.js` 효과 출처·공격력 입력의 슬롯 설명(`auditOriginText`) | `스킬 1 · 함수 227110701`, `함수 N · 슬롯 미확인(하위 스킬·연결 함수)`, `함수 N`, `함수 ID 미기록` | `스킬 1`/`스킬 2`/`버스트`, 해석 못 하면 `스킬 효과`, 기록 없음은 `스킬 정보 미기록` |
+
+앱의 다른 화면(솔로 레이드 결과 카드의 효과 이름은 이미 `스킬 1 대미지`·`추가 효과 N`, 통계·조건·편성 화면)에는 함수 번호 표시가 없었다(`apps/desktop-ui` 전체 `함수` 문자열 검색 0건). `버스트 시전 이벤트 #N`은 함수 번호가 아니어서 유지했다.
+
+검증:
+- **실제 격리 API + Chromium** `check_raid_conditions_live.py … --expect-bosses 43` → 통과 `artifacts/ui/raid-conditions-live/run-eb23cb8b89b5`: 앨리스 타격 #200 `상시 비율 · 앨리스 · 머리 1번 줄 · 공격력 +4.77%`·`고정 가산 · 누아르 · 스킬 1 +12,717`, 패널 본문에 `함수 N`·원문 키 0건, 저장 replay 조회 전후 동일. 보스·DEF 카드 3경우·코드 스캔 등 기존 항목 통과.
+- **실제 기존 저장 replay(재계산 없음)** `check_source_labels_saved.py` → 통과 `artifacts/ui/source-labels/run-2d667263b13e`: `고정 가산 · 누아르 · 스킬 1 +17,191` 등, `함수 N` 0건, 파일 해시 불변.
+- 단위: display_labels 3/3(함수 source 해석/미해석·패널 `함수` 문자 없음), damage_audit 19/19(기대값 갱신. U-FIX-3 때 주석 삽입으로 한 줄에 붙어 실행되지 않던 `originText` 단언을 분리해 다시 검사). 기존 회귀(Q3 26/26, vitest 13/13, 통계·조건·raid 단위, mock·브라우저·live) 모두 통과. EXE·원본 `data/local`·5180/5181 미접촉.
