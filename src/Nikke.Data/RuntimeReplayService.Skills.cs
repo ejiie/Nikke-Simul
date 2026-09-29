@@ -7,19 +7,22 @@ using Nikke.Simulator.Core.Data.Dto;
 
 namespace Nikke.Data;
 
-public record SkillReplayRequest(string SnapshotId, IReadOnlyList<string> CharacterIds, int? ScenarioLevel, SkillReplayConditions Conditions);
+public record SkillReplayRequest(string SnapshotId, IReadOnlyList<string> CharacterIds, int? ScenarioLevel, SkillReplayConditions Conditions,
+    string? BossId=null,string? ConditionProfile=null);
 public record SavedSkillReplay(string Id, string Kind, DateTimeOffset CreatedAt, string AccountSnapshotId, string GameSnapshotId,
     string CalculationDataId, string RuntimeDataId, string StatRulesVersion, string HitRulesVersion,
     IReadOnlyDictionary<string,int> AppliedLevels, IReadOnlyList<SkillReplayMember> Inputs, SkillReplayResult Result)
 {
     public CombatConditionCompatibility? ConditionCompatibility { get; init; }
+    public SoloRaidBoss? Boss { get; init; }
+    public BattleConditionDisplay? BattleConditions { get; init; }
 }
 
 public sealed partial class RuntimeReplayService
 {
     public IReadOnlyDictionary<string, int> BurstStages(IEnumerable<string> characterIds) => characterIds.ToDictionary(
         id => id, id => catalog["characters"]?[id]?["burstConnection"]?["step"]?.GetValue<int>() ?? 0);
-    public static SkillReplayRequest ReadSkillRequest(JsonObject payload)
+    public static SkillReplayRequest ReadSkillRequest(JsonObject payload,bool normalizeNewRequest=false)
     {
         static JsonNode? Field(JsonObject obj, string name)
         {
@@ -47,9 +50,17 @@ public sealed partial class RuntimeReplayService
         try
         {
             if (tactic is not null) _ = tactic.Deserialize<BurstTacticSettings>(Wire.Json);
+            if(normalizeNewRequest)
+            {
+                var normalized=SoloRaidRequestPolicy.Normalize(conditions,Field(payload,"conditionProfile")?.GetValue<string>());
+                payload=(JsonObject)payload.DeepClone();
+                foreach(var key in payload.Select(p=>p.Key).Where(k=>string.Equals(k,"conditions",StringComparison.OrdinalIgnoreCase)).ToArray())payload.Remove(key);
+                payload["conditions"]=normalized;
+            }
             return payload.Deserialize<SkillReplayRequest>(Wire.Json) ?? throw new ArgumentException("Missing skill replay request.");
         }
         catch (JsonException ex) { throw new ArgumentException("Invalid replay JSON fields or values.", ex); }
+        catch (InvalidOperationException ex) { throw new ArgumentException("Invalid replay JSON fields or values.", ex); }
     }
     private static readonly JsonSerializerOptions OfficialJson = new() { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
     private SkillGraph Graph() => new(catalog["functions"]!.AsObject().ToDictionary(p=>int.Parse(p.Key),p=>p.Value!.Deserialize<SkillFunction>(OfficialJson)!),
@@ -85,7 +96,7 @@ public sealed partial class RuntimeReplayService
             automaticCycleReady=levels.All(l=>l.unsupported.Count==0) && profile is not null && graph.GaugeConstants is not null,
             automaticGaugeModel="source_full_charge_v2", automaticGaugeFormulaStatus="reference_candidate" };
     }
-    public SavedSkillReplay RunSkills(AccountSnapshot snapshot, SkillReplayRequest request, CalculationService calculation)
+    public SavedSkillReplay RunSkills(AccountSnapshot snapshot, SkillReplayRequest request, CalculationService calculation,SoloRaidBoss? boss=null)
     {
         var compatibility=CombatConditionWire.FromConditions(request.Conditions.Combat);
         if (request.SnapshotId!=snapshot.Id || request.CharacterIds is null || request.CharacterIds.Count is < 1 or > 5
@@ -114,7 +125,8 @@ public sealed partial class RuntimeReplayService
         var result=SkillReplay.Run(members,Graph(),request.Conditions);
         var saved=new SavedSkillReplay(Guid.NewGuid().ToString("N"),request.Conditions.AutoBurst is null ? "skill_reference_replay" : "team_burst_replay",DateTimeOffset.UtcNow,snapshot.Id,snapshot.GameSnapshotId,
             reports[0].CalculationDataId,runtimeId,reports[0].StatRulesVersion,Nikke.Core.Combat.HitCalculator.Version,
-            reports.ToDictionary(r=>r.CharacterId,r=>r.AppliedLevel),members,result) {ConditionCompatibility=compatibility};
+            reports.ToDictionary(r=>r.CharacterId,r=>r.AppliedLevel),members,result)
+            {ConditionCompatibility=compatibility,Boss=boss,BattleConditions=SoloRaidRequestPolicy.Describe(request.Conditions.Combat)};
         SkillArchive().Save(saved.Id, Wire.Serialize(saved));
         return saved;
     }

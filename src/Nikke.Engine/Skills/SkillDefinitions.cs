@@ -85,7 +85,10 @@ public record SkillReplayConditions
 public record CoverObservation(double MaxHp, double CurrentHp);
 public record SkillTrace(long Id, long? ParentId, int Frame, string Kind, string Source, string Target,
     string Effect, int? FunctionId = null, int? SkillId = null, double? Value = null,
-    int? Stacks = null, string Basis = null, int? ExpiresAt = null, HitContext Hit = null);
+    int? Stacks = null, string Basis = null, int? ExpiresAt = null, HitContext Hit = null)
+{
+    public DefenseSwitch DefenseSwitch { get; init; }
+}
 public record SkillEffectView(string Source, string Target, int FunctionId, int GroupId, int Type,
     double Value, int Stacks, int? ExpiresAt, string Basis);
 public record SkillMemberResult(string CharacterId, double Damage, IReadOnlyDictionary<string, double> Effects,
@@ -101,6 +104,7 @@ public record SkillReplayResult(string RulesVersion, string Status, string Skill
     public BattleConnectionSummary Connection { get; init; }
     public TeamBurstSummary TeamBurst { get; init; }
     public DamageLogSummary DamageLog { get; init; }
+    public DefenseRunSummary Defense { get; init; }
 }
 
 public static class SkillUnits

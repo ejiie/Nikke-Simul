@@ -26,7 +26,8 @@ public record OlCandidateCatalog(string CatalogVersion, IReadOnlyList<OlCandidat
 public record ExperimentRequest(string SnapshotId, IReadOnlyList<string> CharacterIds, JsonObject Conditions,
     int Runs = 1000, string Phase = "final", string RecordLevel = "summary",
     ComputeOptions? Execution = null, IReadOnlyList<OlChange>? OlChanges = null, string? BaselineExperimentId = null,
-    bool UseSavedTactic = true, IReadOnlyDictionary<string, JsonObject>? HitOverrides = null);
+    bool UseSavedTactic = true, IReadOnlyDictionary<string, JsonObject>? HitOverrides = null,
+    string? BossId = null,string? ConditionProfile = null);
 public record ExperimentInput(string Fingerprint, string SnapshotId, string DataVersion, string EngineVersion,
     string RulesVersion, IReadOnlyList<string> CharacterIds, int SynchroLevel, int DurationFrames,
     string Phase, string RecordLevel, string DefPolicy, bool GameVerified = false)
@@ -36,12 +37,17 @@ public record ExperimentInput(string Fingerprint, string SnapshotId, string Data
     public string? RoundingPolicy { get; init; }
     public string? SummaryVersion { get; init; }
     public CombatConditionCompatibility? ConditionCompatibility { get; init; }
+    public SoloRaidBoss? Boss { get; init; }
+    public BattleConditionDisplay? BattleConditions { get; init; }
 }
 public record MemberRunSummary(string CharacterId, double Damage, long Shots, long Hits, long CriticalHits,
     long Reloads, long BurstCasts);
 public record RunSummary(string RunId, int Attempt, int Index, string ExperimentId, string InputFingerprint,
     string Backend, string Phase, double TeamDamage, IReadOnlyList<MemberRunSummary> Members,
-    int FullBursts, double ElapsedMilliseconds);
+    int FullBursts, double ElapsedMilliseconds)
+{
+    public DefenseResult? Defense { get; init; }
+}
 public record BatchStatus(string Id, string State, int Attempt, int Requested, int Valid, int Failed, int Cancelled,
     bool Partial, ExperimentInput Input, ExecutionSelection Execution, string? ErrorCode);
 public record BatchResults(BatchStatus Batch, int Offset, int Limit, IReadOnlyList<RunSummary> Runs);

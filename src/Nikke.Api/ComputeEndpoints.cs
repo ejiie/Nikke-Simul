@@ -13,6 +13,7 @@ public static class ComputeEndpoints
         Lazy<RuntimeReplayService> runtime,Lazy<CalculationService> calculation)
     {
         var root=Path.Combine(dataRoot,"compute");var store=new BatchStore(root);var probe=new HardwareProbe();
+        var bosses=new SoloRaidBossCatalogService(Path.Combine(dataRoot,"presentation"));
         var jobs=new BatchCoordinator(store,probe,new ExecutionPolicy(Path.Combine(root,"tuning")));
         var analysisGate=new object();var statisticsCache=new Dictionary<string,(DateTimeOffset At,StatisticsResult Result)>();
         app.Lifetime.ApplicationStopping.Register(()=>jobs.DisposeAsync().AsTask().GetAwaiter().GetResult());
@@ -20,7 +21,8 @@ public static class ComputeEndpoints
         app.MapPost("/api/compute/experiments",async(ExperimentRequest request,CancellationToken ct)=> {
             if(request.Conditions is null || request.CharacterIds is null || request.Runs is <1 or >50000)throw new ArgumentException("invalid_experiment_input");
             var snapshot=snapshots.Snapshot(request.SnapshotId)??throw new KeyNotFoundException();
-            var conditions=(JsonObject)request.Conditions.DeepClone();
+            var conditions=SoloRaidRequestPolicy.Normalize(request.Conditions,request.ConditionProfile);
+            var boss=bosses.Resolve(request.BossId);
             if(request.UseSavedTactic && snapshots.BurstTactic(snapshot.AccountId) is {} saved)
             {
                 if(saved.SnapshotId!=snapshot.Id || !saved.FormationSlots.SequenceEqual(request.CharacterIds))throw new InvalidOperationException("saved_tactic_stale");
@@ -33,12 +35,13 @@ public static class ComputeEndpoints
                     || Wire.Canonical(System.Text.Json.JsonSerializer.SerializeToNode(existing.Request.HitOverrides,Wire.Json))
                        !=Wire.Canonical(System.Text.Json.JsonSerializer.SerializeToNode(request.HitOverrides,Wire.Json)))throw new ArgumentException("baseline_input_mismatch");}
             ct.ThrowIfCancellationRequested();var preparation=System.Diagnostics.Stopwatch.StartNew();
-            var prepared=runtime.Value.PrepareCompute(snapshot,game,request,calculation.Value);preparation.Stop();ct.ThrowIfCancellationRequested();
+            var prepared=runtime.Value.PrepareCompute(snapshot,game,request,calculation.Value,boss);preparation.Stop();ct.ThrowIfCancellationRequested();
             if(request.BaselineExperimentId is {} baselineId)
                 RequireSameRules(store.Read(baselineId).Status.Input,prepared.Input);
             var batch=await jobs.Create(prepared,request,ct,preparation.Elapsed.TotalMilliseconds);return Results.Accepted($"/api/compute/experiments/{batch.Id}",batch);
         });
         app.MapGet("/api/compute/experiments/{id}",(string id)=>jobs.Status(id));
+        app.MapGet("/api/compute/experiments/{id}/battle-conditions",(string id)=>SoloRaidRequestPolicy.FromJson(store.Read(id).Request.Conditions));
         app.MapGet("/api/compute/experiments/{id}/condition-compatibility",(string id)=>
             CombatConditionWire.Inspect(CombatConditionWire.ReadCombat(store.Read(id).Request.Conditions)));
         app.MapGet("/api/compute/experiments/{id}/ol-candidates",(string id)=> {

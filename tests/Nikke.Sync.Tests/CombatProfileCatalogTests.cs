@@ -20,9 +20,9 @@ public class CombatProfileCatalogTests
         Assert.Equal(3,sr.CharacterCount);Assert.Equal("c",Assert.Single(sr.Exceptions).CharacterId);
         Assert.Equal(45,sr.Ranges.Single(r=>r.IsTypical).Min);
         Assert.False(catalog.Member("d").RangeBonusAvailable);
-        Assert.Equal("rl_zero_range_no_bonus_unverified",catalog.Member("d").Diagnostic);
+        Assert.Equal("rl_zero_range_no_bonus",catalog.Member("d").Diagnostic);
         Assert.Equal("/editor/assets/ui/code-electric.png",response.Elements.Single(e=>e.Value=="Electronic").IconUrl);
-        Assert.False(response.GameVerified);
+        Assert.True(response.GameVerified);
     }
     [Fact] public void Missing_catalog_or_profile_is_never_replaced_with_weapon_defaults()
     {
