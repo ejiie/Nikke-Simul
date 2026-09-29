@@ -1,10 +1,10 @@
-# Local Lab 스펙 편집 연결 — 2026-09-09
+# 원본 관리 UI 스펙 편집 연결 — 2026-09-09
 
 ## 조작
 
 - 니케 상세의 레벨·호감도·스킬 1/2/버스트 레벨을 변경한다.
-- 장비 이미지를 누르면 Local Lab의 장비 선택창이 열린다. 같은 클래스·부위의 T9/T10을 선택하고 강화 0~5를 변경한다. T9는 기업 일치 여부도 지정한다.
-- T10의 각 OL 줄에서 옵션과 15단계 수치를 선택한다. 옵션 없음도 선택할 수 있다. 명칭, 퍼센트 표시, 등급 색상은 Local Lab을 따른다.
+- 장비 이미지를 누르면 원본 관리 UI의 장비 선택창이 열린다. 같은 클래스·부위의 T9/T10을 선택하고 강화 0~5를 변경한다. T9는 기업 일치 여부도 지정한다.
+- T10의 각 OL 줄에서 옵션과 15단계 수치를 선택한다. 옵션 없음도 선택할 수 있다. 명칭, 퍼센트 표시, 등급 색상은 원본 관리 UI을 따른다.
 - 소장품 탭에서 R/SR 소장품·캐릭터 전용 애장품과 단계, 장착 큐브·레벨을 지정한다. 큐브 레벨은 계정 공통이므로 같은 큐브를 장착한 다른 캐릭터에도 적용된다.
 - 돌파와 코어는 `− [별 3개][코어 배지] +`로 이어 배치했다. SSR은 `0돌파 → 3돌파 → 1코강 → 7코강(MAX)`를 ±로 조정한다. 3돌파에 도달한 후 코어가 1 이상일 때만 배지가 나타난다. 별 클릭으로 돌파 단계도 선택할 수 있다. SR/R은 카탈로그의 돌파 상한을 적용한다.
 - 변경 취소는 저장 시점으로 돌린다. 다른 니케를 보고 돌아와도 저장 전 초안을 유지한다. Save는 새 스냅샷을 만든다. 앱을 닫기 전 Save가 필요하다.
@@ -28,8 +28,8 @@
 
 | 기능 | 출처 | 현재 파일 |
 |---|---|---|
-| 장비 선택창·강화·OL 종류/수치 선택·스킬·소장품 렌더러 | Nikke-Local-Lab `editor.js`, 고정 커밋 `c05fc1c392a523b9e17ebe0cbd4811bed9c19adb` | `apps/desktop-ui/local-lab-detail.js` |
-| 옵션 명칭·정확한 수치 표시·색상 | Local Lab RuntimeMaterializer 및 상세 렌더러 | 위 렌더러, `spec_presentation_assets.py` |
+| 장비 선택창·강화·OL 종류/수치 선택·스킬·소장품 렌더러 | 원본 관리 UI `editor.js` | `apps/desktop-ui/local-lab-detail.js` |
+| 옵션 명칭·정확한 수치 표시·색상 | 원본 관리 UI RuntimeMaterializer 및 상세 렌더러 | 위 렌더러, `spec_presentation_assets.py` |
 | 전체 화면 스타일 | 같은 커밋의 `editor.css`, 바이트 보존 | `apps/desktop-ui/editor.css` |
 | 장비 이름·클래스·부위·이미지 ID | 공식 블라블라 `equip/ItemEquipTable-ko.json` | `tools/data-pipeline/spec_presentation_assets.py` |
 | 장비 이미지 | 공식 블라블라 `icon/equip/{resource_id}.png` | 로컬 `data/local/presentation/assets/equipment/` |
@@ -39,7 +39,7 @@
 | 붙인 성장 ± 조작, UI와 저장 계약 연결 | 이번 작업에서 작성 | `apps/desktop-ui/local-lab-adapter.js`, `app.js`, `simul.css` |
 | 입력 검증·계산 미리보기·스냅샷 저장 연결 | 이번 작업 + 기존 P01 저장소/P02 계산 서비스 | `CharacterEditService.cs`, API `Program.cs` |
 
-공식 캐시에는 장비 120종, 소장품·애장품 33종, 이미지 105개를 보관했다. 장비 선택창은 Local Lab과 같이 T9/T10을 제공하며, 이미 수집된 낮은 티어의 표시도 지원한다. 원본 URL과 SHA-256은 `spec-presentation.json`에 남긴다. 다운로드 파일은 Git에 포함하지 않는다. `build:desktop`과 이미지 준비/갱신 과정에 이 자료 준비를 연결했다.
+공식 캐시에는 장비 120종, 소장품·애장품 33종, 이미지 105개를 보관했다. 장비 선택창은 원본 관리 UI과 같이 T9/T10을 제공하며, 이미 수집된 낮은 티어의 표시도 지원한다. 원본 URL과 SHA-256은 `spec-presentation.json`에 남긴다. 다운로드 파일은 Git에 포함하지 않는다. `build:desktop`과 이미지 준비/갱신 과정에 이 자료 준비를 연결했다.
 
 ## 검증
 

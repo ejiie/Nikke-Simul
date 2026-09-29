@@ -11,7 +11,7 @@
   - 기존 wire로 실제 연결·검증: R1(설명 문장 삭제·속성 한국어만), R2(무기군 아이콘 + 이름, "적정 사거리", 예외 한글 이름만·코드 미노출, 출처·sha·검증 전·참고용·확인 필요·잠정 문구 삭제), R3(시간 삭제·180초), R5(크리 기본 확률 적용), R6(변경 없음), R7(샷건 삭제·per_trigger). 저장 결과 카드는 저장 당시 조건 그대로 표시.
   - mock(flag false, wire 대기): R4 방어력 선택 삭제·자동 전환 안내, R8 보스 카드 선택(크리·정책 아래, 더미 기본, 대화상자 카드 격자, 표시·저장만). 실제 폼은 아직 고정 DEF 선택·보스 없음.
   - UI 보고 검증: 실제 격리 API + Chromium(조건·손상 진단·client_f32 live), mock 브라우저 R1~R8 1500/850/500 넘침 0·JS 오류 0, 단위·Q3 26/26·기존 회귀 통과.
-  - 참고: 기존 코드에 Nikke-Local-Lab 출처 표기가 남아 있다 — `apps/desktop-ui/app.js` 고급 진단의 "화면: Nikke-Local-Lab" 문구, `cards.js`·`local-lab-detail.js` 첫 줄 주석, README·`desktop-ui-migration.ko.md`·`desktop-spec-editor.ko.md`. 사용자 지시(출처 미표기)에 맞춰 정리할지 사용자 확인 대기.
+  - 참고: 기존 코드에 Nikke-Local-Lab 출처 표기가 남아 있다 — `apps/desktop-ui/app.js` 고급 진단의 "화면: Nikke-Local-Lab" 문구, `cards.js`·`local-lab-detail.js` 첫 줄 주석, README·`desktop-ui-migration.ko.md`·`desktop-spec-editor.ko.md`. 2026-09-29 정리: README·`desktop-ui-migration.ko.md`·`desktop-spec-editor.ko.md`의 프로젝트 이름·저장소 URL·고정 커밋은 Director가 "원본 관리 UI"로 바꿨다(작업 지시 문서는 담당이 참조 위치를 찾도록 이름 유지). 앱 화면 문구와 코드 주석 삭제는 F2-U 2단계에 포함한다. 파일 이름(`local-lab-detail.js`·`local-lab-adapter.js`)은 참조 경로가 많아 이번엔 바꾸지 않는다.
 
 ## 근거
 

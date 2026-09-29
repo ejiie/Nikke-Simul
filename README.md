@@ -6,11 +6,11 @@ Solo Raid의 대미지 시뮬레이션, 비중복 5덱 선정, 장비별 육성 
 
 [니케 PvE 전투·육성 조사](docs/nikke-pve-combat-growth-research.ko.md): 무기·버스트·스탯·장비·큐브·소장품·레이드 시스템과 현재 구현의 차이를 정리했습니다. 확인일 2026-09-09.
 
-**Windows 실행 파일 UI:** Nikke-Local-Lab의 화면·카드·상세 탭과 WinForms/WebView2 창을 이식했습니다. [이식 범위·이미지 출처·실행 방법](docs/desktop-ui-migration.ko.md).
+**Windows 실행 파일 UI:** 기존 관리 UI의 화면·카드·상세 탭과 WinForms/WebView2 창을 이식했습니다. [이식 범위·이미지 출처·실행 방법](docs/desktop-ui-migration.ko.md).
 
 **원본 실행본 (최신 배포 2026-09-29, 보스 거리·약점 속성):** 실제 사용 경로는 `C:/Users/user/Documents/GitHub/Nikke-Simul/artifacts/desktop/win-x64/Nikke Simul.exe`이며, 바탕 화면의 `Nikke Simul.lnk`도 이 파일을 가리킵니다. 원본 `main`에 완료 커밋을 통합하고 EXE·백엔드·실행 설정을 이 위치에서 갱신했습니다. [최신 원본 배포·검증 기록](docs/desktop-release-original-2026-09-29.ko.md) · [2026-09-28 client_f32 배포](docs/desktop-release-original-2026-09-28.ko.md) · [2026-09-14 배포 기록](docs/desktop-release-original-2026-09-14.ko.md). Director와 다른 worktree의 실행본은 별도 검증용이며, 그 빌드 성공을 원본 배포 완료로 간주하지 않습니다. [앞선 Director 한정 배포 기록](docs/desktop-release-2026-09-14.ko.md).
 
-**스펙 편집:** 상세 화면에서 장비·OL·스킬·성장·소장품·큐브를 변경하고 Save로 저장합니다. 공식 장비 이미지와 Local Lab 선택 UI를 사용하며, 별 3개와 코어 배지를 붙여 ±로 조정합니다. [편집·저장 범위와 출처](docs/desktop-spec-editor.ko.md).
+**스펙 편집:** 상세 화면에서 장비·OL·스킬·성장·소장품·큐브를 변경하고 Save로 저장합니다. 공식 장비 이미지와 원본 관리 UI의 선택창을 사용하며, 별 3개와 코어 배지를 붙여 ±로 조정합니다. [편집·저장 범위와 출처](docs/desktop-spec-editor.ko.md).
 
 **현재 전투 구현:** 리타·블랑·누아르·앨리스·모더니아의 스킬 효과와 팀 게이지 기반 자동 버스트 사이클을 실행합니다. UI는 참여 체크·단계별 순서·빠른 설정으로 단순화했으며, III는 체크된 순서대로 순환합니다. 기존 지정 시전/풀버스트 모드는 엔진/API에 비교용으로 유지하지만 UI에서는 제거했습니다. [버스트 UI 현재 규칙](docs/damage-log-ui.ko.md) · [P04 규칙·미검증 범위](docs/p04-team-burst.ko.md) · [P03 스킬 구현 범위](docs/p03-skill-runtime.ko.md) · [틱 대미지 측정 조건](docs/p03-measurement-guide.ko.md). 보스 기믹과 실게임 정확도는 별도 미완료 항목입니다.
 
@@ -76,7 +76,7 @@ npm run dev:reference
 - [설계 초안](docs/architecture-draft.ko.md): 계산·통계·최적화 원칙.
 - [원본 버전 및 이식 hash](sources.lock.json), [라이선스 고지](THIRD_PARTY_NOTICES.md).
 
-기존 C#의 스탯 계산·테이블·관련 DTO는 바이트 그대로 보존합니다. P01 수집기·정제기는 양쪽 원본의 요청 구조·매핑을 참고해 새 계약으로 작성했습니다. 현재 기본 UI는 Local Lab 화면이며 이전 upstream 테마 화면은 `/legacy/`에 보존합니다. 캐릭터를 선택하면 HP·공격력·방어력을 자동 계산합니다. 필요할 때 `단일 히트 검산`을 펼쳐 조건 입력 → `대미지 정책 비교`로 검산합니다(hit schema 3, 실험 입력 `statDamageRatio`·`defenceRatioRate`는 중립 1/0이 기본). OL은 자동 적용되며 추가 스킬 공증은 `50, 30`처럼 개별 입력합니다. 단일 히트 도구에서는 스킬 계수·허용 조건을 직접 지정하고, 솔로 레이드 검산에서는 선택한 5인의 스킬을 실행합니다.
+기존 C#의 스탯 계산·테이블·관련 DTO는 바이트 그대로 보존합니다. P01 수집기·정제기는 양쪽 원본의 요청 구조·매핑을 참고해 새 계약으로 작성했습니다. 현재 기본 UI는 원본 관리 UI 화면이며 이전 upstream 테마 화면은 `/legacy/`에 보존합니다. 캐릭터를 선택하면 HP·공격력·방어력을 자동 계산합니다. 필요할 때 `단일 히트 검산`을 펼쳐 조건 입력 → `대미지 정책 비교`로 검산합니다(hit schema 3, 실험 입력 `statDamageRatio`·`defenceRatioRate`는 중립 1/0이 기본). OL은 자동 적용되며 추가 스킬 공증은 `50, 30`처럼 개별 입력합니다. 단일 히트 도구에서는 스킬 계수·허용 조건을 직접 지정하고, 솔로 레이드 검산에서는 선택한 5인의 스킬을 실행합니다.
 
 [P02 검증 결과·실측 안내](docs/p02-verification.ko.md) · [P02 기능별 출처](docs/p02-source-map.ko.md). 현재 고정 자료로 193명 중 160명의 스탯 입력을 계산하고, 자료가 부족한 33명은 미완료로 표시합니다. 이는 전투 효과 지원 캐릭터 수가 아닙니다.
 

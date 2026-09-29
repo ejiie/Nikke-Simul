@@ -2,11 +2,11 @@
 
 2026-09-12 후속 실행본은 [최신 빌드·실행 검증](desktop-release-2026-09-12.ko.md)을 따른다. 아래 1회 버스트 UI와 검증 수치는 최초 이식 당시 기록이며, 현재 UI는 자동 사이클·간소화 버스트 설정·피해 로그를 사용한다. `desktop.settings.json`의 선택 필드 `dataRoot`로 준비된 기존 데이터 경로를 지정할 수 있다. 생략하면 종전처럼 프로젝트의 `data/local`을 사용한다.
 
-사용자 지정 `ejiie/Nikke-Local-Lab`의 관리 UI를 이식했다. 계산 엔진은 이 프로젝트의 P01~P03 구현을 사용한다. 원본 화면은 HTML/CSS/JS이며 원본 실행 파일도 WinForms/WebView2 창으로 이를 표시한다. 같은 기술로 Windows `.exe`를 만들고 창에서 로컬 C# API를 자동 기동한다.
+사용자 소유 관리 UI를 이식했다. 계산 엔진은 이 프로젝트의 P01~P03 구현을 사용한다. 원본 화면은 HTML/CSS/JS이며 원본 실행 파일도 WinForms/WebView2 창으로 이를 표시한다. 같은 기술로 Windows `.exe`를 만들고 창에서 로컬 C# API를 자동 기동한다.
 
 ## 가져온 기능과 출처
 
-원본 저장소: https://github.com/ejiie/Nikke-Local-Lab — 고정 커밋 `c05fc1c392a523b9e17ebe0cbd4811bed9c19adb`.
+원본: 사용자 소유 비공개 관리 UI(고정 커밋 기록은 비공개로 둔다).
 
 | 기능 | 원본 → 현재 위치 | 처리 |
 |---|---|---|
@@ -16,12 +16,12 @@
 | 실행 파일 창 | `tools/NikkeLocalLab.ControlCenter.Desktop/Program.cs` → `src/Nikke.Desktop/Program.cs` | WinForms/WebView2 구조·크기·로딩 화면 재사용. 이 PC의 백엔드 기동·종료 및 DPI 대응 구현 |
 | CDN 경로 계산·분류 아이콘 목록 | `scripts/materialize-nll-phase-d-presentation-assets.ps1` → `tools/data-pipeline/presentation_assets.py` | 공개 리소스 경로 알고리즘을 Python으로 이식. 다운로드·캐시·검증·ZIP 매핑 추가 |
 | 계정 연결·자동 수집·정제·저장·수동 보완 | 현재 프로젝트 P01 → 새 `app.js` 연결 | 기존 세션·스냅샷 계약 유지. 이미지 갱신도 수집 성공 후 별도 백엔드 작업으로 실행 |
-| 최종 스탯 | 현재 프로젝트 P02 C# 계산 API | Local Lab 상세의 HP·공격력·방어력 표시로 연결. 이전 웹 계산 UI 연결은 제거 |
+| 최종 스탯 | 현재 프로젝트 P02 C# 계산 API | 원본 관리 UI 상세의 HP·공격력·방어력 표시로 연결. 이전 웹 계산 UI 연결은 제거 |
 | 5인 스킬 시뮬레이션·결과 저장 | 현재 프로젝트 P03 | 솔로 레이드 검산 화면 추가. 구성원별 평타·각 효과의 대미지 저장 |
 
 출처 hash는 `sources.lock.json`, `docs/desktop-source-manifest.json`에 기록했다. 원본 CSS 수정 없이 필요한 연결 스타일과 작은 화면 메뉴 보정은 `simul.css`에 둔다.
 
-원본 Local Lab의 PostgreSQL, 관리자 시작 코드, 특정 PC·관리자 계정 검사, 원본 게임 실행·설치본 변경, 재화 조작 및 profile revision API는 이식하지 않았다. 계정 설정은 싱크로·리사이클 룸·공통 큐브를, 니케 상세는 레벨·호감도·돌파·코어·스킬·장비·OL·소장품·장착 큐브 편집을 제공한다. 저장은 기존 SQLite 스냅샷 계약을 사용한다. [편집 범위와 기능별 출처](desktop-spec-editor.ko.md).
+원본 원본 관리 UI의 PostgreSQL, 관리자 시작 코드, 특정 PC·관리자 계정 검사, 원본 게임 실행·설치본 변경, 재화 조작 및 profile revision API는 이식하지 않았다. 계정 설정은 싱크로·리사이클 룸·공통 큐브를, 니케 상세는 레벨·호감도·돌파·코어·스킬·장비·OL·소장품·장착 큐브 편집을 제공한다. 저장은 기존 SQLite 스냅샷 계약을 사용한다. [편집 범위와 기능별 출처](desktop-spec-editor.ko.md).
 
 ## 이미지
 
@@ -68,7 +68,7 @@ npm run dev
 ## 2026-09-09 상세 UI 정정
 
 - 이전 웹 프론트 `calculation.ts` import와 데스크톱 빌드 연결을 제거했다.
-- Local Lab `editor.js`의 장비·성장·스킬·소장품 렌더러를 `local-lab-detail.js`로 가져왔다. 숫자 입력의 범위 검증을 추가하고, 실제 사용 성장 컨트롤은 사용자 요청에 따라 붙인 별·코어와 ±로 연결했다. `editor.css`는 원본을 유지한다.
+- 원본 관리 UI `editor.js`의 장비·성장·스킬·소장품 렌더러를 `local-lab-detail.js`로 가져왔다. 숫자 입력의 범위 검증을 추가하고, 실제 사용 성장 컨트롤은 사용자 요청에 따라 붙인 별·코어와 ±로 연결했다. `editor.css`는 원본을 유지한다.
 - 옵션 명칭은 RuntimeMaterializer의 OverloadOptionDisplayName과 동일하다. 숫자는 원본 exactValueText, 옵션 합계는 소수 둘째 자리 표시를 사용한다. 원본 카탈로그 규칙처럼 차지 속도·명중률은 양의 크기로 표시하며 계산용 부호는 바꾸지 않는다.
 - `local-lab-adapter.js`는 저장 스냅샷을 원본 UI의 projection으로 변환한다. 옵션 등급은 저장된 valueTier를 사용한다. 장비 능력치는 기존 C# 계산 결과를 연결하며 강화 중복 적용을 하지 않는다.
-- 임의로 추가했던 옵션 잠금 select와 계산 패널은 상세 화면에서 제거했다. 백엔드의 기존 저장값과 계산 API는 보존한다. 이후 [장비 이미지·스펙 편집 작업](desktop-spec-editor.ko.md)에서 Local Lab 컨트롤을 계산 미리보기 및 스냅샷 Save에 연결했다.
+- 임의로 추가했던 옵션 잠금 select와 계산 패널은 상세 화면에서 제거했다. 백엔드의 기존 저장값과 계산 API는 보존한다. 이후 [장비 이미지·스펙 편집 작업](desktop-spec-editor.ko.md)에서 원본 관리 UI 컨트롤을 계산 미리보기 및 스냅샷 Save에 연결했다.
