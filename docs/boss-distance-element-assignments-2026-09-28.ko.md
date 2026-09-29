@@ -2,6 +2,7 @@
 
 ## 최신 상태
 
+- **사용자 확인(2026-09-29): 사거리 데이터(무기군·캐릭터별 `bonusrange_min/max`, 하란 #5042 SR 25–45 예외, RL 0–0 = 적정 거리 보너스 없음)는 이미 검증된 내용이다.** 아래 기록의 "잠정·확인 필요·실게임 가설" 중 사거리 **데이터 값과 RL 0–0 해석**에 해당하는 부분은 이 확인으로 해소됐다(당시 기록은 역사로 보존). 경계값 **양끝 포함**(`min ≤ 거리 ≤ max`) 규칙은 이번 확인 범위가 명시되지 않아 확인 대기로 둔다. 앱 화면 문구("확인 필요"·"잠정")와 API `gameVerified=false`는 아직 코드에 남아 있다.
 - **F-COND-U mock 단계: 완료, Director 검토 수용.** UI `cc24bc9`(`cd004f1` ff 후), [보고서](C:/Users/user/orca/workspaces/Nikke-Simul/UI/docs/boss-distance-element-ui.ko.md). 변경은 `apps/desktop-ui`(app.js·새 `combat-conditions.js`·simul.css·single-deck-stats.js)·UI tests·UI 문서뿐. Director가 mock 캡처(거리·약점 팝업, 폼 1500px)를 확인했다: 32×32 아이콘 버튼 + 현재 값, 거리 슬라이더·숫자·미설정·멤버별 판정·무기군 표, 약점 팝업의 5속성 이미지·"보스의 약점 속성 — 이 속성 니케가 우월 코드 보너스를 받습니다" 경고·속성별 덱 멤버. 캡처의 멤버 무기·속성·예외 값은 **합성 mock 데이터**이며 실제 캐릭터 정보가 아니다.
   - `COND_WIRE.confirmed=false`라 실제 폼·요청은 아직 바뀌지 않았다. 잠정 wire(`GET /api/runtime/combat-ranges?snapshotId=`, `combat.bossDistance`/`bossWeakElement`, `Fire/Water/Wind/Iron/Electronic`)는 `combat-conditions.js` 한 곳에 모았다. Backend 확정 wire 통지 대기.
   - 검증은 mock만: 단위 8/8, mock Chromium, 기존 회귀 통과(audit 브라우저 첫 실행의 로컬 연결 거부 1건은 코드 변경 없이 재실행 2회 통과).
@@ -39,7 +40,7 @@
   - 자체 검사 **315/315**(정상 API 83 + B-FIX-2·실제 Chromium 141 + 기존 client_f32·통계 91), 별도 Q3 계약 harness 26/26. 담당 검사·mock·정답 재사용 없음.
   - F-COND-Q-1 해소: 필드 누락·null·잘못된 타입·범위·미지원 속성·ID 불일치 16종 × 두 GET·replay·compute = 64응답 모두 409 `combat_profile_invalid`, characterId/field/reason 정확, 0 채움·500 없음, 실패 시 파일·실험 불변. 정상 SG/RL min 0·SR 예외·구 bool 정확 재현 유지.
   - 브라우저: 32px 아이콘·두 팝업·약점 경고·5속성 이미지·멤버 미리보기, 새/null 요청에 구 bool 없음, 저장 모드·구 bool 표시, replay·통계 값, 손상 데이터 한국어 진단 4화면·연결 유지, 키보드/ESC/포커스 복귀, 1500/850/500 통과. QA 예비 실행의 팝업 멈춤은 QA 선택자 오류로 확인되어 제품 결함으로 세지 않았다.
-  - 미판정: 실게임 가설(양끝 포함·RL 0–0), 실사용자 덱, 성능, RL 멤버 전체 전투 UI, reason 8종 전체 문구, weapon replay 손상 endpoint. Q-CPU-10K 보류.
+  - 미판정(QA 시점): 실게임 가설(양끝 포함·RL 0–0 — 이후 사거리 데이터·RL 0–0은 사용자 검증 완료, 양끝 포함은 확인 대기), 실사용자 덱, 성능, RL 멤버 전체 전투 UI, reason 8종 전체 문구, weapon replay 손상 endpoint. Q-CPU-10K 보류.
 - **Director 통합(2026-09-29): 완료.** QA `d71c7a2`를 `--no-ff` merge(`52ff31f`, 충돌 없음, `src`·`tests`·`apps`·`tools` 트리가 `d71c7a2`와 동일). Director에서 locked restore → Release build(경고 0·오류 0) → test **408/408**(Analysis 41, Core 174, Sync 148, Compute 45). 원본 배포는 사용자 확인 후 별도 — 배포 시 원본 `data/local/runtime`에 `prepare_combat_conditions.py` 실행이 필요하다(기존 runtime 보존, 새 runtime 추가).
 - **원본 배포(2026-09-29, 사용자 승인): 완료.** 원본 `main` ff(`cd004f1` → `4b4403e`), 원본 runtime 준비(새 `9c98c91c…`, 기존 보존, `current.json` 백업), 실행본 백업·빌드, 바로가기 실행·UI 10파일 바이트 일치·새 API 실데이터·두 팝업 표시·계정/캐시 보존 동일. 상세 [2026-09-29 원본 배포 기록](desktop-release-original-2026-09-29.ko.md).
 
@@ -71,8 +72,8 @@
 
 사용자 방향(포트폴리오, 실험으로 찾아감)에 따라 아래는 잠정 기본값이며, 실측으로 바뀔 수 있는 가설로 문서에 남긴다.
 
-1. 적정 거리 판정은 **캐릭터별** `bonusrange_min ≤ 거리 ≤ bonusrange_max`(양끝 포함, 잠정). 무기군 표는 참고 표시용이며 계산은 캐릭터 값을 쓴다(SR 예외 캐릭터 반영). 기존과 같이 일반 공격(normal)에만 적용한다.
-2. **RL `0–0`**은 데이터 그대로 "적정 거리 보너스 없음"으로 계산·표시하고, 확인 필요 항목으로 표시한다.
+1. 적정 거리 판정은 **캐릭터별** `bonusrange_min ≤ 거리 ≤ bonusrange_max`(양끝 포함, 잠정 — 사거리 값 자체는 2026-09-29 사용자 검증 완료, 양끝 포함은 확인 대기). 무기군 표는 참고 표시용이며 계산은 캐릭터 값을 쓴다(SR 예외 캐릭터 반영). 기존과 같이 일반 공격(normal)에만 적용한다.
+2. **RL `0–0`**은 데이터 그대로 "적정 거리 보너스 없음"으로 계산·표시하고, 확인 필요 항목으로 표시한다. → 2026-09-29 사용자 검증 완료(보너스 없음 해석 확정).
 3. 거리는 **정수 0–100** 또는 **미설정**. 미설정은 기존 체크 해제와 같다(전원 적정 거리 보너스 없음).
 4. 약점 속성은 5속성 중 하나 또는 **없음**. 멤버 속성 = 약점 속성이면 우월 코드. 속성 상성표(누가 누구를 이기는지)는 쓰지 않는다 — 사용자가 약점을 직접 지정한다.
 5. **기존 저장 조건 호환**: 이전 bool 조건(`properDistance`/`elementAdvantage`)으로 저장된 전술·실험은 조용히 재해석하지 않는다. 이전 방식("전원 적용")으로 명시 표시하고 그대로 재현 가능하게 둔다. 새로 저장하는 조건은 새 필드를 쓴다.
