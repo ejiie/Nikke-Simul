@@ -9,7 +9,7 @@
  */
 import { COND_WIRE, createConditionState, describeCombatProfileError, describeCompatibility, describePlannedConditions } from './combat-conditions.js';
 import { DEF_WIRE, describeDefensePolicy, describeSavedCombat } from './raid-conditions.js';
-import { optionLabel, slotLabel } from './display-labels.js';
+import { optionLabel, reasonLabel, slotLabel } from './display-labels.js';
 
 // Character codes are never shown; names come from the deck (Korean display names).
 const UNKNOWN_NAME = '이름 미확인';
@@ -118,7 +118,7 @@ function deviceSection(model) {
         <td>${esc(device.backend ?? UNKNOWN)}<br><small class="compute-sub">driver ${esc(device.driver ?? UNKNOWN)}</small></td>
         <td>${device.stages.map(s => `${esc(s.label)} ${esc(s.statusLabel)}`).join('<br>')}</td>
         <td>${device.usable ? '<span class="pill-badge green">사용 가능</span>' : '<span class="pill-badge gray">사용 불가</span>'}
-          ${device.reason ? `<br><small class="compute-sub">${esc(device.reason)}</small>` : ''}</td>
+          ${device.reason ? `<br><small class="compute-sub">${esc(reasonLabel(device.reason))}</small>` : ''}</td>
       </tr>`).join('')
     : '<tr><td colspan="4">탐지된 GPU가 없습니다. CPU로 실행합니다.</td></tr>';
   const options = ['<option value="auto">자동 선택 (권장)</option>', '<option value="cpu">CPU</option>']
@@ -137,8 +137,8 @@ function deviceSection(model) {
         ${metricCard('chunk 크기', formatNumber(selection.chunkSize))}
         ${metricCard('메모리 상한', bytes(selection.memoryLimitBytes))}
       </div>
-      ${selection.reason ? `<p class="microcopy">선택 근거: ${esc(selection.reason)}</p>` : ''}
-      ${selection.fellBack && selection.fallbackReason ? `<p class="microcopy">CPU fallback 원인: ${esc(selection.fallbackReason)}</p>` : ''}
+      ${selection.reason ? `<p class="microcopy">선택 근거: ${esc(reasonLabel(selection.reason))}</p>` : ''}
+      ${selection.fellBack && selection.fallbackReason ? `<p class="microcopy">CPU 대체 원인: ${esc(reasonLabel(selection.fallbackReason))}</p>` : ''}
       ${selection.mismatch ? '<p class="compute-warning">GPU 지정 실행이 불가능해 요청과 다른 backend로 실행되었습니다. GPU 성공으로 표시하지 않습니다.</p>' : ''}
       <div class="summary-metrics-grid">
         ${metricCard('OS', hardware.os ?? UNKNOWN, hardware.architecture ?? '')}
@@ -361,8 +361,8 @@ export function createSingleDeckStatsView({ api, getSnapshot, getMembersWithMeta
       // Combat profile data errors name the character, field and reason (B-FIX-2); still not an outage.
       const profile = describeCombatProfileError(error, new Map(deckMembers().map(m => [m.characterId, m.displayName])));
       return { ok: false, code: failure.code, reachable: failure.reachable,
-        error: profile ? `${profile.text} (서버 원문: ${profile.raw})`
-          : failure.code ? `${describeComputeError(failure.code)} (${failure.message})` : failure.message };
+        // U-FIX-6: Korean diagnostics only; no server text on screen.
+        error: profile ? profile.text : failure.code ? describeComputeError(failure.code) : failure.message };
     }
   }
 

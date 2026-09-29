@@ -208,7 +208,9 @@ async def run():
                 }""")
                 await page.locator('#compute-start').click()
                 await page.wait_for_function(
-                    "() => document.querySelector('#stats-content')?.textContent.includes('gpu_unavailable')", timeout=15000)
+                    "() => document.querySelector('#stats-content')?.textContent.includes('강제 GPU 요청은 실행 전에 거부됩니다')", timeout=15000)
+                if 'gpu_unavailable' in await panel_text(page):  # U-FIX-6: Korean only, no raw code
+                    problems.append('raw gpu_unavailable code on screen')
                 summary['states']['forcedGpuRejected'] = True
                 await page.evaluate("""() => {
                     const select = document.querySelector('#compute-device');

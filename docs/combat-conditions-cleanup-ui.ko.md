@@ -1,6 +1,6 @@
 # 전투 조건 정리·보스 선택 — UI (F2-U, R1~R8)
 
-2026-09-29. **1단계 완료**(R1·R2·R3·R5·R6·R7 실제 연결, R4·R8 mock — 1~5절, 당시 기록) → **2단계 완료**(R4·R8 확정 wire 연결, 출처 표기 삭제, 실제 격리 API 검증 — 6절). 이 문서는 UI 구현·검증 보고이며 독립 QA·원본 배포 보고가 아니다. 1~5절과 6절이 다르면 6절이 우선한다.
+2026-09-29. **1단계 완료**(R1·R2·R3·R5·R6·R7 실제 연결, R4·R8 mock — 1~5절, 당시 기록) → **2단계 완료**(R4·R8 확정 wire 연결, 출처 표기 삭제, 실제 격리 API 검증 — 6절). 이후 QA 수정 U-FIX-3~6은 7~10절. 이 문서는 UI 구현·검증 보고이며 독립 QA·원본 배포 보고가 아니다. 1~5절과 6절이 다르면 6절이, 표시 문구는 뒤 절이 우선한다.
 
 배정: Director [F-COND-2 지시서](C:/Users/user/orca/workspaces/Nikke-Simul/Director/docs/combat-conditions-cleanup-assignments-2026-09-29.ko.md)의 "근거"·"공통 기준"·"F2-U" 절, 요구 원문 [R1~R8](C:/Users/user/orca/workspaces/Nikke-Simul/Director/docs/user-requests-2026-09-29.ko.md). Director 문서는 읽기만 했다.
 
@@ -203,3 +203,47 @@ Director 통지: Backend 확정 `aa1b71e`(엔진 `1a86ec9` 포함) merge(`92aef7
 - **실제 격리 API + Chromium** `check_raid_conditions_live.py … --expect-bosses 43` → 통과 `artifacts/ui/raid-conditions-live/run-eb23cb8b89b5`: 앨리스 타격 #200 `상시 비율 · 앨리스 · 머리 1번 줄 · 공격력 +4.77%`·`고정 가산 · 누아르 · 스킬 1 +12,717`, 패널 본문에 `함수 N`·원문 키 0건, 저장 replay 조회 전후 동일. 보스·DEF 카드 3경우·코드 스캔 등 기존 항목 통과.
 - **실제 기존 저장 replay(재계산 없음)** `check_source_labels_saved.py` → 통과 `artifacts/ui/source-labels/run-2d667263b13e`: `고정 가산 · 누아르 · 스킬 1 +17,191` 등, `함수 N` 0건, 파일 해시 불변.
 - 단위: display_labels 3/3(함수 source 해석/미해석·패널 `함수` 문자 없음), damage_audit 19/19(기대값 갱신. U-FIX-3 때 주석 삽입으로 한 줄에 붙어 실행되지 않던 `originText` 단언을 분리해 다시 검사). 기존 회귀(Q3 26/26, vitest 13/13, 통계·조건·raid 단위, mock·브라우저·live) 모두 통과. EXE·원본 `data/local`·5180/5181 미접촉.
+
+## 10. U-FIX-6 — 서버 원문·원문 키 표시 정리(F2-Q-3·4·5, 화면 전체 점검) (2026-09-29)
+
+기준 `1168819`, 새 merge 없음. 근거: QA [검수 보고](C:/Users/user/orca/workspaces/Nikke-Simul/검수/docs/combat-conditions-cleanup-qa.ko.md)(QA `02b63fb`), Director 지시서 U-FIX-6 항목. 원칙(사용자 결정)은 9절과 같다 — 캐릭터 코드·원문 키·서버 원문·함수 번호는 화면에 표시하지 않고, 타격·발사 번호·replay ID·fingerprint·버전·schema·정책 id는 유지. API 응답·저장·JSON/CSV 내보내기 파일·데이터 속성은 바꾸지 않았다.
+
+### 10.1 QA 항목
+
+| 항목 | 이전 | 이후 |
+|---|---|---|
+| F2-Q-3 로그 대상 안내(`damage-log-adapter.js`, 내장 로그·서버 로그 두 곳) | `현재 리플레이는 5004의 대미지 로그만 수집되었습니다. 5011의 로그를…` | `현재 리플레이는 앨리스의 대미지 로그만 수집되었습니다. 리타의 로그를…`(이름 없으면 `이름 미확인 니케`). Replay ID 배지 유지 |
+| F2-Q-4 `저장 결과 원문`(`app.js` `renderReplay`) | `<details>`에 `JSON.stringify(saved)` 표시 | 화면 블록 삭제. API·저장 파일·JSON/CSV 내보내기는 그대로 |
+| F2-Q-5 `서버 원문:`(`app.js` replay 오류, `single-deck-stats.js` 실험 오류) | 한국어 진단 뒤 `서버 원문: combat_profile_invalid: combatProfiles.characters.5004…` | 한국어 진단만: `사거리·속성 데이터 오류 · 앨리스 · 최소 사거리 · 값 없음(키 누락). 사거리·속성 데이터를 확인하고 준비 스크립트(prepare_combat_conditions.py)로 다시 준비해야 합니다.` 필드 뜻은 한국어만(`최소 사거리(bonusRangeMin)` → `최소 사거리`, 출처 경로 → `출처 정보`). 구조화 오류(`code`·`characterId`·`field`·`reason`)·409·저장 0·연결 유지는 그대로 |
+
+### 10.2 화면 전체 점검 — 바꾼 것
+
+| 위치 | 이전 | 이후 |
+|---|---|---|
+| `app.js` `api()` 오류 문구(모든 화면 공통) | 서버 `message` 그대로(`boss_id_unknown`, `solo_raid_duration_fixed_10800` 등) | `display-labels.js` `friendlyServerMessage`: 알려진 코드 20종은 한국어, 코드·영문이 없는 한국어 문구는 그대로, 그 밖은 `요청을 처리하지 못했습니다 (HTTP n).` 원문은 Error의 `serverMessage`·`details`에 남겨 판정 로직만 사용 |
+| `single-deck-stats.js` 실험 오류 | `GPU 사용 불가 … (gpu_unavailable)`처럼 코드 병기 | 한국어만 |
+| 통계 장치 표·선택 근거·CPU 대체 원인 | `bounded_workload_benchmark`, `full_battle_provider_not_implemented` 등 계산 백엔드 사유 코드, `CPU fallback 원인:` | `reasonLabel`: 사유 코드 33종 한국어(`제한된 후보 실측으로 선택`, `전체 전투 GPU 계산 미구현` 등), 모르는 코드는 `기타 사유`. 제목 `CPU 대체 원인:` |
+| 통계 지표 미지원 안내(`compute-adapter.js` `describeUnsupportedReason`) | `평균 CI·표본 표준편차는 표본 2건 이상 필요 (…) · mean_ci_requires_n_at_least_2` | 코드 삭제, 모르는 사유는 `일부 통계 지표를 제공하지 않습니다` |
+| 사거리·속성 데이터 미준비(`combat-conditions.js`) | `이 runtime에는 사거리·속성 데이터(combatProfiles)가 준비되지 않았습니다…` | `현재 데이터에는 사거리·속성 정보가 준비되지 않았습니다. 보스 거리·약점 조건을 쓰려면 준비 스크립트(prepare_combat_conditions.py)로 데이터를 준비해야 합니다.` |
+| 버스트 설정 경고(`damage-log-adapter.js`) | 제외된 캐릭터 코드 나열 | `편성에서 제외된 니케 N명이 버스트 설정에 남아 있습니다.` |
+| 고급 진단 `최근 변경`(`app.js`) | 저장된 변경 줄의 슬롯 키 `앨리스: head 장비/잠금 변경` | `앨리스: 머리 장비/잠금 변경`(저장값은 그대로, 표시만 치환) |
+
+### 10.3 화면 전체 점검 — 유지한 것(사유)
+
+- 타격 #·발사 #·`버스트 시전 이벤트 #N`, Replay ID 배지, fingerprint·규칙/summary 버전·schema, 대미지 정책 id — 사용자 확정 유지 항목.
+- 준비 안내의 스크립트 이름 `prepare_combat_conditions.py` — 사용자가 실행할 대상(조치 안내)이라 유지.
+- 통계 장치 표의 장치 식별 해시·계산 장치 이름(CPU/GPU) — 기술 식별자·표준 용어.
+- 계정 연결·동기화·이미지 준비 상태 문구 — 백엔드(`SyncCoordinator`·`CollectorProcess`·`PresentationService`)가 한국어 문구만 보냄(소스 확인). `api()` 경유 오류는 위 변환을 거친다.
+- 결정 대기: web 참조 UI(`/legacy`) 단일 히트 검산의 오류 표시는 서버 코드를 그대로 보인다. 데스크톱 앱에서 연결되지 않는 참조 화면이라 이번 범위에서 바꾸지 않았다.
+- 내부 키·`data-*` 속성(`data-profile-error`, `data-issue-path` 등)·API·저장 파일·내보내기 — 원칙대로 유지.
+
+### 10.4 검증
+
+실제 격리 API 검증은 이 worktree Release `Nikke.Api`, 임의 포트, 공개 allowlist만 담은 새 격리 dataRoot와 합성 계정 DB를 사용했다. 합성 route는 bootstrap 연결·combat-powers `{}`뿐이다. 원본 `data/local`·5180/5181·EXE는 건드리지 않았다.
+
+- **실제 격리 API + Chromium** `check_raid_conditions_live.py … --expect-bosses 43` → 통과 `artifacts/ui/raid-conditions-live/run-dbfb31cf548b`: 로그 대상을 리타로 바꾸면 `현재 리플레이는 앨리스의 대미지 로그만 수집되었습니다. 리타의 로그를…`, `#replay-result`에 원문 JSON 블록 없음(남은 `<details>`는 `충전 기여·시전·대기 기록`), 통계·레이드 화면 전체 텍스트에서 코드·원문 키·snake 코드·`서버 원문`·`저장 결과 원문` 0건(수정 전 `run-7d3fc61f285a`는 `bounded_workload_benchmark`·`full_battle_provider_not_implemented` 검출로 실패).
+- **실제 격리 API + Chromium** `check_combat_profile_errors_ui.py` → 통과 `artifacts/ui/combat-profile-errors/run-ae12e933ecb5`: 최소 사거리 누락·속성 null·카탈로그 미준비 3경우 모두 409, replay·통계·거리/속성 팝업에 한국어 진단만(`서버 원문`·`combatProfiles`·`combat_profile`·캐릭터 코드·`bonusRange`·`(element)` 0건), 저장 0·연결 유지(수정 전 `run-055b11d06c42`는 `(combatProfiles)` 검출로 실패).
+- **실제 격리 API** `check_combat_conditions_live.py` 통과 `run-ee85c6dedfdc`, `check_client_f32_live.py` 통과 `run-9c525ab09210`(n=1 미지원 안내가 한국어만, `mean_ci_requires_n_at_least_2` 없음).
+- **실제 기존 저장 replay(재계산 없음, 합성 HTTP로 저장본 그대로 제공)** `check_source_labels_saved.py` → 통과 `artifacts/ui/source-labels/run-fa3ed1381946`, 파일 해시 불변.
+- **mock·합성 HTTP 브라우저**: raid mock `run-151686207433`, combat mock `run-41d1184e3f53`, 솔로 레이드 `run-fa49a37b2e54`, client_f32 mock `run-2dbbd15cc9d8`, damage audit `run-cafca36591dc`, 통계 `run-d7050810eba2` 모두 통과. 통계 브라우저 검사는 강제 GPU 거부 확인을 원문 코드 `gpu_unavailable` 대신 한국어 문구로 바꾸고 코드가 없는지 확인하도록 갱신했다(첫 실행은 옛 기대값 때문에 시간 초과).
+- 단위: display_labels 6/6(서버 문구 변환, 로그 대상 이름, 사유 코드), combat_conditions·single_deck_stats(기대값 한국어로 갱신)·raid_conditions·client_f32_mock·damage_audit 실패 0. Q3 26/26, vitest 13/13.

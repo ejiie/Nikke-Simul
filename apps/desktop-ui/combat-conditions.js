@@ -353,7 +353,7 @@ const PROFILE_REASONS = {
 };
 const PROFILE_FIELDS = { bonusRangeMin: '최소 사거리', bonusRangeMax: '최대 사거리', element: '속성', weaponType: '무기군',
   name: '이름', characterId: '캐릭터 ID' };
-const PREPARE_HINT = '서버 runtime의 사거리·속성 데이터 확인 후 prepare_combat_conditions.py로 다시 준비해야 합니다.';
+const PREPARE_HINT = '사거리·속성 데이터를 확인하고 준비 스크립트(prepare_combat_conditions.py)로 다시 준비해야 합니다.';
 
 /**
  * Korean diagnostic for a combat profile error, or null when the error is something else. `error` is the Error
@@ -370,14 +370,15 @@ export function describeCombatProfileError(error, names = null) {
     const key = field?.split('.').pop() ?? null;
     const reason = text(body.reason);
     const subject = body.characterId != null ? who(body.characterId) : '카탈로그·출처';
-    const fieldText = key && PROFILE_FIELDS[key] ? `${PROFILE_FIELDS[key]}(${key})` : field ?? '필드 미기록';
+    // U-FIX-6: field meaning in Korean only; the raw path stays in the structured error.
+    const fieldText = key && PROFILE_FIELDS[key] ? PROFILE_FIELDS[key] : /\.source\./.test(field ?? '') ? '출처 정보' : field ? '데이터 항목' : '항목 미기록';
     return { code, characterId: body.characterId ?? null, field, reason,
       text: `사거리·속성 데이터 오류 · ${subject} · ${fieldText} · ${PROFILE_REASONS[reason] ?? reason ?? '사유 미기록'}. ${PREPARE_HINT}`,
       raw: field ? `${code}: ${field}: ${reason ?? '?'}` : message };
   }
   if (code === 'combat_profile_catalog_missing') {
     return { code, characterId: null, field: null, reason: null, raw: message,
-      text: '이 runtime에는 사거리·속성 데이터(combatProfiles)가 준비되지 않았습니다. 보스 거리·약점 조건을 쓰려면 prepare_combat_conditions.py로 데이터를 준비해야 합니다.' };
+      text: '현재 데이터에는 사거리·속성 정보가 준비되지 않았습니다. 보스 거리·약점 조건을 쓰려면 준비 스크립트(prepare_combat_conditions.py)로 데이터를 준비해야 합니다.' };
   }
   if (code === 'combat_member_profile_missing') {
     const id = message.split(':')[1]?.trim() ?? null;
