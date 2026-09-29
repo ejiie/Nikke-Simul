@@ -68,6 +68,9 @@
   - 범위 밖으로 남김: 기존 웹 참조 UI(`/legacy`) 단일 히트 오류 문구(데스크톱에서 연결되지 않음).
   - UI 보고 검증: 실제 격리 API + Chromium에서 보스 43·화면 코드/원문 0건(수정 전 실패 run과 대조), 손상 데이터 3경우 한국어만, 기존 저장 replay 해시 불변, 단위·Q3 26/26·vitest·브라우저 회귀 통과.
 - **F2-Q 재수용 통지(2026-09-29):** UI `59fe22d` 기준 F2-Q-3~5 재검 + 화면 원칙 전체 점검 + 회귀.
+- **F2-Q U-FIX-6 재수용: F2-Q-3·4·5 수용, 전체 수용 보류(F2-Q-6).** 검수 `180f23b`(UI `59fe22d` merge `dc612bd`), QA 보고서 최상단 U-FIX-6 절, 근거 검수 `artifacts/single-deck-qa/f2-ufix6-preparation/evidence-index.json`·`f2-ufix6-1213fc48923f/audit-wire-vs-visible.json`. 총 772검사 중 769 통과·3 실패(같은 F2-Q-6 경로). R4 엔진 87, DEF 6조합, 보스 43·이미지 42, 조건 wire, 피해 19,462건 독립 검산(팀 24,007,922,311, 전환 750프레임·앨리스·누적 2,013,492,851) 유지. `/legacy`는 명시 제외.
+  - **F2-Q-6(UI):** 피해 검산 표에 저장 구조의 키·서버 문자열이 그대로 보인다 — 제목의 `calculation.terms`, 단계 부제의 `effectiveAttack`/`effectiveDefense` 등 `terms[].name`, 저장된 영문 `operation`. Director 확인: `apps/desktop-ui/damage-log.js` 125행(`s.name` 부제), 128행(`s.operation`), 133·160행(`calculation.terms` 문구). 같은 패턴으로 135행 누락 항목 이름, 149행 "(hit 기록)"도 있다.
+- **U-FIX-7 배정(2026-09-29, F2-U 담당):** 피해 검산 표를 표시용 한국어로 렌더 — 단계 이름·부제는 한국어 항목명(내부 name 부제 삭제), 연산 설명은 단계별 한국어 설명(저장된 영문 operation 직출력 금지), 제목·누락 안내의 `calculation.terms`·`hit` 같은 구조 경로 삭제. 수식 기호(B, float32 등)는 허용. API·저장·`data-term`·수치·export는 유지. **순환을 끝내기 위해** 이번에는 `apps/desktop-ui`에서 저장·서버 데이터의 문자열 필드를 그대로 화면에 넣는 모든 지점(`esc(x.name|operation|code|path|source|message…)` 류)을 전수 조사해 목록으로 보고하고 같은 기준으로 정리한다. 이후 QA 재수용.
 - **F2-Q 재수용 통지(2026-09-29):** UI `00911ce` 기준 F2-Q-2 재검 + 회귀. 전달 `term_234e279b…` 요청 `2d024b4c-aaac-4890-a480-111eccc6fbab`, accepted=true·`input_accepted`·`turn_started`. 남은 내부 번호의 화면 노출은 목록으로 기록만 하고 결함 판정하지 않도록 지시(사용자 확인 대상).
 - **F2-U 2단계 통지(2026-09-29):** Backend `aa1b71e` 기준 R4·R8 실제 연결 + 앱 화면·코드 주석의 Nikke-Local-Lab 출처 표기 삭제.
 - (이전) 엔진 `1a86ec9` merge 통지(2026-09-29) — `term_e5d05982…` 요청 `eebad101-6fd8-4a9a-a8fb-b8203c2cf1ab`, accepted=true·`input_accepted`(작업 중 턴에 전달, 재전송 없음). **F2-U:** 진행 중.
