@@ -12,6 +12,7 @@
  */
 
 import { CLIENT_F32, CLIENT_F32_WIRE, policyInfo, readWireLong } from './hit-policy.js';
+import { basisLabel, describeSourceKey } from './display-labels.js';
 
 export const DAMAGE_LOG_SCHEMA_VERSION = 1;
 export const DAMAGE_LOG_PROVISIONAL_NOTICE = '잠정 정확도 · 실게임 관측 대조 전 합성 시뮬레이션';
@@ -428,8 +429,8 @@ export function describeBuffSnapshot(snapshot, frame, ctx = null) {
   const value = isFiniteNumber(effect.value) ? effect.value : null;
   const stacks = Number.isInteger(effect.stacks) && effect.stacks > 0 ? effect.stacks : null;
   const basis = typeof effect.basis === 'string' && effect.basis ? effect.basis : null;
-  const rawBasisText = basis ? `basis ${basis}` : 'basis 미기록';
-  let label = def ? def.label : `미해석 효과 (type ${effect.type ?? '미기록'})`;
+  const rawBasisText = basisLabel(basis); // never the raw basis key
+  let label = def ? def.label : '미해석 효과';
   let unit = 'raw';
   let basisText = rawBasisText;
   let note = def ? null : '추정 단위 없이 원값 표시';
@@ -709,9 +710,12 @@ export function buildHitAudit(entry, ctx = null) {
     return { ...desc, ...cls };
   });
   const hit = entry?.hit && typeof entry.hit === 'object' ? entry.hit : null;
+  // Source keys stay in the data; the screen shows names (U-FIX-4): skill -> character · slot/function,
+  // overload -> character · slot n번 줄 · option, cube/collection/equipment/manual/other -> Korean labels.
   const sourceText = source => {
     const match = /^skill:([^:]+):(\d+)$/.exec(source ?? '');
-    return match ? `${auditNikkeText(match[1], ctx)} · ${auditOriginText(match[1], Number(match[2]), null, ctx)}` : String(source ?? '출처 미기록');
+    if (match) return `${auditNikkeText(match[1], ctx)} · ${auditOriginText(match[1], Number(match[2]), null, ctx)}`;
+    return source ? describeSourceKey(source, { nameOf: id => ctx?.names?.get(String(id)) ?? null }) : '출처 미기록';
   };
   const rateText = b => Number.isInteger(b?.stacks) && b.stacks > 1
     ? `스택당 ${formatRate(b.rate)} × ${b.stacks}` : formatRate(b?.rate);

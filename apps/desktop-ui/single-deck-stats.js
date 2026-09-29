@@ -9,6 +9,7 @@
  */
 import { COND_WIRE, createConditionState, describeCombatProfileError, describeCompatibility, describePlannedConditions } from './combat-conditions.js';
 import { DEF_WIRE, describeDefensePolicy, describeSavedCombat } from './raid-conditions.js';
+import { optionLabel, slotLabel } from './display-labels.js';
 
 // Character codes are never shown; names come from the deck (Korean display names).
 const UNKNOWN_NAME = '이름 미확인';
@@ -32,6 +33,8 @@ export const FIXED_SYNCHRO_LEVEL = 400;
 export const DEFAULT_DURATION_FRAMES = 10800;
 export const DEFAULT_RUNS = 1000;
 export const PHASES = [['pilot', '파일럿'], ['final', '최종'], ['exploration', '탐색']];
+// Phase keys are shown by name (U-FIX-4); unknown values get a generic label, not the raw key.
+const phaseLabel = phase => ({ ...Object.fromEntries(PHASES), warmup: '예열' })[phase] ?? '기타 단계';
 
 function bytes(value) {
   if (typeof value !== 'number' || !Number.isFinite(value)) return UNKNOWN;
@@ -59,7 +62,7 @@ function deckSection(model) {
         ${model.defensePolicy ? metricCard('DEF 정책', model.defensePolicy.value, model.defensePolicy.sub)
           : metricCard('DEF 정책', input.defPolicy ?? '현행 고정 DEF 정책', '저장된 정책 그대로 표시')}
         ${metricCard('버스트 전술', model.tacticSummary || UNKNOWN, '솔로 레이드 저장 설정')}
-        ${metricCard('표본 단계', input.phase ?? model.phase, 'warmup은 표본으로 저장하지 않음')}
+        ${metricCard('표본 단계', phaseLabel(input.phase ?? model.phase), '예열(warmup) 실행은 표본으로 저장하지 않음')}
         ${model.battleSummary ? metricCard('전투 조건', model.battleSummary, '저장된 실험 조건') : ''}
         ${model.conditionSummary ? metricCard('보스 거리·약점', model.conditionSummary, model.batch.id ? '저장된 실험 조건' : '솔로 레이드 전투 조건에서 변경') : ''}
         ${metricCard('대미지 정책', input.present ? (input.roundingPolicy ?? '기록 없음 (client_f32 이전 기록)') : model.roundingPolicy ?? UNKNOWN,
@@ -220,7 +223,7 @@ function olSection(model) {
     return '<article class="surface"><h3>오버로드 후보 비교</h3><p class="microcopy">비교 결과가 없습니다. 기준 실험과 후보 실험이 준비되면 표시합니다.</p></article>';
   }
   const rows = ol.changes.length
-    ? ol.changes.map(change => `<tr><td>${esc(change.displayName)}</td><td>${esc(change.slot ?? UNKNOWN)} · ${change.lineIndex === null ? UNKNOWN : esc(String(change.lineIndex))}번째 줄</td><td>${esc(change.optionId ?? UNKNOWN)} ${esc(change.valueText)}</td></tr>`).join('')
+    ? ol.changes.map(change => `<tr><td>${esc(change.displayName)}</td><td data-slot="${esc(change.slot ?? '')}">${esc(change.slot ? slotLabel(change.slot) : UNKNOWN)} · ${change.lineIndex === null ? UNKNOWN : esc(String(change.lineIndex))}번째 줄</td><td data-option="${esc(change.optionId ?? '')}">${esc(optionLabel(change.optionId) ?? '오버로드 옵션')} ${esc(change.valueText)}</td></tr>`).join('')
     : '<tr><td colspan="3">변경 항목이 없습니다.</td></tr>';
   return `
     <article class="surface">
