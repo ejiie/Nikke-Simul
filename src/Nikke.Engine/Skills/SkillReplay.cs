@@ -8,7 +8,7 @@ namespace Nikke.Engine.Skills;
 // Prescribed measurements and the P04 controller share the same effect/weapon execution.
 public static class SkillReplay
 {
-    public const string Version = "p03.skills.4-boss-conditions";
+    public const string Version = "p03.skills.5-defense-switch";
     public static SkillReplayResult Run(IReadOnlyList<SkillReplayMember> members, SkillGraph graph,
         SkillReplayConditions conditions, IRandomSource random = null,
         ICombatEventSink events = null, ISkillBattleDriver driver = null)
@@ -186,6 +186,7 @@ public static class SkillReplay
         private readonly ISkillBattleDriver driver;
         private readonly CancellationToken cancellationToken;
         private readonly bool summaryOnly;
+        private readonly BattleDefense defense;
         private readonly Dictionary<CombatEventKind,long> connectionCounts = new();
         private readonly List<CombatEvent> timeline = [];
         private readonly HashSet<(string,string)> frameCasts = [];
@@ -268,6 +269,7 @@ public static class SkillReplay
             this.graph = graph; input = conditions; this.random = random;
             this.eventSink=eventSink; this.driver=driver;
             this.cancellationToken=cancellationToken; this.summaryOnly=summaryOnly;
+            defense=new(C);
             team = members.Select(m => new Actor { Input = m,
                 Bonuses = BossConditionResolver.Resolve(m.Weapon,C,true),
                 Gun = new(new WeaponProfile(m.Weapon.Weapon), m.Weapon.Weapon.maxAmmo,
@@ -290,12 +292,13 @@ public static class SkillReplay
 
         private long Log(string kind, string source, string target = null, string effect = null, long? parent = null,
             int? fid = null, int? sid = null, double? value = null, int? stacks = null, string basis = null,
-            int? expires = null, HitContext hit = null)
+            int? expires = null, HitContext hit = null, DefenseSwitch defenseSwitch = null)
         {
             long id = ++eventCount;
             if (input.DamageLog is not null && currentBurstCast is { } origin) burstOrigins[id] = origin;
             if (C.Trace && trace.Count < C.TraceLimit)
-                trace.Add(new(id, parent, frame, kind, source, target, effect, fid, sid, value, stacks, basis, expires, hit));
+                trace.Add(new(id, parent, frame, kind, source, target, effect, fid, sid, value, stacks, basis, expires, hit)
+                    { DefenseSwitch=defenseSwitch });
             return id;
         }
         private void Guard(int depth)
@@ -590,7 +593,7 @@ public static class SkillReplay
                 Math.Clamp(.15+Terms(a.Input.Weapon.Buffs.CriticalChance).Sum(),0,1));
             var h=a.Input.Weapon.Hit with {
                 Coefficient=coefficient, RuntimeAttackBuffs=a.Input.Weapon.Hit.RuntimeAttackBuffs.Concat(AttackRates(a)).ToArray(),
-                AttackFlatBuffs=AttackFlat(a), Defense=C.EnemyDefense, DamageType=normal ? "normal" : "skill",
+                AttackFlatBuffs=AttackFlat(a), Defense=defense.Current, DamageType=normal ? "normal" : "skill",
                 AttackStatBasis="native_caster_with_shared_buffs_and_flat_grants", SnapshotTiming="damage_resolution",
                 CanCrit=true, CanCore=normal, Crit=crit, Core=normal && C.Core,
                 ChargeApplicable=normal && a.Input.Weapon.Hit.ChargeApplicable, FullCharge=normal && charged,
@@ -607,6 +610,9 @@ public static class SkillReplay
             a.Damage[effect]=a.Damage.GetValueOrDefault(effect)+damage;
             if (crit) a.Crits++;
             long ev=Log("damage",a.Id,"boss",effect,parent,value:damage,basis:h.AttackStatBasis,hit:h);
+            if (defense.Commit(damage,frame,ev,a.Id,effect) is { } change)
+                Log("defense_switch","team","boss",parent:ev,value:change.CumulativeDamage,
+                    basis:"team_damage_strictly_greater_next_hit",defenseSwitch:change);
             if (normal) a.Hits++;
             modes.TryGetValue(a.Id,out var mode);
             var kind=normal ? CombatEventKind.NormalHit : currentShot.HasValue ? CombatEventKind.AdditionalHit : CombatEventKind.DirectSkillHit;
@@ -738,7 +744,8 @@ public static class SkillReplay
                  "Cover HP must be supplied for real cover targeting; absent cover inputs mean equal undamaged unit-size cover fixtures.",
                  "Lowest HP/cover target basis is an explicit comparison policy; verify the actual skill recipient before selecting a game rule.",
                  "Conditional cube/favorite effects are not connected. These runs are not validated raid recommendation samples."])
-            { DamageLog=input.DamageLog is null ? null : new(input.DamageLog.CharacterId,damageLog.Count,loggedDamage,damageLog.ToArray()),
+            { Defense=defense.Summary(),
+              DamageLog=input.DamageLog is null ? null : new(input.DamageLog.CharacterId,damageLog.Count,loggedDamage,damageLog.ToArray()),
               Connection=new("p03.connection.1",true,false,connectionSequence,new Dictionary<CombatEventKind,long>(connectionCounts),
                 timeline.ToArray(),timelineCount>timeline.Count,FullBurst,
                 team.SelectMany(a=>a.Ready.Keys.Select(slot=>GetCooldown(a.Id,slot))).ToArray()) };

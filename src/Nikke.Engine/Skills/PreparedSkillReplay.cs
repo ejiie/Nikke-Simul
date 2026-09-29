@@ -7,12 +7,15 @@ namespace Nikke.Engine.Skills;
 public sealed record SkillRunMemberSummary(string CharacterId,double Damage,int Shots,int Hits,int CriticalHits,
     long Reloads,long BurstCasts);
 public sealed record SkillRunSummary(string ImplementationVersion,string RulesVersion,double TeamDamage,
-    IReadOnlyList<SkillRunMemberSummary> Members,int FullBursts,double ElapsedMilliseconds);
+    IReadOnlyList<SkillRunMemberSummary> Members,int FullBursts,double ElapsedMilliseconds)
+{
+    public DefenseRunSummary Defense { get; init; }
+}
 
 // Private deep copy, no mutable input exposure, no pooling, no per-run serialization.
 public sealed class PreparedSkillReplay
 {
-    public const string Version="cpu-summary.3-boss-conditions";
+    public const string Version="cpu-summary.4-defense-switch";
     private sealed record Input(SkillReplayMember[] Members,SkillGraph Graph,SkillReplayConditions Conditions);
     private readonly Input input;
     private PreparedSkillReplay(Input input) => this.input=input;
@@ -45,7 +48,7 @@ public sealed class PreparedSkillReplay
         var members=result.Members.Select(m=>new SkillRunMemberSummary(m.CharacterId,m.Damage,m.Shots,m.Hits,m.CriticalHits,
             counts.Reloads[m.CharacterId],counts.Casts[m.CharacterId])).ToArray();
         return new(Version,result.RulesVersion,result.TotalDamage,Array.AsReadOnly(members),
-            result.Connection.FullBurst.Cycle,watch.Elapsed.TotalMilliseconds);
+            result.Connection.FullBurst.Cycle,watch.Elapsed.TotalMilliseconds) { Defense=result.Defense };
     }
     private sealed class RunRandom : IRandomSource
     {

@@ -37,6 +37,8 @@ public sealed record WeaponReplayConditions
     [JsonIgnore]
     public bool BossFieldsSpecified { get; private init; }
     public double EnemyDefense { get; init; }
+    // Missing mode in old saved inputs retains fixed DEF. Backend selects auto for new requests.
+    public string DefenseMode { get; init; } = Nikke.Engine.DefenseMode.Fixed;
     public string TargetLabel { get; init; } = "fixed_target";
     public string Notes { get; init; } = "";
     public string ManualCharacterId { get; init; } = "";
@@ -82,6 +84,9 @@ public static class WeaponReplay
         IRandomSource random = null)
     {
         Validate(members, c);
+        // This reference compares several rounding policies at once and has no single team total.
+        if (c.DefenseMode != DefenseMode.Fixed)
+            throw new ArgumentException("weapon_reference_requires_fixed_defense_use_skill_replay");
         var bonuses=members.ToDictionary(m=>m.CharacterId,m=>BossConditionResolver.Resolve(m,c,true));
         random ??= SystemRandomSource.Instance;
         var states = members.Select(m => new MemberState { Input = m,
@@ -168,6 +173,7 @@ public static class WeaponReplay
         if (c.ManualCharacterId != "" && !members.Any(m => m.CharacterId == c.ManualCharacterId))
             throw new ArgumentException("수동 조작 캐릭터가 편성에 없습니다.");
         BossConditionResolver.Validate(c);
+        DefenseMode.Validate(c.DefenseMode);
         if (policy == HitCalculator.DefaultPolicy) StatBuffCalculator.RequireInteger(c.EnemyDefense);
         foreach (var m in members)
         {
