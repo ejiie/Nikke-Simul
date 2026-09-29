@@ -8,7 +8,7 @@ Solo Raid의 대미지 시뮬레이션, 비중복 5덱 선정, 장비별 육성 
 
 **Windows 실행 파일 UI:** Nikke-Local-Lab의 화면·카드·상세 탭과 WinForms/WebView2 창을 이식했습니다. [이식 범위·이미지 출처·실행 방법](docs/desktop-ui-migration.ko.md).
 
-**원본 실행본 (최신 배포 2026-09-28, client_f32):** 실제 사용 경로는 `C:/Users/user/Documents/GitHub/Nikke-Simul/artifacts/desktop/win-x64/Nikke Simul.exe`이며, 바탕 화면의 `Nikke Simul.lnk`도 이 파일을 가리킵니다. 원본 `main`에 완료 커밋을 통합하고 EXE·백엔드·실행 설정을 이 위치에서 갱신했습니다. [최신 원본 배포·검증 기록](docs/desktop-release-original-2026-09-28.ko.md) · [2026-09-14 배포 기록](docs/desktop-release-original-2026-09-14.ko.md). Director와 다른 worktree의 실행본은 별도 검증용이며, 그 빌드 성공을 원본 배포 완료로 간주하지 않습니다. [앞선 Director 한정 배포 기록](docs/desktop-release-2026-09-14.ko.md).
+**원본 실행본 (최신 배포 2026-09-29, 보스 거리·약점 속성):** 실제 사용 경로는 `C:/Users/user/Documents/GitHub/Nikke-Simul/artifacts/desktop/win-x64/Nikke Simul.exe`이며, 바탕 화면의 `Nikke Simul.lnk`도 이 파일을 가리킵니다. 원본 `main`에 완료 커밋을 통합하고 EXE·백엔드·실행 설정을 이 위치에서 갱신했습니다. [최신 원본 배포·검증 기록](docs/desktop-release-original-2026-09-29.ko.md) · [2026-09-28 client_f32 배포](docs/desktop-release-original-2026-09-28.ko.md) · [2026-09-14 배포 기록](docs/desktop-release-original-2026-09-14.ko.md). Director와 다른 worktree의 실행본은 별도 검증용이며, 그 빌드 성공을 원본 배포 완료로 간주하지 않습니다. [앞선 Director 한정 배포 기록](docs/desktop-release-2026-09-14.ko.md).
 
 **스펙 편집:** 상세 화면에서 장비·OL·스킬·성장·소장품·큐브를 변경하고 Save로 저장합니다. 공식 장비 이미지와 Local Lab 선택 UI를 사용하며, 별 3개와 코어 배지를 붙여 ±로 조정합니다. [편집·저장 범위와 출처](docs/desktop-spec-editor.ko.md).
 
@@ -20,7 +20,7 @@ Solo Raid의 대미지 시뮬레이션, 비중복 5덱 선정, 장비별 육성 
 
 **수치 정밀도 결정 (2026-09-18, 09-28 갱신):** 공격력 조립은 `long` 기반 정수 경로, 대미지 경로는 클라이언트와 같은 `float32`로 재현하고 최종 반올림은 사사오입을 기본으로 합니다. 스노우 화이트 풀차지 버스트 단일 타격으로 `long` 조립 overflow와 최종 변환 범위를 검사할 예정입니다. [결정·완료 조건](docs/p02-buff-correction.ko.md) · [클라이언트 공식](docs/hit-damage-client-formula.ko.md). 공격력 `long` 조립·`float32` 대미지 경로를 구현하고 독립 QA를 통과해 원본 실행본까지 배포했습니다(2026-09-28). SW 검사는 미실행입니다.
 
-**보스 거리·약점 속성 조건 (2026-09-29 Director 통합, 원본 배포 전):** 솔로 레이드·단일 덱 통계의 적정 거리·우월 코드 체크박스를 보스 거리(0–100)와 보스 약점 속성(5속성) 팝업으로 바꾸고, 니케별 적정 사거리·속성으로 판정합니다. 양끝 포함·RL 0–0 처리는 잠정 가설입니다. [배정·검수 기록](docs/boss-distance-element-assignments-2026-09-28.ko.md).
+**보스 거리·약점 속성 조건 (2026-09-29 원본 배포):** 솔로 레이드·단일 덱 통계의 적정 거리·우월 코드 체크박스를 보스 거리(0–100)와 보스 약점 속성(5속성) 팝업으로 바꾸고, 니케별 적정 사거리·속성으로 판정합니다. 양끝 포함·RL 0–0 처리는 잠정 가설입니다. [배정·검수 기록](docs/boss-distance-element-assignments-2026-09-28.ko.md) · [배포 기록](docs/desktop-release-original-2026-09-29.ko.md).
 
 **솔로 레이드 챌린지 레벨:** 검산은 내부적으로 싱크로 레벨 400을 사용합니다. 레벨 선택란은 없으며 계정의 실제 육성 레벨은 변경하지 않습니다. [변경·검증 범위](docs/solo-raid-challenge-level.ko.md).
 

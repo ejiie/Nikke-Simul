@@ -1,5 +1,7 @@
 # 원본 main 및 실제 사용자 실행본 갱신 — 2026-09-28 (client_f32)
 
+> 이후 2026-09-29에 원본 실행본이 다시 갱신됐다: [2026-09-29 원본 배포 기록](desktop-release-original-2026-09-29.ko.md). 이 문서의 client_f32 변경 내용은 그대로 유효하다.
+
 ## 현재 사용 경로
 
 **사용자는 기존 바탕 화면 `Nikke Simul.lnk`를 실행하면 된다.** 대상은 원본 실행 파일 `C:/Users/user/Documents/GitHub/Nikke-Simul/artifacts/desktop/win-x64/Nikke Simul.exe`이며, 바로가기 대상이 이 경로임을 배포 후 다시 확인했다. 바로가기와 경로는 변경하지 않았다. 원격 push는 하지 않았다.
