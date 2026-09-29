@@ -5,17 +5,28 @@ from public_fixture import read
 
 def scan_codes(s,page,label,selector='body'):
  text=page.locator(selector).inner_text()
- # Explicitly allowed internal field keys and event/replay identifiers are retained
- # as separate evidence. Do not confuse a hit #5004 with the character #5004.
+ record_identifiers(s,text,label)
+ # The final user rule permits event/replay identifiers, not character codes in
+ # visible diagnostic field paths. Do not confuse hit #5004 with character #5004.
  allowed=[]
  def permit(m):allowed.append(m.group(0));return ' [allowed internal/event identifier] '
- text=re.sub(r'combatProfiles\.characters\.\d+\.[A-Za-z]+',permit,text)
  text=re.sub(r'(?i)#\d+\s*\(Hit\s*#\d+\)',permit,text)
- text=re.sub(r'(?i)(?:타격|발사|함수|시전|hit|shot|function|replay|버스트 시전)\s*(?:(?:이벤트|ID)\s*)?#\s*\d+',permit,text)
+ text=re.sub(r'(?i)(?:타격|발사|시전|hit|shot|replay|버스트 시전)\s*(?:(?:이벤트|ID)\s*)?#\s*\d+',permit,text)
  pattern=r'(?<![\dA-Za-z])#?(?:'+('|'.join(re.escape(x) for x in s.ids+['5042']))+r')(?![\dA-Za-z])'
  found=[dict(token=m.group(0),context=text[max(0,m.start()-55):m.end()+55]) for m in re.finditer(pattern,text)]
  s.report.setdefault('codeScans',[]).append(dict(label=label,selector=selector,violations=found,allowed=allowed))
  s.check('U-FIX-3 no character codes '+label,not found,found)
+ functions=re.findall(r'(?:함수\s*#?\s*\d+|\bfunction:\d+)',text)
+ s.check('U-FIX-5 no function numbers '+label,not functions,functions)
+
+def record_identifiers(s,text,label):
+ # Inventory only; the later U-FIX-5 decision is enforced separately by scan_codes.
+ patterns={'hit/shot':r'(?:타격|발사|Hit|hit|shot)[^\n]{0,70}|#\d+\s*\(Hit #\d+\)',
+  'function':r'[^\n]*함수\s*#?\d+[^\n]*','replay':r'Replay ID:[^\n]*',
+  'fingerprint/version':r'[^\n]*(?:fingerprint|cpu-summary|p03\.skills|p04\.team|schema|규칙 p03)[^\n]*|\b[0-9a-f]{64}\b',
+  'policy':r'[^\n]*(?:client_f32|legacy_term_floor|final_round_even|nested_floor)[^\n]*'}
+ found={kind:list(dict.fromkeys(re.findall(pattern,text,re.I)))[:12] for kind,pattern in patterns.items()}
+ s.report.setdefault('identifierInventory',[]).append(dict(label=label,classification='inventory; U-FIX-5 forbids functions, permits hit/shot/replay/fingerprint/version/policy',observed=found))
 
 def cards(page):
  return page.locator('#stats-content .metric-card').evaluate_all('(es)=>Object.fromEntries(es.map(e=>[e.querySelector("span").textContent,e.innerText]))')
