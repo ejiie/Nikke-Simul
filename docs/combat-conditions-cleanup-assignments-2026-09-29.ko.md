@@ -30,7 +30,7 @@
   2. 조건 wire: 새 요청 기본값(180초·per_trigger·자동 DEF·크리 sample), 다른 명시값 400, `conditionProfile=legacy` 재현, `battleConditions` 저장·`/battle-conditions` 조회, 구 결과 GET/export 바이트 보존, fingerprint·튜닝 키 분리.
   3. 보스: 한국어 목록 43개·제외 0·이미지, `bossId` 저장, 보스만 다른 실험의 피해·키 동일, UI·API 응답에 출처·영문명·원본 ID 미노출.
   4. 화면 R1~R8(실제 격리 API + 브라우저): 약점 팝업 문구·한국어 속성, 거리 표(아이콘·한글 예외·미확정 문구 없음), 시간·방어력·샷건 입력 없음, 크리 기본 확률 적용, 보스 카드 선택, 전환 표시, 이전 기록 표시, 앱 화면의 Nikke-Local-Lab 표기 없음, 1500/850/500, 기존 회귀(F-COND-1·client_f32·통계).
-  - 담당 검사 스크립트·mock·정답 재사용 금지, 격리 dataRoot에서 `prepare_combat_conditions.py`·`prepare_solo_raid_bosses.py` 준비, 원본 `data/local`·5180/5181 불변, 부하·Q-CPU-10K 보류.
+  - 담당 검사 스크립트·mock·정답 재사용 금지, 격리 dataRoot에서 `prepare_combat_conditions.py`·`prepare_solo_raid_bosses.py` 준비, 원본 `data/local`·5180/5181 불변, 부하·Q-CPU-10K 보류. 전달 `term_234e279b…` 요청 `bd88c4e2-87ff-4436-a7b7-923a68c62fb3`, accepted=true·`input_accepted`·`turn_started`(지시서 `a16005f`).
 - **F2-U 2단계 통지(2026-09-29):** Backend `aa1b71e` 기준 R4·R8 실제 연결 + 앱 화면·코드 주석의 Nikke-Local-Lab 출처 표기 삭제.
 - (이전) 엔진 `1a86ec9` merge 통지(2026-09-29) — `term_e5d05982…` 요청 `eebad101-6fd8-4a9a-a8fb-b8203c2cf1ab`, accepted=true·`input_accepted`(작업 중 턴에 전달, 재전송 없음). **F2-U:** 진행 중.
 - **F2-U 1단계: 완료, Director 검토 수용.** UI `889b679`(`e98db6a` ff 위), [보고서](C:/Users/user/orca/workspaces/Nikke-Simul/UI/docs/combat-conditions-cleanup-ui.ko.md). 변경은 `apps/desktop-ui`·UI tests·UI 문서뿐(제품 `src`·QA `tests/q3` 0). Director가 mock 캡처(전투 조건 폼·보스 선택·거리 팝업, 1500px)를 확인했다.
