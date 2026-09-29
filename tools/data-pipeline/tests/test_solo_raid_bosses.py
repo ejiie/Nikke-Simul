@@ -1,8 +1,10 @@
+import copy
+import json
 import sys
 import unittest
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from prepare_solo_raid_bosses import assemble,digest
+from prepare_solo_raid_bosses import assemble,digest,reviewed_names,REVIEWED_NAMES
 
 
 class BossPreparationTests(unittest.TestCase):
@@ -29,6 +31,35 @@ class BossPreparationTests(unittest.TestCase):
     def test_duplicate_season_and_image_path_traversal_are_rejected(self):
         with self.assertRaises(ValueError):assemble(self.rows[:1]*2,{},lambda _:b'')
         with self.assertRaises(ValueError):assemble([dict(self.rows[0],monster_image='../bad')],{},lambda _:b'')
+
+    def test_changed_identity_and_unknown_season_never_inherit_a_known_name(self):
+        manifest=json.loads(REVIEWED_NAMES.read_text(encoding='utf-8'))
+        record=manifest['records'][0]
+        original={'raid_number':record['season'],'wave_name':record['expectedSourceName'],'monster_image':record['expectedSourceId']}
+        rows=[dict(original,monster_image='changed'),dict(original,raid_number=1000)]
+        names,issues=reviewed_names(rows,manifest)
+        catalog,internal,_=assemble(rows,names,lambda _:self.fail('unverified identity must not download'),issues)
+        self.assertFalse(catalog['complete'])
+        self.assertEqual(2,len(catalog['diagnostics']))
+        self.assertTrue(all(d['code']=='korean_name_unavailable' for d in catalog['diagnostics']))
+        self.assertEqual(issues[record['season']],internal[1]['detail'])
+
+    def test_reviewed_source_trace_is_required_and_not_public(self):
+        manifest=json.loads(REVIEWED_NAMES.read_text(encoding='utf-8'))
+        rows=[{'raid_number':r['season'],'wave_name':r['expectedSourceName'],'monster_image':r['expectedSourceId']} for r in manifest['records']]
+        names,issues=reviewed_names(rows,manifest)
+        self.assertFalse(issues)
+        self.assertEqual('울트라',names[37]['name'])
+        self.assertEqual('앨트루이아',names[42]['name'])
+        catalog,_,_=assemble(rows,names,lambda _:b'\x89PNG\r\n\x1a\nfixture')
+        self.assertEqual(43,len(catalog['bosses']))
+        self.assertTrue(catalog['complete'])
+        for boss in catalog['bosses']:
+            self.assertEqual({'id','name','season','imageUrl'},set(boss))
+        broken=copy.deepcopy(manifest)
+        broken['records'][0]['name']='추측한 이름'
+        with self.assertRaisesRegex(ValueError,'reviewed_name_not_in_adopted_source'):
+            reviewed_names(rows,broken)
 
 
 if __name__=='__main__':unittest.main()

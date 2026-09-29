@@ -1,11 +1,11 @@
 """Prepare public display-only bosses into an explicit, isolated presentation root.
 
-Korean names are extracted from Korean sources, never translated from English.
+Korean names use reviewed Korean sources, never translations from English.
 Unresolved names remain diagnostics; English names and source IDs/URLs stay internal.
 """
 import argparse
 import hashlib
-import html
+from datetime import datetime, timezone
 import json
 import re
 import urllib.request
@@ -14,22 +14,7 @@ from pathlib import Path
 
 ENIKK = 'https://enikk.app'
 QUERY = 'query { soloRaidSummaries { wave_name monster_image raid_number } }'
-# Korean reporting of the first solo raid; Korean official announcement reproduced by the event archive.
-NAME_SOURCES = [
-    {'seasons': [1, 29], 'url': 'https://www.inven.co.kr/webzine/news/?news=284716&site=nikke',
-     'pattern': r"솔로 레이드\s*['‘]([^'’<>]+)['’]"},
-    {'seasons': [41], 'url': 'https://dal.wiki/t/3mfSf1w8xI4j/e/TUCfdar5Gl0J',
-     'pattern': r'「([^」]+)」'},
-]
-# Reviewed identity mapping to existing Korean catalog records (no translated strings).
-KOREAN_BOSS_IDS = {
-    'f2cc3de5-b918-424d-aa2b-1ac9ae2928e0': [35],
-    '7fb2b973-bf5b-4b54-9bb5-2d109c6dfbcd': [36],
-    '87072f50-0aee-4040-9cb5-f6aabf4a9d57': [37],
-    '2f3ad99d-e6fd-4bd7-b5e5-25348bdd0cba': [38],
-    '8461f50c-ee62-43bb-a289-f4a19b564e16': [39],
-    '8337b763-38bc-4dab-89eb-952b34e0c3dc': [40],
-}
+REVIEWED_NAMES = Path(__file__).with_name('manifests') / 'solo-raid-korean-names.manifest.json'
 
 
 def digest(raw):
@@ -43,27 +28,41 @@ def download(url, body=None):
         return response.read(8 * 1024 * 1024 + 1)
 
 
-def korean_catalog():
-    # Read the same public anonymous catalog used by the Korean page; no login or user records.
-    origin = 'https://www.nikkesolo.com'
-    page = download(origin + '/').decode('utf-8')
-    for chunk in re.findall(r'<script[^>]+src="([^"]+)"', page):
-        if not chunk.startswith('/_next/static/chunks/'):
-            continue
-        script = download(origin + html.unescape(chunk)).decode('utf-8')
-        if 'boss_default' not in script:
-            continue
-        hosts = set(re.findall(r'https://[a-z0-9]+\.supabase\.co', script))
-        keys = re.findall(r'eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+', script)
-        if len(hosts) != 1 or not keys:
-            break
-        url = next(iter(hosts)) + '/rest/v1/bosses?select=id,title,image_path,starts_at,ends_at'
-        with urllib.request.urlopen(urllib.request.Request(url, headers={'apikey': keys[0]}), timeout=30) as response:
-            return response.read(), url
-    raise ValueError('korean_public_catalog_not_located')
+def reviewed_names(rows, manifest):
+    """Use pinned, reviewed facts; unknown/changed upstream identities stay unresolved."""
+    if manifest.get('schemaVersion') != 1 or manifest.get('visibility') != 'internal_only':
+        raise ValueError('invalid_korean_name_manifest')
+    sources, indexed = manifest['sources'], {}
+    for record in manifest['records']:
+        season = record['season']
+        if type(season) is not int or season < 1 or season in indexed:
+            raise ValueError('invalid_reviewed_season')
+        if not re.search('[가-힣]', record['name']) or not record.get('decision'):
+            raise ValueError('invalid_reviewed_korean_name')
+        if not any(e['source'] == record['adoptedSource'] and e['name'] == record['name'] for e in record['evidence']):
+            raise ValueError('reviewed_name_not_in_adopted_source')
+        refs = [record['adoptedSource']] + [e['source'] for e in record['evidence']]
+        for ref in refs:
+            source = sources[ref]
+            if datetime.fromisoformat(source['verifiedAt']).tzinfo is None:
+                raise ValueError('missing_source_verification_timezone')
+            if not source['kind'].startswith('user_') and not source.get('url', '').startswith('https://'):
+                raise ValueError('missing_korean_source_url')
+        indexed[season] = record
+    names, issues = {}, {}
+    for row in rows:
+        season = row['raid_number']
+        record = indexed.get(season)
+        if record is None:
+            issues[season] = '한국어 시즌 대응 미확인'
+        elif (row['wave_name'], row['monster_image']) != (record['expectedSourceName'], record['expectedSourceId']):
+            issues[season] = '원천 보스 식별 변경으로 한국어 시즌 대응 재확인 필요'
+        else:
+            names[season] = record
+    return names, issues
 
 
-def assemble(rows, korean, image_loader):
+def assemble(rows, korean, image_loader, name_issues=None):
     bosses = [{'id': 'dummy', 'name': '더미 보스', 'imageUrl': None, 'season': None}]
     diagnostics, internal, images = [], [], {}
     seen = set()
@@ -98,10 +97,11 @@ def assemble(rows, korean, image_loader):
             except (OSError, ValueError) as error:
                 code = 'boss_image_unavailable'
                 item['error'] = str(error)
-        item.update(displayable=False, reason=code)
+        message = (name_issues or {}).get(season, '한국어 이름 원천 미확인') if code == 'korean_name_unavailable' else '보스 이미지 준비 실패'
+        item.update(displayable=False, reason=code, detail=message)
         internal.append(item)
         diagnostics.append({'id': boss_id, 'season': season, 'code': code, 'displayable': False,
-                            'message': '한국어 이름 원천 미확인' if code == 'korean_name_unavailable' else '보스 이미지 준비 실패'})
+                            'message': message})
     return {'schemaVersion': 1, 'defaultBossId': 'dummy', 'bosses': bosses,
             'diagnostics': diagnostics, 'complete': not diagnostics}, internal, images
 
@@ -117,43 +117,17 @@ def prepare(output):
     if data.get('errors') or not data.get('data', {}).get('soloRaidSummaries'):
         raise ValueError('boss_source_query_failed')
     (sources / (digest(raw) + '.json')).write_bytes(raw)
-    names, name_receipts = {}, []
-    try:
-        content, url = korean_catalog()
-        sha = digest(content)
-        (sources / (sha + '.json')).write_bytes(content)
-        for row in json.loads(content):
-            for season in KOREAN_BOSS_IDS.get(row['id'], []):
-                if not re.search('[가-힣]', row['title']):
-                    continue
-                names[season] = {'name': row['title'], 'url': url, 'sha256': sha, 'recordId': row['id']}
-        name_receipts.append({'page': 'https://www.nikkesolo.com/', 'url': url, 'sha256': sha})
-    except (OSError, ValueError) as error:
-        name_receipts.append({'page': 'https://www.nikkesolo.com/', 'error': str(error)})
-    for spec in NAME_SOURCES:
-        receipt = dict(spec)
-        try:
-            content = download(spec['url'])
-            sha = digest(content)
-            (sources / (sha + '.html')).write_bytes(content)
-            text = html.unescape(content.decode('utf-8'))
-            matches = re.findall(spec['pattern'], text)
-            matches = sorted(set(x.strip() for x in matches if re.search('[가-힣]', x)))
-            if len(matches) != 1:
-                raise ValueError('korean_name_not_unique')
-            receipt.update(sha256=sha, name=matches[0])
-            for season in spec['seasons']:
-                names[season] = {'name': matches[0], 'url': spec['url'], 'sha256': sha}
-        except (OSError, ValueError) as error:
-            receipt['error'] = str(error)
-        name_receipts.append(receipt)
-    catalog, rows, images = assemble(data['data']['soloRaidSummaries'], names, download)
+    reviewed_raw = REVIEWED_NAMES.read_bytes()
+    reviewed = json.loads(reviewed_raw)
+    names, issues = reviewed_names(data['data']['soloRaidSummaries'], reviewed)
+    catalog, rows, images = assemble(data['data']['soloRaidSummaries'], names, download, issues)
     assets = output / 'assets/bosses'
     assets.mkdir(parents=True, exist_ok=True)
     for name, image in images.items():
         (assets / name).write_bytes(image)
     manifest = {'schemaVersion': 1, 'page': ENIKK + '/soloraid', 'queryUrl': ENIKK + '/api/graphql',
-                'querySha256': digest(raw), 'koreanSources': name_receipts, 'bosses': rows}
+                'querySha256': digest(raw), 'preparedAt': datetime.now(timezone.utc).isoformat(),
+                'reviewedNamesSha256': digest(reviewed_raw), 'koreanSources': reviewed, 'bosses': rows}
     (output / 'solo-raid-bosses.manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding='utf-8')
     pending = output / 'solo-raid-bosses.pending.json'
     pending.write_text(json.dumps(catalog, ensure_ascii=False, indent=2), encoding='utf-8')
