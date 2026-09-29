@@ -13,6 +13,7 @@ data-preparation hint; the API stays "connected" (not an outage); 1500/850/500px
 Output: artifacts/ui/combat-profile-errors/run-<id>/ (git-ignored). Exit 1 means NOT accepted.
 """
 import argparse
+import re
 import asyncio
 import json
 import os
@@ -35,9 +36,9 @@ from prepare_combat_conditions import write_runtime  # noqa: E402
 WIDTHS = [1500, 850, 500]
 CASES = {
     'member_min_missing': {'mutate': lambda c: c['combatProfiles']['characters']['5004'].pop('bonusRangeMin'),
-                           'code': 'combat_profile_invalid', 'expect': ['앨리스 ·', '최소 사거리(bonusRangeMin)', '값 없음(키 누락)']},
+                           'code': 'combat_profile_invalid', 'expect': ['앨리스 ·', '최소 사거리 ·', '값 없음(키 누락)']},
     'element_null': {'mutate': lambda c: c['combatProfiles']['characters']['5011'].__setitem__('element', None),
-                     'code': 'combat_profile_invalid', 'expect': ['리타 ·', '속성(element)', '값이 null']},
+                     'code': 'combat_profile_invalid', 'expect': ['리타 ·', '속성 ·', '값이 null']},
     'catalog_missing': {'mutate': None, 'code': 'combat_profile_catalog_missing', 'expect': ['준비되지 않았습니다']},
 }
 HINT = 'prepare_combat_conditions.py'
@@ -134,6 +135,8 @@ async def run_case(browser, name, spec, args, out, sources):
         await page.wait_for_selector('#replay-result [data-profile-error]', timeout=30000)
         replay_text = await page.locator('#replay-result').inner_text()
         result['replay'] = {'status': response.status, 'body': replay_body, 'text': replay_text}
+        if re.search(r'서버 원문|combatProfiles|combat_profile|\b50\d\d\b|bonusRange|\(element\)', replay_text):
+            problems.append(f'{name}: raw server text in replay diagnostic {replay_text!r}')  # U-FIX-6
         if response.status != 409 or not has_expected(replay_text):
             problems.append(f'{name}: replay diagnostic {response.status} {replay_text!r}')
         for width in WIDTHS:
@@ -158,6 +161,8 @@ async def run_case(browser, name, spec, args, out, sources):
         result['statistics'] = {'status': response.status, **{k: stats[k] for k in ('errors', 'pill')}}
         if response.status != 409 or not any(has_expected(e) for e in stats['errors']):
             problems.append(f'{name}: statistics diagnostic {response.status} {stats["errors"]}')
+        if re.search(r'서버 원문|combatProfiles|combat_profile|\b50\d\d\b|bonusRange', ' '.join(stats['errors'])):
+            problems.append(f'{name}: raw server text in statistics errors {stats["errors"]}')  # U-FIX-6
         if stats['pill'] != '실제 API 응답' or '미연결' in stats['text']:
             problems.append(f'{name}: statistics classified as outage (pill {stats["pill"]!r})')
         await page.locator('#stats-content').screenshot(path=str(case_out / 'stats-error.png'))

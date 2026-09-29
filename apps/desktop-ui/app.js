@@ -8,6 +8,7 @@ import { toServerTacticDto } from './damage-log-adapter.js';
 import { createSingleDeckStatsView } from './single-deck-stats.js';
 import { defaultPolicy, policyOptions } from './hit-policy.js';
 import { COND_WIRE, conditionWire, describeCombatProfileError, describeCompatibility, mountConditionControls } from './combat-conditions.js';
+import { friendlyServerMessage, slotLabel } from './display-labels.js';
 import { BOSS_WIRE, DEF_WIRE, DEFAULT_CRIT_MODE, DURATION_FRAMES, PELLET_POLICY, conditionsNote, critOptionsHtml, defenseFields, describeDefenseResult, describeSavedCombat, mountBossSelector } from './raid-conditions.js';
 
 const $=id=>document.getElementById(id);
@@ -93,8 +94,9 @@ async function api(path,method='GET',body){
   if(response.status===204)return null;
   const data=await response.json().catch(()=>({}));
   // status marks an HTTP answer; a rejected fetch (transport failure) carries none.
-  // code/details keep structured error bodies (e.g. 409 combat_profile_invalid {characterId, field, reason}).
-  if(!response.ok)throw Object.assign(new Error(data.message??`요청 실패 (${response.status})`),{status:response.status,code:data.code??null,details:data});
+  // U-FIX-6: the Error message is Korean screen text; the server text stays in serverMessage/details for logic only.
+  if(!response.ok)throw Object.assign(new Error(data.message?friendlyServerMessage(data.message,response.status):`요청 실패 (${response.status})`),
+    {status:response.status,code:data.code??null,details:data,serverMessage:data.message??null});
   return data;
 }
 Object.defineProperty(api,'token',{get:()=>boot.token,configurable:true});
@@ -246,7 +248,7 @@ formation.render=()=>{
 
 function renderDiagnostics(){
   const issues=(snapshot?.issues??[]).filter(i=>i.code!=='duplicate_identical');
-  $('advanced-content').innerHTML=`<div class="section-heading"><div><h2>고급 진단</h2><p>누락된 스펙과 저장 출처를 확인합니다.</p></div></div><article class="surface"><h3>수집 확인</h3>${issues.length?`<ul>${issues.map(i=>`<li data-issue-path="${esc(i.path)}">${esc(i.message)}</li>`).join('')}</ul>`:'<p>검토할 항목이 없습니다.</p>'}</article><article class="surface"><h3>최근 변경</h3><ul>${(snapshot?.changes??[]).slice(0,30).map(v=>`<li>${esc(v)}</li>`).join('')}</ul></article><article class="surface"><h3>이미지 출처</h3><p>이미지: 블라블라 및 사용자 제공 ZIP</p><p>캐릭터 ${state.presentation.characters.length}명 · ZIP 연결 ${state.presentation.importedPortraits??0}명 · 미수집 ${state.presentation.unresolved?.length??0}개</p></article>`;
+  $('advanced-content').innerHTML=`<div class="section-heading"><div><h2>고급 진단</h2><p>누락된 스펙과 저장 출처를 확인합니다.</p></div></div><article class="surface"><h3>수집 확인</h3>${issues.length?`<ul>${issues.map(i=>`<li data-issue-path="${esc(i.path)}">${esc(i.message)}</li>`).join('')}</ul>`:'<p>검토할 항목이 없습니다.</p>'}</article><article class="surface"><h3>최근 변경</h3><ul>${(snapshot?.changes??[]).slice(0,30).map(v=>`<li>${esc(String(v).replace(/: (head|torso|arms?|legs?) 장비/,(_,k)=>`: ${slotLabel(k)} 장비`))}</li>`).join('')}</ul></article><article class="surface"><h3>이미지 출처</h3><p>이미지: 블라블라 및 사용자 제공 ZIP</p><p>캐릭터 ${state.presentation.characters.length}명 · ZIP 연결 ${state.presentation.importedPortraits??0}명 · 미수집 ${state.presentation.unresolved?.length??0}개</p></article>`;
 }
 // R4: the fixed-DEF select stays only until the automatic switch wire is confirmed.
 const DEF_SELECT=()=>DEF_WIRE.confirmed?'':'<label>적 방어력<select name="defense"><option value="30925">30,925 · 누적 20억 전</option><option value="31784">31,784 · 누적 20억 후</option></select></label>';
@@ -315,14 +317,14 @@ function renderRaid(){
     catch(error){
       // Server data problems (combat profiles) get a Korean diagnostic; other errors keep the server message.
       const profile=typeof describeCombatProfileError==='function'?describeCombatProfileError(error,new Map(getMembersWithMeta().map(m=>[m.id,m.displayName]))):null;
-      if(profile)$('replay-result').innerHTML=`<p class="compute-warning" data-profile-error="${esc(profile.code)}">${esc(profile.text)}</p><p class="microcopy">서버 원문: ${esc(profile.raw)}</p>`;
+      if(profile)$('replay-result').innerHTML=`<p class="compute-warning" data-profile-error="${esc(profile.code)}">${esc(profile.text)}</p>`;
       else $('replay-result').textContent=error.message;
     }
     finally{$('run-replay').disabled=false;}
   };
 }
 function renderReplay(saved){
-  $('replay-result').innerHTML=`<article class="surface"><p class="eyebrow">검산 결과 · ${time(saved.createdAt)}</p><h2>총 대미지 ${num(saved.result.totalDamage)}</h2><p>실측 오차 검증 전 · 지정한 조건의 시뮬레이션 결과</p>${savedCombatLine(saved)}${COND_WIRE.confirmed?conditionModeLine(describeCompatibility(saved.conditionCompatibility)):''}<div id="burst-timeline-comparison"></div>${renderBurstSummary(saved.result.teamBurst)}<div class="simul-result-grid">${saved.result.members.map(m=>`<article><h3 data-character-id="${esc(m.characterId)}">${esc(state.presentationByCharacter.get(m.characterId)?.displayName??build(m.characterId)?.name??'이름 미확인')}</h3><strong>${num(m.damage)}</strong><dl>${Object.entries(m.effects).map(([effect,dmg],index)=>`<div><dt>${esc(effectLabel(saved,m.characterId,effect,index))}</dt><dd>${num(dmg)}</dd></div>`).join('')}</dl></article>`).join('')}</div><div id="damage-log-container"></div><details><summary>저장 결과 원문</summary><pre>${esc(JSON.stringify(saved,null,2))}</pre></details></article>`;
+  $('replay-result').innerHTML=`<article class="surface"><p class="eyebrow">검산 결과 · ${time(saved.createdAt)}</p><h2>총 대미지 ${num(saved.result.totalDamage)}</h2><p>실측 오차 검증 전 · 지정한 조건의 시뮬레이션 결과</p>${savedCombatLine(saved)}${COND_WIRE.confirmed?conditionModeLine(describeCompatibility(saved.conditionCompatibility)):''}<div id="burst-timeline-comparison"></div>${renderBurstSummary(saved.result.teamBurst)}<div class="simul-result-grid">${saved.result.members.map(m=>`<article><h3 data-character-id="${esc(m.characterId)}">${esc(state.presentationByCharacter.get(m.characterId)?.displayName??build(m.characterId)?.name??'이름 미확인')}</h3><strong>${num(m.damage)}</strong><dl>${Object.entries(m.effects).map(([effect,dmg],index)=>`<div><dt>${esc(effectLabel(saved,m.characterId,effect,index))}</dt><dd>${num(dmg)}</dd></div>`).join('')}</dl></article>`).join('')}</div><div id="damage-log-container"></div></article>`;
   tacticsManager.renderTimelineComparison($('burst-timeline-comparison'),saved.result?.teamBurst?.fullBursts,getMembersWithMeta());
   damageLogViewer.setReplay(saved);
   // Records saved before battleConditions existed: the read-only endpoint gives the conditions used (fixed DEF).

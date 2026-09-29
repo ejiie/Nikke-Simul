@@ -44,7 +44,7 @@ export function auditBurstTactics(membersWithMeta, tactics) {
     issues.push({
       code: 'stale_id',
       level: 'warning',
-      message: `편성에서 제외된 니케가 버스트 설정에 남아 있습니다: ${staleIds.join(', ')}`,
+      message: `편성에서 제외된 니케 ${staleIds.length}명이 버스트 설정에 남아 있습니다.`, // U-FIX-6: no character codes
       staleIds
     });
   }
@@ -407,6 +407,12 @@ function auditNikkeText(id, ctx) {
   if (id == null || id === '') return '출처 미기록';
   const name = ctx?.names?.get(String(id));
   return name ?? '이름 미확인 니케'; // character codes are not shown
+}
+
+// U-FIX-6: log-target notices name characters in Korean, never by code.
+function memberName(members, id) {
+  const m = (members ?? []).find(x => String(x?.id) === String(id));
+  return m?.displayName && String(m.displayName) !== String(id) ? m.displayName : '이름 미확인 니케';
 }
 
 function auditOriginText(sourceId, functionId, burstCastId, ctx) {
@@ -846,7 +852,7 @@ export async function fetchDamageLog(api, replayId, characterId, replayData, mem
           schemaVersion: null,
           truncated: false,
           log: null,
-          message: `현재 리플레이는 ${embeddedLog.characterId}의 대미지 로그만 수집되었습니다. ${characterId}의 로그를 수집하려면 대상을 선택하고 다시 검산하세요.`
+          message: `현재 리플레이는 ${memberName(membersWithMeta, embeddedLog.characterId)}의 대미지 로그만 수집되었습니다. ${memberName(membersWithMeta, characterId)}의 로그를 수집하려면 대상을 선택하고 다시 검산하세요.`
         };
       }
     } else {
@@ -928,7 +934,7 @@ export async function fetchDamageLog(api, replayId, characterId, replayData, mem
               schemaVersion: null,
               truncated: false,
               log: null,
-              message: `현재 리플레이는 ${serverLog.characterId}의 대미지 로그만 수집되었습니다. ${characterId}의 로그를 수집하려면 대상을 선택하고 다시 검산하세요.`
+              message: `현재 리플레이는 ${memberName(membersWithMeta, serverLog.characterId)}의 대미지 로그만 수집되었습니다. ${memberName(membersWithMeta, characterId)}의 로그를 수집하려면 대상을 선택하고 다시 검산하세요.`
             };
           }
         } else if (serverLog.schemaVersion && serverLog.schemaVersion !== DAMAGE_LOG_SCHEMA_VERSION) {

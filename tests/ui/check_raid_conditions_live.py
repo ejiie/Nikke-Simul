@@ -358,16 +358,32 @@ async def run(args):
                 if card and '자동 20억 전환 없음' in ' '.join(card) and card is not card2:
                     problems.append('old fixed DEF wording on an automatic experiment')
 
-            # U-FIX-3: no character codes in visible text of the raid and statistics screens.
+            # U-FIX-3/6: no character codes, raw keys, server texts or raw JSON in visible text of the raid and statistics
+            # screens. Allowed identifiers (user decision): hit/shot numbers, replay ID, fingerprint/versions/schema, policy ids.
             import re
-            code = re.compile(r'#\s?50\d\d|\b50\d\d\b')
+            code = re.compile(r'#\s?50\d\d|\b50\d\d\b|overload:|cube:|collection:|skill:\d|function:|combatProfiles|StatAtk|native_'
+                              r'|"source"|서버 원문|저장 결과 원문|\b(?!legacy_term_floor|final_round_even)[a-z]+_[a-z]+_[a-z_]+\b')
             stats_text = await page.locator('#stats-content').inner_text()
             await page.locator('[data-tab="raid"]').click()
             raid_text = await page.locator('#raid-content').inner_text()
-            leaks = [m for m in code.findall(stats_text + '\n' + raid_text)]
+            # F2-Q-3: switch the damage log to a member whose log was not collected -> notice by Korean names.
+            other = next(cid for cid in IDS if cid != '5004')
+            await page.locator('#log-character-select').select_option(other)
+            await page.wait_for_function("() => (document.querySelector('#damage-log-container')?.innerText ?? '').includes('대미지 로그만 수집되었습니다')", timeout=30000)
+            notice = await page.locator('#damage-log-container').inner_text()
+            notice_line = next((l for l in notice.splitlines() if '대미지 로그만 수집되었습니다' in l), '')
+            summary['logTargetNotice'] = notice_line
+            if f"{names.get('5004')}의 대미지 로그만" not in notice_line or f"{names.get(other)}의 로그를" not in notice_line:
+                problems.append(f'log target notice {notice_line!r}')
+            raw_json = await page.evaluate("() => [...document.querySelectorAll('#replay-result pre, #replay-result details summary')].map(e => e.textContent.slice(0, 40))")
+            summary['rawJsonBlocks'] = raw_json
+            if any('원문' in t or '{' in t for t in raw_json):
+                problems.append(f'raw result JSON still on screen {raw_json}')
+            raid_text_after = await page.locator('#raid-content').inner_text()
+            leaks = [m for m in code.findall(stats_text + '\n' + raid_text + '\n' + raid_text_after)]
             summary['codeLeaks'] = leaks
             if leaks:
-                problems.append(f'character codes visible: {leaks[:5]}')
+                problems.append(f'codes/raw keys visible: {leaks[:5]}')
             summary['pageErrors'] = errors
             if errors:
                 problems.append(f'page errors {errors}')

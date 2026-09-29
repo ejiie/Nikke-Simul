@@ -92,7 +92,7 @@ await check('cpu_run_never_reported_as_gpu', () => {
   assert.equal(gpu.mismatch, false);
   assert.equal(adapter.describeExecutionSelection(null).backendLabel, adapter.UNKNOWN);
   const markup = html({ batch: { ...batches.gpuFallback } });
-  assert.ok(markup.includes('gpu_not_implemented'));
+  assert.ok(markup.includes('CPU 대체 원인: GPU 계산 미구현') && !markup.includes('gpu_not_implemented')); // U-FIX-6
   const mismatchMarkup = html({ batch: { ...batches.running, execution: selections.forcedGpuMismatch } });
   assert.ok(mismatchMarkup.includes('GPU 성공으로 표시하지 않습니다'));
 });
@@ -305,7 +305,7 @@ await check('controller_reports_analysis_and_gpu_rejection', async () => {
   await controller.refreshHardware();
   await controller.start();
   let model = controller.getModel();
-  assert.ok(model.errors.some(e => e.includes('gpu_unavailable')));
+  assert.ok(model.errors.some(e => e.includes('GPU 사용 불가')) && !model.errors.some(e => e.includes('gpu_unavailable'))); // U-FIX-6: Korean only
   await controller.mount('stats-content'); // no document in node: render is a no-op, state still loads
   model = controller.getModel();
   assert.equal(model.recovered, true);
@@ -329,10 +329,11 @@ await check('n1_analysis_shows_point_estimates_and_scoped_reason', () => {
   assert.equal(single.team.meanCi.text, '미지원');
   assert.equal(single.team.cutSuccess.text, '100%');
   assert.notEqual(single.team.cutCi.text, '미지원');           // Wilson interval is supplied for n=1
-  assert.match(single.team.unsupportedReasonText, /평균 CI·표본 표준편차는 표본 2건 이상 필요.*mean_ci_requires_n_at_least_2/);
+  assert.match(single.team.unsupportedReasonText, /평균 CI·표본 표준편차는 표본 2건 이상 필요/);
+  assert.ok(!single.team.unsupportedReasonText.includes('mean_ci_requires')); // U-FIX-6: no raw code
   const markup = html({ statistics: statistics.singleAnalysis, batch: batches.completed });
   assert.ok(markup.includes('48,120,007') && markup.includes('17,000,011'));
-  assert.ok(markup.includes('mean_ci_requires_n_at_least_2'));
+  assert.ok(markup.includes('표본 2건 이상 필요') && !markup.includes('mean_ci_requires_n_at_least_2'));
 });
 
 await check('n0_analysis_invents_no_values', () => {
@@ -403,7 +404,7 @@ await check('controller_combat_profile_invalid_is_not_an_outage', async () => {
   await controller.start();
   const model = controller.getModel();
   assert.equal(model.endpointStatus, 'connected');
-  assert.ok(model.errors.some(e => e.includes('사거리·속성 데이터 오류 · 앨리스 · 속성(element) · 값이 null')), model.errors.join(' | '));
+  assert.ok(model.errors.some(e => e.includes('사거리·속성 데이터 오류 · 앨리스 · 속성 · 값이 null')), model.errors.join(' | '));
   assert.ok(!view.renderSingleDeckStats(model).includes('compute API 미연결'));
   controller.dispose();
 });

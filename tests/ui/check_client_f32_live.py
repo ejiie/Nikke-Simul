@@ -400,8 +400,8 @@ async def stats_fix_checks(page, base, api, out, problems, result, experiment_id
     for label in ('표본 표준편차', '평균 CI'):
         if probe['cards'].get(label) != '미지원':
             problems.append(f'U-FIX-1 n1: {label} shows {probe["cards"].get(label)!r} for a null API value')
-    if 'mean_ci_requires_n_at_least_2' not in probe['text']:
-        problems.append('U-FIX-1 n1: scoped reason not shown')
+    if '표본 2건 이상 필요' not in probe['text'] or 'mean_ci_requires_n_at_least_2' in probe['text']:
+        problems.append('U-FIX-1/U-FIX-6 n1: scoped reason not shown in Korean only')
     _, batch = api.call('compute/experiments/' + experiment_id)
     order = batch['input']['characterIds']
     if len(probe['members']) != len(order):

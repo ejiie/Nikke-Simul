@@ -65,6 +65,40 @@ await check('effect_basis_and_unknown_type_labels', () => {
   assert.ok(!leak.test(`${d.basisText} ${u.label} ${u.basisText}`));
 });
 
+// U-FIX-6: server texts are shown in Korean only; log-target notices use names.
+await check('server_messages_korean_only', () => {
+  const f = labels.friendlyServerMessage;
+  assert.equal(f('boss_id_unknown', 400), '선택한 보스를 찾을 수 없습니다. 보스를 다시 선택하세요.');
+  assert.equal(f('combat_profile_invalid: combatProfiles.characters.5004.bonusRangeMin: missing', 409), '사거리·속성 데이터에 오류가 있습니다.');
+  assert.equal(f('combat_profile_catalog_missing: prepare pinned public roster catalog', 409), '사거리·속성 데이터가 준비되지 않았습니다.');
+  assert.equal(f('statAttack_must_be_integer_never_truncated', 400), '요청을 처리하지 못했습니다 (HTTP 400).');
+  assert.equal(f('Unexpected server failure', 500), '요청을 처리하지 못했습니다 (HTTP 500).');
+  assert.equal(f('편성을 먼저 저장하세요.', 400), '편성을 먼저 저장하세요.');           // Korean server text without codes is kept
+  assert.equal(f('캐릭터 5004 데이터 없음', 400), '요청을 처리하지 못했습니다 (HTTP 400).'); // Korean text with a code is not
+  assert.equal(f(null), '요청을 처리하지 못했습니다.');
+});
+
+await check('log_target_notice_uses_names', async () => {
+  const members = [{ id: '5004', displayName: '앨리스' }, { id: '5011', displayName: '리타' }];
+  const replay = { id: 'r1', conditions: {}, result: { damageLog: { schemaVersion: 1, characterId: '5004', status: 'complete', entries: [], totalDamage: 1 } } };
+  const embedded = await adapter.fetchDamageLog(async () => { throw new Error('no server'); }, 'r1', '5011', replay, members);
+  assert.equal(embedded.message, '현재 리플레이는 앨리스의 대미지 로그만 수집되었습니다. 리타의 로그를 수집하려면 대상을 선택하고 다시 검산하세요.');
+  const server = await adapter.fetchDamageLog(async () => ({ exportSchemaVersion: 1, collectionStatus: 'complete',
+    replay: { result: { damageLog: { schemaVersion: 1, characterId: '5004', status: 'complete', entries: [], totalDamage: 1 } } } }), 'r1', '5011', { id: 'r1' }, members);
+  assert.ok(server.message.startsWith('현재 리플레이는 앨리스의') && server.message.includes('리타의 로그'));
+  const unknown = await adapter.fetchDamageLog(async () => { throw new Error('x'); }, 'r1', '5044', replay, members);
+  assert.ok(unknown.message.includes('이름 미확인 니케의 로그') && !/50\d\d/.test(unknown.message + embedded.message + server.message));
+});
+
+await check('compute_reason_codes_korean', () => {
+  const r = labels.reasonLabel;
+  assert.equal(r('bounded_workload_benchmark'), '제한된 후보 실측으로 선택');
+  assert.equal(r('full_battle_provider_not_implemented'), '전체 전투 GPU 계산 미구현');
+  assert.equal(r('some_new_reason_code'), '기타 사유');
+  assert.equal(r('사용자 지정'), '사용자 지정');
+  assert.equal(r(null), null);
+});
+
 const failed = checks.filter(c => !c.passed);
 console.log(JSON.stringify({ total: checks.length, failed: failed.length, checks }, null, 2));
 if (failed.length) process.exit(1);
