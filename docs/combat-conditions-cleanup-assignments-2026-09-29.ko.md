@@ -41,7 +41,7 @@
   - F2-Q-1: DEF 카드를 저장 `battleConditions`·`defPolicy`와 `runs[].defense`로 표시 — 예정(자동 전환 설명), 자동·전환 없음("전환 없음 · N회 모두 누적 20억 이하"), 자동·전환 있음(시작→최종 DEF·시각·캐릭터·누적, 여러 회는 N회 중 K회 + 첫 결과), legacy(이전 방식 고정 DEF).
   - 캐릭터 코드 정리: 통계 덱 목록·OL 비교·피해 audit 효과 출처·사거리/속성 진단·조건 멤버 미리보기·편성/전술 요약·버스트 사이클 표·검산 결과 멤버 제목·피해 로그 대상·버스트 전술 목록 → 한글 이름 또는 "이름 미확인". 데이터 속성·내부 키·타격/발사/함수 번호·replay ID는 유지.
   - UI 보고 실제 격리 API + Chromium: 자동·전환 없음, 자동·전환 있음(1,253프레임 누아르 누적 2,000,901,314 = `runs[].defense`), legacy fixed 31,784 세 경우 카드 일치, 솔로레이드·통계 화면 텍스트의 캐릭터 코드 0건. 기존 회귀 통과.
-- **F2-Q 재수용 통지(2026-09-29):** UI `ad6d3f0` 기준 F2-Q-1·캐릭터 코드 제거 재검 + F2 회귀.
+- **F2-Q 재수용 통지(2026-09-29):** UI `ad6d3f0` 기준 F2-Q-1·캐릭터 코드 제거 재검 + F2 회귀. 전달 `term_234e279b…` 요청 `fd0a3c46-2ef5-4676-a874-fe0bc2aab232`, accepted=true·`input_accepted`·`turn_started`.
 - **F2-U 2단계 통지(2026-09-29):** Backend `aa1b71e` 기준 R4·R8 실제 연결 + 앱 화면·코드 주석의 Nikke-Local-Lab 출처 표기 삭제.
 - (이전) 엔진 `1a86ec9` merge 통지(2026-09-29) — `term_e5d05982…` 요청 `eebad101-6fd8-4a9a-a8fb-b8203c2cf1ab`, accepted=true·`input_accepted`(작업 중 턴에 전달, 재전송 없음). **F2-U:** 진행 중.
 - **F2-U 1단계: 완료, Director 검토 수용.** UI `889b679`(`e98db6a` ff 위), [보고서](C:/Users/user/orca/workspaces/Nikke-Simul/UI/docs/combat-conditions-cleanup-ui.ko.md). 변경은 `apps/desktop-ui`·UI tests·UI 문서뿐(제품 `src`·QA `tests/q3` 0). Director가 mock 캡처(전투 조건 폼·보스 선택·거리 팝업, 1500px)를 확인했다.
