@@ -1,4 +1,100 @@
-# U-FIX-7 재수용 QA — 잔여 2유형 차단 (2026-10-02)
+# U-FIX-7 허용 목록 전환 QA — 화면 적용 누락 2유형 차단 (2026-10-02)
+
+**최신 판정: 전체 수용 차단.** UI `5243062`에서 이전 U7-Q-1·2의 잔여 재현과 U7-Q-3은 수용한다. 새 검사에서는 **등록 객체의 상속 속성이 표시값으로 통과하는 경로(U7-Q-4)**와 **미등록 조건 모드 원값 출력(U7-Q-5)**이 남았다. 새 실행 **1,253개 중 1,247 통과·6 실패(2유형)**. 정상 등록 안내·수치·단위·유지 번호에서 확인된 과잉 차단은 없다. 아래 두 건은 기존 코드에도 있던 경로로, 이번 변경이 새로 만든 회귀라고 주장하지 않는다.
+
+## 대상·독립성·기대값 변경
+
+- QA `f5a8057`에서 `git merge --no-edit 5243062`, 충돌 0. 병합 커밋 **`e01ec8fca306772799fc750c60bc435171966cff`**. 검수 AGENTS·Git 상태/로그, UI 보고서 6절, Director 진행 표를 읽었다.
+- 새 격리 API·dataRoot·Chromium으로 **검수 소유** 도구만 실행했다. [허용 목록 화면 검사](../tests/single_deck_compute_qa/check_ufix7_allowlist.py)는 독립 작성했다. 구현/리뷰 검사·mock·정답 및 등록 목록 생성기는 실행하거나 가져오지 않았다.
+- 정상 안내 대조군은 UI 테스트나 생성 목록에서 추출하지 않고 제품 서버의 실제 사용처 `SnapshotNormalizer.cs`, `CalculationService.cs`, `CharacterEditService.cs`, `SyncCoordinator.cs`, `collector.py`에서 골랐다. 소스에 존재하는지도 검사했다.
+- 사용자 결정으로 **미등록 한국어 문장도 일반 문구로 대체**해야 한다. 이전 QA가 임의 작성한 문장 4개(`앨리스의 머리 장비를 확인하세요.`, `배율 3.5배…`, `GPU를…`, `LV.5…`)의 허용 기대를 일반 안내 기대로 변경했다. 정상 수치·단위 보존을 이 임의 서버 문장과 혼동하지 않고 실제 UI·등록 문구에서 별도 검사했다. 이미지 상태 대체 안내 2개도 새 상태별 문구로 기대값을 갱신했다. 이 6개는 동일 기대값의 회귀 통과로 포장하지 않는다.
+- `8da098f..5243062`의 엔진/API `src`·`tools`·기존 QA 코드 변경 0. 검수 Release API DLL 사용, R4 probe 새 실행. 제품 `apps`·`src`·`tools`는 `5243062`와 동일하게 유지했다. 실제 제공 JS와 API projectRoot는 기존 QA 경로 검사로 재확인했다.
+
+## 이전 결함 재수용
+
+| 항목 | 새 실제 API·브라우저 판정 |
+|---|---|
+| U7-Q-1 원래 접미사·상단 B3×B4×B5 카드 | `qa_unknown_transform`, `floor_if_qa_condition` 모두 표는 **저장된 연산 미확인**, 카드는 **미제공**. 추정 숫자 없음 |
+| U7-Q-1 숫자/공백 경계 | `0x10`, `0b11`, 끝 개행 2종 모두 표·카드 미확인. 네 정책 정상 저장 단계 설명은 유지 |
+| U7-Q-2 원래/잔여 혼합 문자열 | `effectiveAttack`, `effectiveDefense`, `calculation.terms`, `terms[].name`, `terms[0].operation`, `attackBuffs[0].source`, `cache/replays`, 실제 역슬래시를 포함한 `runtime\catalog`, `skill1Rate` 차단. 고급 진단 실제 DB/API·연결·검산 오류·장치 사유 확인 |
+| U7-Q-3 null 로그 | 이전 전송 실패와 확장 11경로×7검사 **77/77**. 한국어 안내·JS 예외0·저장 보존·정상 그래프 복구 유지 |
+| 저장 계약 | data-term·저장 operation·단계 입출력 수치·피해·GET/JSON/CSV export 보존 |
+
+이전 확장 도구는 새 기대값 4개를 포함해 **148/148** 통과했다. 원래 차단 16검사는 전부 통과했다. 새 근거 `f2-ufix6-43854c583575`의 `factor-variant-*.json/png`, `mixed-*.json/png`, `log-*.json/png`, `trace.zip`.
+
+## U7-Q-4 — 미등록 키가 등록 객체의 상속 속성으로 해석됨
+
+위치: `apps/desktop-ui/display-labels.js:111` → `single-deck-stats.js:121`, `combat-conditions.js:100` → 거리 팝업. 일반 객체의 `MAP[key] ?? 일반문구` 접근은 명시 등록 키뿐 아니라 상속 속성도 반환한다.
+
+| 실제 화면에 공급한 미등록 값 | 실제 표시 | 요구 동작 |
+|---|---|---|
+| 장치 `reason = constructor` | `function Object() { [native code] }` | `기타 사유` |
+| 장치 `reason = toString` | `function toString() { [native code] }` | `기타 사유` |
+| 장치 `reason = __proto__` | `[object Object]` | `기타 사유` |
+| 무기군 `weaponType = constructor` / `__proto__` | 각각 위 함수 / 객체 표현 | `무기군 미확인` |
+
+실제 격리 API의 hardware 응답 중 장치 사유 필드, combat-conditions 응답 중 무기군 필드만 QA가 주입했다. **프로토타입 변경이나 제품 코드 실행 주입은 하지 않았다.** 평범한 문자열 키 조회만으로 출력된다. 대조군 `gpu_unavailable`→`GPU 사용 불가`, `SMG`→`기관단총`, 임의 미등록 일반 키→한국어 일반 문구는 통과했다. 따라서 누락 원인은 상속 속성까지 포함한 조회이며, 허용 목록 등록 키와 구분해야 한다.
+
+근거: `f2-ufix6-851c0acf394e/hardware-3.json/png`, `hardware-4.json/png`, `hardware-5.json/png`, `weapon-2.json/png`, `weapon-3.json/png`, `trace.zip`. 화면을 직접 확인했다. 장치 식별 해시·드라이버·사거리·인원은 보존됐다. **5개 실패, 같은 원인 1유형**.
+
+## U7-Q-5 — 미등록 조건 모드가 일반 안내 뒤 괄호에 그대로 출력됨
+
+위치: `apps/desktop-ui/combat-conditions.js:162`, `describeCompatibility`의 미등록 mode 분기. label은 허용 목록으로 처리하지만 `(${compat.mode})`는 원값이다.
+
+1. 실제 API가 생성한 로그 포함 replay의 QA 저장 사본을 만든다.
+2. `conditionCompatibility.mode = qa_unknown_mode`, `label = 검사 필요: terms[].name`을 저장한다.
+3. 사본을 실제 GET→일반 검산 화면으로 연다.
+4. label은 차단되지만 **알 수 없는 조건 모드 (qa_unknown_mode)**가 표시된다. 미등록 mode는 일반 한국어 안내만 보여야 한다.
+
+정상 `per_member`의 거리35·약점 작열, `legacy_global`의 적정 거리 적용·우월 코드 미적용은 통과했다. mode는 사용자 확정 유지 번호(정책 id·schema·버전 등)에 해당하지 않는다. 저장 JSON과 API 바이트는 변하지 않았다.
+
+근거: `f2-ufix6-851c0acf394e/compatibility-3.json/png`, `data/skill-replays/`의 해당 사본, `trace.zip`. **1개 실패, 1유형**.
+
+## 허용 목록·과잉 차단 검사
+
+새 허용 목록 검사 **80개 중 74 통과·6 실패**. 위 두 유형 외에는 다음 범위를 통과했다.
+
+- **고급 진단 실제 DB/API:** 서버에서 사용하는 정확한 안내 6개 보존. 예: `스킬 레벨은 1~10입니다.`, `4부위 입력이 필요합니다.`, 로그인 세션 만료 안내. 배열/파일 경로·임의 한국어·등록 문구 뒤 내부 키·끝 개행·앞 공백은 일반 수집 안내. `data-issue-path`·DB 원문 보존.
+- **최근 변경:** 계정 스탯/큐브·스펙 변경 없음·최초 수집200명, 알려진 앨리스 이름·머리 장비 표시 유지. 모르는 이름은 이름 미확인 니케, 미등록 템플릿은 일반 변경 안내. 저장 원문 보존.
+- **연결 실패/검산 HTTP 400:** 등록 안내와 1~10 수치 보존, 미등록·변형 5종은 일반 안내. 서버 응답의 임의 `display:true`로 표시 허용을 우회할 수 없음. 등록 오류 코드의 한국어 180초 의미 유지.
+- **장치:** 정상 등록 사유·탐지 안내, 미등록 일반 문구, 장치 해시·드라이버1.25 유지. 상속 속성 예외는 위 차단과 분리한다.
+- **조건 팝업:** 0~100 정수·45–100 범위·인원과 조작 유지. 실제 입력3.5에서 `보스 거리는 0~100 사이 정수로 입력하세요.` 안내 유지. 사거리는 원래 단위 없는 수치이므로 QA가 임의로 m를 붙이지 않는다.
+- **피해 로그/정상 계산 화면:** 초·프레임·퍼센트·배율·정책 id·schema, 타격·발사·버스트 시전 번호와 replay ID 보존. 기존 전수 예외 검사에서 HTTP 503 export 안내와 이미지 상태별 한국어 문구도 통과.
+
+최초 새 검사 시도는 양성 문구 소스 목록에 `CharacterEditService.cs`를 누락하고 거리 표시를 `35m`로 오인한 QA 오류를 수정한 후 재실행했다. 해당 시도는 최종 합계에서 제외했다. 제품 실패 6개는 수정 전후 같은 화면에서 재현됐으며, 양쪽 시도 JS 예외는 0이었다.
+
+## 최종 회귀·보존·인계
+
+모든 아래 상대 경로는 검수 `artifacts/single-deck-qa/` 기준이다. 최종 색인 **`ufix7-allowlist/evidence-index.json`**, 실행 귀속·제품 무변경·DLL/lock 해시는 `provenance.json`. 일부 기존 도구의 `b401421`/`59fe22d` 메타데이터·`ufix6` 폴더 접두사는 남아 있지만 **옛 PASS 결과를 재사용하지 않았으며 모두 `5243062` 병합 후 새 실행**했다.
+
+| 새 실행 | 통과/전체 | 근거 폴더 |
+|---|---:|---|
+| 기존 검산·operation·버스트·export | 210/210 | `f2-ufix6-3bd7d155377d` |
+| 전수 예외 화면 | 37/37 | `f2-ufix6-fca15d7fd532` |
+| 누락 단계·로그 실패 최소 재현 | 13/13 | `f2-ufix6-dea7e0d2f78b` |
+| 이전 같은 유형 확장 | 148/148 | `f2-ufix6-43854c583575` |
+| 새 허용 목록 화면·정상 대조군 | 74/80 | `f2-ufix6-851c0acf394e` |
+| F2 API·Chromium·DEF6·보스·조건 | 332/332 | `f2-ufix6-af96ab54e427` |
+| client_f32·통계·복구 | 75/75 | `f32-b2-6d94ac451202` |
+| source17종·네 정책·GET/export | 155/155 | `f2-ufix6-c7b60018de6f` |
+| 진단·실제400/409·손상 profile | 104/104 | `f2-ufix6-668abea89a26` |
+| 기존 F2-Q-3·4 archive | 12/12 | `f2-ufix6-f80e1dc40e6d` |
+| R4 엔진10입력·41타격 독립 산술 | 87/87 | `ufix7-allowlist/engine-audit.json` |
+
+- 직전 QA의 **1,173개 의무를 모두 새 실행에 대응**, 누락0. 동일 기대1,167개와 앞서 밝힌 의도적 변경6개를 구분한다(`previous-qa-coverage.json`). 원래 차단16개 전부 통과. 기존 375목록의 범위 내317/317, 456목록의 범위 내390/390, `/legacy` 제외58/66·누락0(`regression-coverage.json`).
+- **19,462타격 독립 산술 오류0**, 팀24,007,922,311 = 멤버 합 = 타격 합 = replay = compute. DEF 전환750프레임·누적2,013,492,851 유지. DEF6·보스43/이미지42·조건 wire·fingerprint·통계 회귀 통과.
+- F2-Q-6 archive 총피해749,761,509·SHA256 `2ea1762e9e743a548cf56a6bdcc7709ed50804f24a3b96340bb4c6a9afbcac87` 불변. 허용 식별자 위치·화면 스캔은 새 `identifier-inventory.json`, `visible-text-inventory.json`에 보존했다.
+- 본인 격리 API **18개 PID(재시도 포함)** 종료·프로세스 부재 확인(`owned-process-cleanup.json`). 공개 입력 hash와 미추적 `package-lock.json` SHA256 `2ef4178aa07ddd9ac2e4d47422038d02d8adaadfb15586cee6a2f1995253c767` 보존·비커밋. QA 도구 구문 검사·`git diff --check` 통과.
+- 원본 `C:/Users/user/Documents/GitHub/Nikke-Simul/data/local`·계정/세션/캐시·5180/5181 미접근. 사용자 EXE `C:/Users/user/Documents/GitHub/Nikke-Simul/artifacts/desktop/win-x64/Nikke Simul.exe` 실행·갱신 없음. 제품 수정·새 워커·push·배포 없음.
+- **미판정:** 실사용자 덱·실게임 실측·GPU 실행·부하/1만회·최적성·원본 EXE 배포/실행 수용. 부하 측정 보류 유지.
+- 재실행: `run_ufix7_readmission.py --allowlist --dotnet <SDK>`, `check_ufix7_families.py --allowlist --dotnet <SDK>`, `check_ufix7_allowlist.py --dotnet <SDK>`, 기존 R4 probe→독립 산술 검사. 색인 `summarize_ufix7_readmission.py --allowlist`. `--allowlist` 없는 이전 기대값도 보존했다.
+- 이 보고서를 포함하는 확정 QA 커밋·통과/차단/미판정을 Director 터미널 재조회 후 **한 번 인계**한다. 원본 배포 완료 보고가 아니다.
+
+---
+
+# 이전 재수용 QA — UI 8da098f, QA f5a8057 (역사 기록)
+
+아래는 2차 판정이다. 최신 판정은 위 허용 목록 전환 절을 따른다.
 
 **최종 판정: 전체 수용 차단.** UI `8da098f`에서 기존 U7-Q-1·2·3의 최소 재현은 모두 수정 수용한다. 다만 같은 유형 확장 검사에서 **상단 카드의 미등록 연산 배율 추정(U7-Q-1 잔여)**과 **한국어 문장에 섞인 배열 경로 등 내부 식별자 노출(U7-Q-2 잔여)**이 남았다. U7-Q-3은 확장 경로까지 수용한다. 새 실행 **1,173개 중 1,157 통과·16 실패(잔여 결함 2유형)**. 제품 코드 수정 0.
 

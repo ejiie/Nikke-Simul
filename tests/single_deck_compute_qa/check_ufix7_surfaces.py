@@ -48,10 +48,10 @@ def run(s,ctx):
         p=page_for([('**/api/bootstrap',mutate(alter))]);p.locator('[data-tab="import"]').click();snap(p,'bootstrap-'+mode,'body',words=(expected,))
         p.locator('[data-tab="home"]').click();snap(p,'connection-card-'+mode,'#account-list',words=('저장된 스펙 열기',));p.close()
     p=page_for([('**/api/presentation/status',mutate(lambda b:b.update(status='failed',revision=731,message=MARK)))])
-    snap(p,'image-update-message','#status',words=('이미지 갱신 상태가 바뀌었습니다.',));p.close()
+    snap(p,'image-update-message','#status',words=('이미지 갱신에 실패했습니다.' if getattr(s,'allowlist',False) else '이미지 갱신 상태가 바뀌었습니다.',));p.close()
     p=page_for([('**/api/presentation/refresh',lambda r:r.fulfill(status=200,json=dict(message=MARK)))])
     p.locator('[data-tab="import"]').click();p.locator('#refresh-images').click();p.wait_for_timeout(350)
-    snap(p,'image-refresh-message','#status',words=('이미지 갱신을 요청했습니다.',));p.close()
+    snap(p,'image-refresh-message','#status',words=('이미지 갱신 상태가 바뀌었습니다.' if getattr(s,'allowlist',False) else '이미지 갱신을 요청했습니다.',));p.close()
     # Unknown weapon code in the actual fetched catalog (isolated response field fault).
     def unknown_weapon(b):b['weaponRanges'][0]['weaponType']=MARK
     p=page_for([('**/api/runtime/combat-conditions',mutate(unknown_weapon))]);p.locator('[data-tab="raid"]').click();p.locator('[data-cond-open="distance"]').click();p.wait_for_selector('tr[data-weapon="'+MARK+'"]')
@@ -122,7 +122,7 @@ def run(s,ctx):
     s.check('no browser exceptions in injected paths',not s.report['errors'],s.report['errors'])
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--dotnet',required=True);a=p.parse_args();s=Session(a.dotnet)
+    p=argparse.ArgumentParser();p.add_argument('--dotnet',required=True);p.add_argument('--allowlist',action='store_true');a=p.parse_args();s=Session(a.dotnet);s.allowlist=a.allowlist
     s.report.update(product='b401421',scope='U-FIX-7 QA-authored exceptional screen path injection',responseMocks='explicit QA field/error injection only; underlying server is real')
     try:
         with sync_playwright() as pw:

@@ -1,9 +1,9 @@
 """Fresh rerun of QA-owned U-FIX-7 repros and accepted regressions."""
 import argparse,json,os,subprocess,sys
 from pathlib import Path
-p=argparse.ArgumentParser();p.add_argument('--dotnet',required=True);a=p.parse_args()
-root=Path(__file__).resolve().parents[2];out=root/'artifacts/single-deck-qa/ufix7-readmission';out.mkdir(exist_ok=True)
-cases=[('audit','check_ufix7_audit.py',[]),('surfaces','check_ufix7_surfaces.py',[]),('missing','check_ufix7_missing.py',[]),
+p=argparse.ArgumentParser();p.add_argument('--dotnet',required=True);p.add_argument('--allowlist',action='store_true');a=p.parse_args()
+root=Path(__file__).resolve().parents[2];out=root/('artifacts/single-deck-qa/ufix7-allowlist' if a.allowlist else 'artifacts/single-deck-qa/ufix7-readmission');out.mkdir(exist_ok=True)
+cases=[('audit','check_ufix7_audit.py',[]),('surfaces','check_ufix7_surfaces.py',['--allowlist'] if a.allowlist else []),('missing','check_ufix7_missing.py',[]),
        ('f2','check_f2_conditions.py',[]),('f32','check_f32_b2.py',['--f2-legacy-regression','--desktop-only']),
        ('sources','check_f2_sources.py',[]),('diagnostics','check_f2_ufix6.py',[]),
        ('archive34','check_f2_sources.py',['--inspect-archive',str(root/'artifacts/single-deck-qa/f2-ufix3-554048887882/data/skill-replays/b41c653c67fa48dfa35cb46547de88ab.json')])]

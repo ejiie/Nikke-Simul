@@ -75,7 +75,9 @@ def messages(s,ctx):
     with sqlite3.connect(s.data/'accounts.db') as db:db.execute('UPDATE snapshots SET payload=?',(json.dumps(s.snapshot),))
     s.start(ctx.request);p=open_page(s,ctx,'advanced');rows=p.locator('[data-issue-path]').all_inner_texts();s.save('mixed-paths',dict(inputs=bad,good=good,rows=rows))
     for i,key in enumerate(bad):s.check('persisted internal form '+key+' hidden',key not in rows[i],dict(input=key,visible=rows[i]))
-    for i,txt in enumerate(good):s.check('ordinary Korean preserved '+str(i),rows[len(bad)+i]==txt,rows[len(bad)+i])
+    for i,txt in enumerate(good):
+        expected='수집 값을 확인해야 합니다.' if getattr(s,'allowlist',False) else txt
+        s.check(('unregistered QA Korean generic ' if getattr(s,'allowlist',False) else 'ordinary Korean preserved ')+str(i),rows[len(bad)+i]==expected,rows[len(bad)+i])
     p.screenshot(path=str(s.run/'mixed-paths.png'),full_page=True);p.close()
     # One array path through three independently reached caller families.
     wire='검사 필요: terms[0].operation'
@@ -123,7 +125,7 @@ def logs(s,ctx):
         p.close()
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--dotnet',required=True);p.add_argument('--phase',choices=['operations','messages','logs','all'],default='all');a=p.parse_args();s=Session(a.dotnet);s.report.update(product='8da098f',scope='U-FIX-7 independent family expansion '+a.phase,responseMocks='Explicit QA fault injections only')
+    p=argparse.ArgumentParser();p.add_argument('--dotnet',required=True);p.add_argument('--allowlist',action='store_true');p.add_argument('--phase',choices=['operations','messages','logs','all'],default='all');a=p.parse_args();s=Session(a.dotnet);s.allowlist=a.allowlist;s.report.update(product='5243062' if a.allowlist else '8da098f',scope='U-FIX-7 independent family expansion '+a.phase,responseMocks='Explicit QA fault injections only')
     try:
         with sync_playwright() as pw:
             browser=pw.chromium.launch(headless=True);ctx=browser.new_context(viewport=dict(width=1500,height=1000));ctx.tracing.start(screenshots=True,snapshots=True,sources=True)
