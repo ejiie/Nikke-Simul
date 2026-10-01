@@ -1,4 +1,97 @@
-# U-FIX-7 독립 QA — 차단 (2026-10-01~02)
+# U-FIX-7 재수용 QA — 잔여 2유형 차단 (2026-10-02)
+
+**최종 판정: 전체 수용 차단.** UI `8da098f`에서 기존 U7-Q-1·2·3의 최소 재현은 모두 수정 수용한다. 다만 같은 유형 확장 검사에서 **상단 카드의 미등록 연산 배율 추정(U7-Q-1 잔여)**과 **한국어 문장에 섞인 배열 경로 등 내부 식별자 노출(U7-Q-2 잔여)**이 남았다. U7-Q-3은 확장 경로까지 수용한다. 새 실행 **1,173개 중 1,157 통과·16 실패(잔여 결함 2유형)**. 제품 코드 수정 0.
+
+## 재수용 기준·실행
+
+- QA `706d7fd`에서 `git merge --no-edit 8da098f` 실행, 충돌 0. 병합 커밋 **`89e903e3d20cb3112916781c4573650f76b4cbc6`**. 검수 AGENTS·Git 상태와 UI 보고서 6절·Director 지시서 진행 표를 다시 읽었다.
+- 이전 **검수 소유** 최소 재현·회귀 도구를 새 격리 dataRoot/API/Chromium에서 재실행했다. [확장 검사](../tests/single_deck_compute_qa/check_ufix7_families.py)는 이번에 독립 작성했다. 구현·리뷰 검사, mock, 정답은 가져오거나 실행하지 않았다.
+- 네 정책의 실제 POST→저장→GET→타격 근거 화면, 새 합성 DB의 issues→실제 snapshot API→고급 진단, QA가 작성한 전송/HTTP/필드 주입을 구분했다. 손상 operation·혼합 메시지는 자연 발생 사례로 주장하지 않는다.
+- UI 표시 변경이며 `b401421..8da098f`의 `src`·`tools`·기존 독립 QA 도구 변경 0. API는 이전 QA가 빌드한 검수 Release DLL을 사용했고 R4 엔진 probe는 새 실행했다. `/api/health.projectRoot`·실제 제공 JS와 검수 worktree의 일치를 기존 검사에서 재확인했다. 제품 `apps`·`src`·`tools`는 검사 후에도 `8da098f`와 동일하다.
+
+## 기존 최소 재현 수용
+
+| 이전 결함 | `8da098f` 관찰·판정 |
+|---|---|
+| U7-Q-1 단계 표 | 두 원래 접미사 `qa_unknown_transform`·`floor_if_qa_condition` 모두 **저장된 연산 미확인**. 저장·data-term·수치·JSON/CSV export 불변. 최소 재현 수용, 아래 상단 카드 잔여는 차단 |
+| U7-Q-2 고급 진단 | 실제 합성 DB의 `검사 필요: effectiveAttack`·`검사 필요: calculation.terms` 모두 한국어 대체 안내. 최소 재현 수용, 아래 배열 경로 잔여는 차단 |
+| U7-Q-3 로그 전송 실패 | 실제 API로 만든 로그 미수집 replay의 fallback 요청만 전송 차단. 한국어 안내, JS 예외 0, 저장 불변. 수용 |
+
+직전 QA의 **1,025개 검사 전부 새 실행에서 통과**했다. `previous-qa-coverage.json`에 이전 항목을 대응시켰다. 새 저장 사본의 무작위 replay ID를 포함하는 GET 검사 이름만 순서별로 정규화했고 실제 새 ID도 함께 기록했다. 이전 실패 5개 역시 모두 통과했다.
+
+## 잔여 차단 근거
+
+### U7-Q-1 잔여 — 같은 미등록 연산에서 표는 미확인, 상단 배율 카드는 숫자 단정
+
+위치: `apps/desktop-ui/damage-log-adapter.js:670`·`:673` → `damage-log.js:103`. 단계 설명의 전체 문자열 검사는 고쳐졌지만, `buildDamageBreakdown`은 여전히 `^multiply\s+([^;\s]+)`로 앞부분만 읽는다. 따라서 UI 보고서 6절의 “접두사 검사는 남아 있지 않다”는 화면 전체에는 성립하지 않는다.
+
+1. 실제 `nested_floor` 120프레임 로그의 검수 전용 사본을 만든다.
+2. 첫 타격 B3·B4·B5의 operation만 `multiply 1.25; qa_unknown_transform`으로 바꾼다. before·after·damage는 바꾸지 않는다.
+3. 실제 저장 GET을 일반 replay 경로로 열고 첫 타격 근거를 클릭한다.
+4. 세 단계 설명은 **저장된 연산 미확인**, 같은 패널 상단 **B3 × B4 × B5** 카드는 **1.25 × 1.25 × 1.25**로 표시된다. `floor_if_qa_condition` 접미사도 동일하다.
+
+카드 숫자는 별도 확정된 저장 배율이 아니라 위 미등록 operation에서 읽은 값이다. 등록되지 않은 연산에서 배율을 추정하지 않고 미확인으로 표시해야 한다. 계산/저장 피해 변조 결함은 아니다.
+
+근거: `f2-ufix6-6b69b0dae9c5/factor-variant-0.json/png`, `factor-variant-1.json/png`, `trace.zip`. 저장 terms와 카드·단계 DOM을 함께 기록했고 실제 화면을 육안 확인했다. 사본/API 바이트 불변.
+
+같은 계열 추가 관찰: 끝 개행 변형 두 개도 표는 미확인인데 카드에서 1.25로 해석한다. `multiply 0x10`·`multiply 0b11`은 단계와 카드가 각각 16·3으로 해석한다. 엔진의 `HitCalculator.cs:152`가 기록하는 `{factor:R}` 숫자 형태 밖의 표현까지 `Number()`가 허용하는 경계다. 이들은 별도 결함 수를 늘리지 않고 **등록 연산 전체와 숫자 표현을 일관되게 검증해야 하는 동일 유형**으로 기록했다. 주 차단은 원래 두 미등록 접미사만으로도 성립한다.
+
+### U7-Q-2 잔여 — 배열 경로·경로 구분자·숫자 포함 내부 식별자가 한국어에 섞이면 노출
+
+위치: `apps/desktop-ui/display-labels.js:76`의 `CODE_LIKE` → `koreanText`·`friendlyServerMessage`·`reasonLabel` 호출 화면.
+
+새 합성 DB의 `snapshot.issues[].message`를 저장한 뒤 실제 API와 고급 진단에서 관찰했다.
+
+| 실제 저장 message | 실제 표시 |
+|---|---|
+| `검사 필요: effectiveDefense` / `검사 필요: calculation.terms` | 한국어 대체 안내 — 통과 |
+| `검사 필요: terms[].name` | 그대로 노출 — 실패 |
+| `검사 필요: terms[0].operation` | 그대로 노출 — 실패 |
+| `검사 필요: attackBuffs[0].source` | 한국어 대체 안내 — 통과 |
+| `검사 필요: cache/replays` / `검사 필요: runtime\catalog` / `검사 필요: skill1Rate` | 그대로 노출 — 실패 |
+
+배열 괄호 뒤의 점 경로는 현재 정규식에 잡히지 않는다. 동일한 `검사 필요: terms[0].operation`을 **연결 실패 안내·검산 HTTP 400 오류·장치 reason/probeFailures**에도 독립 주입했고 세 화면 모두 노출을 재현했다. `terms[].name`은 지시서가 금지한 구조 경로이며 유지 대상 번호나 수식이 아니다. 정상 한국어 문장과 `3.5배`·`GPU`·`LV.5`는 보존 통과했다.
+
+근거: `f2-ufix6-6b69b0dae9c5/mixed-paths.json/png`, `data/accounts.db`, `mixed-connection.json`, `mixed-error.json`, `mixed-device.json`, `trace.zip`. DB 경로는 실제 API, 후자 세 화면은 QA 필드/오류 응답 주입이다.
+
+## 확장 통과·회귀 결과
+
+모든 경로는 검수 worktree의 `artifacts/single-deck-qa/` 기준이다. 최종 색인 **`ufix7-readmission/evidence-index.json`**. 아래는 모두 이번 제품에서 새로 실행한 결과이며, 도구의 이전 `b401421`/`59fe22d` 메타데이터·`ufix6` 폴더 접두사는 실행 귀속을 뜻하지 않는다.
+
+| 실행 | 통과/전체 | 새 근거 폴더 |
+|---|---:|---|
+| 검산 표·미등록/누락 연산·버스트·export | 210/210 | `f2-ufix6-ae2573671670` |
+| 전수 예외 화면·무기군·서버 원문 | 37/37 | `f2-ufix6-fb2566ec8c74` |
+| 누락 단계·기존 로그 실패 최소 재현 | 13/13 | `f2-ufix6-cc9e23e62ab8` |
+| 같은 유형 확장 | 132/148 | `f2-ufix6-6b69b0dae9c5` |
+| F2 API·Chromium·DEF6·보스·조건 | 332/332 | `f2-ufix6-a802d51032e1` |
+| client_f32·통계·복구 | 75/75 | `f32-b2-896756cc93ae` |
+| source17종·네 정책·GET/export | 155/155 | `f2-ufix6-ba1535c559b2` |
+| 진단·실제400/409·손상 profile | 104/104 | `f2-ufix6-10c58ecce8af` |
+| 이전 F2-Q-3·4 archive | 12/12 | `f2-ufix6-64d10be5ecde` |
+| R4 엔진10입력·41타격 독립 산술 | 87/87 | `ufix7-readmission/engine-audit.json` |
+
+- 네 정책의 모든 저장 단계에 임의 접두사·접미사를 붙인 표 설명은 전부 미확인 처리, 정상 원문 대조군은 설명 유지, data-term·API/저장 바이트 보존(36검사). 위 카드·숫자 경계는 별도 차단이다.
+- **null/빈 로그 11경로 × 7검사 = 77/77**: 미수집, 빈 HTTP 응답, HTTP 400·404·409·500·503, 전송 실패, 미지원 schema의 내장/별도 endpoint, 정상 피해 0. 한국어 상태, 그래프 생략, 서버 영문 오류 미노출, JS 예외 0, 미수집에서만 미리보기 opt-in, 저장 보존, 이후 정상 로그 그래프 복구 통과. 요청 URL·화면·오류 배열은 각 `log-*.json/png`에 보존했다.
+- 독립 Fraction 산술 **19,462타격 오류 0**, 팀 **24,007,922,311** = 멤버 합 = 타격 합 = replay = compute. 방어 전환 750프레임·누적 2,013,492,851 유지. DEF6조합·보스43개/이미지42개·조건 wire·fingerprint 회귀 통과.
+- 과거 375목록의 범위 내317/317, 456목록의 범위 내390/390. 명시 제외 `/legacy` 58/66, 누락0(`regression-coverage.json`). F2-Q-6 archive 총피해749,761,509·SHA256 `2ea1762e9e743a548cf56a6bdcc7709ed50804f24a3b96340bb4c6a9afbcac87` 불변.
+- 유지 번호(타격·발사·버스트 시전·replay ID), fingerprint·버전·schema·정책 id·준비 스크립트·장치 해시는 수용 범주를 유지했다. `identifier-inventory.json`, `visible-text-inventory.json`에 기존 스캔을 새로 기록했다.
+
+재시도 두 개는 최종 합계에서 제외했다(`attempt-index.json`). 첫 시도는 정상 피해 0 안내를 QA가 `피해 0`으로 찾은 잘못을 실제 문구 `피해 기록 0`으로 수정했다. 두 번째는 첫 미수집 화면의 30초 표시 대기 초과로 중단됐으며 JS 예외는 기록되지 않았다. 원인을 단정하지 않는다. 대기를 60초로 늘리고 실패 시 화면·trace 보존을 추가한 최종 전 범위 실행에서는 모두 완료됐고, 잔여 두 유형은 세 시도에서 반복됐다.
+
+## 보존·미판정·확정 인계
+
+- 본인 격리 API **20개 PID(재시도 포함)** 종료 및 프로세스 부재 확인: `ufix7-readmission/owned-process-cleanup.json`. 공개 입력 hash 보존, 미추적 `package-lock.json` hash `2ef4178aa07ddd9ac2e4d47422038d02d8adaadfb15586cee6a2f1995253c767` 불변·비커밋.
+- 원본 `C:/Users/user/Documents/GitHub/Nikke-Simul/data/local`·계정/세션/캐시·5180/5181에 접근하지 않았다. 사용자 EXE `C:/Users/user/Documents/GitHub/Nikke-Simul/artifacts/desktop/win-x64/Nikke Simul.exe` 실행·갱신 없음. 새 워커·push·통합 배포·제품 수정 없음.
+- **미판정:** 실사용자 덱·실게임 실측·GPU 실행·부하/1만회·최적성·원본 EXE 배포/실행 수용. 부하 측정 보류 유지.
+- 재실행: [run_ufix7_readmission.py](../tests/single_deck_compute_qa/run_ufix7_readmission.py) 및 [check_ufix7_families.py](../tests/single_deck_compute_qa/check_ufix7_families.py)에 `--dotnet <.NET 10 SDK 실행 파일>` 전달. 엔진 `DefenseProbe/Probe.csproj`→`check_defense_probe.py`, 색인 [summarize_ufix7_readmission.py](../tests/single_deck_compute_qa/summarize_ufix7_readmission.py). 제품에 대한 UI 소유 테스트는 실행하지 않는다.
+- 이 갱신을 포함하는 QA 확정 커밋의 전체 SHA·보고서·통과/차단/미판정을 Director 터미널 재조회 후 한 번 인계한다. 원본 배포 완료를 뜻하지 않는다.
+
+---
+
+# 이전 QA 기록 — UI b401421, QA 706d7fd (역사 기록)
+
+아래는 1차 판정이다. 최신 수용·잔여 차단은 위 재수용 절을 따른다.
 
 **판정: 기존 F2-Q-6의 정상 저장본 표시 수정은 수용하나, U-FIX-7 전체 수용은 차단한다.** 미등록 곱셈 연산 추정, 한국어에 섞인 내부 키 노출, 로그 조회 실패 시 화면 예외의 세 경로가 남았다. **새 실행 1,025개 검사 중 1,020 통과·5 실패(결함 3개)**다. 제품 코드는 수정하지 않았다.
 
