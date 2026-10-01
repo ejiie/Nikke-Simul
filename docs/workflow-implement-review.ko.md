@@ -9,6 +9,20 @@
 - 리뷰 차단 기준은 아래 7개로 한다.
 - **적용 시점:** 진행 중인 F-COND-2([지시서](combat-conditions-cleanup-assignments-2026-09-29.ko.md))는 기존 담당 구조로 마치고, **그 다음 요구부터** 새 구조를 쓴다.
 
+## 적용 현황 (2026-10-01)
+
+사용자 지시("일단은 새 구조부터 적용")로 F-COND-2 배포 직후부터 적용한다.
+
+| 역할 | 위치 | 세션 | 상태 |
+|---|---|---|---|
+| 구현 (sonnet-5.5) | 작업 영역의 기존 worktree(첫 작업은 `UI`) | Claude Code `claude --model sonnet --effort <지시서 값>` | 사용자 실행 대기 |
+| 리뷰 (astra-6) | 새 worktree `C:/Users/user/orca/workspaces/Nikke-Simul/리뷰` (브랜치 `ejiie/리뷰`, 기준 Director `3d84fe4`) | Codex `codex --model gpt-6-astra -c model_reasoning_effort="medium"` + `/permissions` Full access | worktree 생성 완료, 세션 사용자 실행 대기 |
+| 독립 QA | 기존 `검수` worktree (Codex, xhigh로 설정됨) | 기존 세션 | 유지 |
+
+Director의 에이전트 세션 생성(권한 우회 플래그 포함)은 자동 승인 정책에서 거부되어, 세션 실행은 사용자가 Orca에서 직접 한다. 리뷰 담당은 git 메타데이터 쓰기가 필요하므로(구현 커밋 merge·빌드) Full access가 필요하다(Backend 세션 권한 차단 전례).
+
+전달 경로: 구현 인계 → Director → 리뷰 통지 → 리뷰 판정 → Director → (반려 시 구현에 재지시 / 통과 시 QA 통지). 담당끼리 직접 보내지 않는다.
+
 ## 흐름
 
 ```text
