@@ -73,8 +73,9 @@ await check('server_messages_korean_only', () => {
   assert.equal(f('combat_profile_catalog_missing: prepare pinned public roster catalog', 409), '사거리·속성 데이터가 준비되지 않았습니다.');
   assert.equal(f('statAttack_must_be_integer_never_truncated', 400), '요청을 처리하지 못했습니다 (HTTP 400).');
   assert.equal(f('Unexpected server failure', 500), '요청을 처리하지 못했습니다 (HTTP 500).');
-  assert.equal(f('편성을 먼저 저장하세요.', 400), '편성을 먼저 저장하세요.');           // Korean server text without codes is kept
-  assert.equal(f('캐릭터 5004 데이터 없음', 400), '요청을 처리하지 못했습니다 (HTTP 400).'); // Korean text with a code is not
+  assert.equal(f('평타 계수가 없습니다.', 400), '평타 계수가 없습니다.');                       // registered server text is kept
+  assert.equal(f('편성을 먼저 저장하세요.', 400), '요청을 처리하지 못했습니다 (HTTP 400).');   // unregistered Korean text is not shown either
+  assert.equal(f('캐릭터 5004 데이터 없음', 400), '요청을 처리하지 못했습니다 (HTTP 400).');
   assert.equal(f(null), '요청을 처리하지 못했습니다.');
 });
 
@@ -95,17 +96,41 @@ await check('compute_reason_codes_korean', () => {
   assert.equal(r('bounded_workload_benchmark'), '제한된 후보 실측으로 선택');
   assert.equal(r('full_battle_provider_not_implemented'), '전체 전투 GPU 계산 미구현');
   assert.equal(r('some_new_reason_code'), '기타 사유');
-  assert.equal(r('사용자 지정'), '사용자 지정');
+  assert.equal(r('사용자 지정'), '기타 사유'); // U-FIX-7: allow-list only
   assert.equal(r(null), null);
 });
 
-// U-FIX-7 QA: Korean text mixed with internal identifiers is not shown as is (U7-Q-2).
-await check('mixed_korean_and_internal_identifiers_are_replaced', () => {
-  for (const raw of ['검사 필요: effectiveAttack', '검사 필요: calculation.terms', '확인: characters.5004.equipment.head', '값 오류 snake_case_code', '확인 필요 EngineVersion']) {
+// U-FIX-7 (QA 2nd block): server text is shown only when registered (allow-list); no deny-list of "code-like" shapes.
+await check('unregistered_server_text_is_never_shown_whatever_it_contains', () => {
+  const registered = '평타 계수가 없습니다.';
+  const mixed = ['검사 필요: effectiveAttack', '검사 필요: calculation.terms', '검사 필요: terms[].name', '검사 필요: terms[0].operation',
+    '검사 필요: attackBuffs[0].source', '검사 필요: cache/replays', '검사 필요: runtime\catalog', '검사 필요: skill1Rate', '검사 필요: multiply 1.25; qa_unknown_transform',
+    '검사 필요: 0x10', '정상처럼 보이는 한국어 문장입니다.', 'plain english', `${registered} terms[0].operation`, `${registered}
+`, ` ${registered}`];
+  for (const raw of mixed) {
     assert.equal(labels.koreanText(raw, '대체'), '대체', raw);
-    assert.notEqual(labels.friendlyServerMessage(raw), raw, raw);
+    assert.equal(labels.friendlyServerMessage(raw, 400), '요청을 처리하지 못했습니다 (HTTP 400).', raw);
+    assert.equal(labels.errorText(Object.assign(new Error(raw), { status: 500 })), '요청을 처리하지 못했습니다 (HTTP 500).', raw);
+    assert.equal(labels.reasonLabel(raw), '기타 사유', raw);
   }
-  for (const ok of ['수집 값을 확인해야 합니다.', '장비 티어·강화·제조사를 확인하세요.', '평타 계수가 없습니다.', '배율 3.5배 적용', 'LV.5 달성']) assert.equal(labels.koreanText(ok, '대체'), ok, ok);
+  assert.equal(labels.koreanText(registered, '대체'), registered);
+  assert.equal(labels.errorText(new Error(registered)), registered);
+  assert.ok(labels.isRegisteredMessage('수집기를 완료하지 못했습니다.'));
+  // UI-authored Korean (display errors, labels) keeps its numbers and abbreviations.
+  for (const ok of ['배율 3.5배 적용', 'GPU를 사용할 수 없습니다.', 'LV.5 달성', '서버 로그 내보내기 실패 (HTTP 500)'])
+    assert.equal(labels.errorText(labels.displayError(ok)), ok, ok);
+  assert.equal(labels.friendlyServerMessage('gpu_unavailable'), 'GPU를 사용할 수 없습니다.');
+});
+
+await check('snapshot_change_lines_use_registered_templates', () => {
+  const known = new Set(['앨리스']);
+  const d = labels.describeChange;
+  assert.equal(d('앨리스: 스펙 변경', known), '앨리스: 스펙 변경');
+  assert.equal(d('앨리스: head 장비/잠금 변경', known), '앨리스: 머리 장비/잠금 변경');
+  assert.equal(d('최초 수집: 12명', known), '최초 수집: 12명');
+  assert.equal(d('계정 스탯 변경', known), '계정 스탯 변경');
+  assert.equal(d('5004: 신규 수집', known), '이름 미확인 니케: 신규 수집');
+  assert.equal(d('앨리스: terms[0].operation 변경', known), '변경 내역 (상세 미확인)');
 });
 
 // U-FIX-7 QA: a log lookup without a log shows a Korean notice and never builds the graph (U7-Q-3).
@@ -125,6 +150,12 @@ await check('missing_damage_log_shows_korean_notice_without_exception', async ()
       assert.ok(!text.includes('Failed to fetch') && !text.includes('boom') && !text.includes('damage-graph-svg'));
     }
   } finally { delete globalThis.document; }
+});
+
+await check('registered_messages_match_server_sources', async () => {
+  const { spawnSync } = await import('node:child_process');
+  const r = spawnSync(process.execPath, [path.join(root, 'tests/ui/tools/gen_registered_messages.mjs'), '--check'], { encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr + r.stdout);
 });
 
 const failed = checks.filter(c => !c.passed);

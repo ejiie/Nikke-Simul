@@ -366,6 +366,15 @@ const STEP_DESCRIPTIONS = {
   product: '기본 × B × extra × 감소 × 방어비율 × 우월 코드 배율 (float32, 좌→우 곱)'
 };
 const UNKNOWN_OPERATION = '저장된 연산 미확인';
+// Registered multiplication forms only (HitCalculator): `multiply <factor>` or `multiply <factor>; floor`, where <factor> is
+// a strict decimal as .NET "R" writes it. Hex/binary, whitespace, trailing newline or any other suffix is not registered.
+const STRICT_DECIMAL = String.raw`-?(?:0|[1-9]\d*)(?:\.\d+)?(?:E[+-]?\d+)?`;
+const MULTIPLY_OPERATION = new RegExp(`^multiply (${STRICT_DECIMAL})(; floor)?$`);
+export function parseMultiplyOperation(operation) {
+  const m = typeof operation === 'string' ? MULTIPLY_OPERATION.exec(operation) : null;
+  const factor = m ? Number(m[1]) : NaN;
+  return Number.isFinite(factor) ? { factor, floored: m[2] !== undefined } : null;
+}
 // Stored operations the engine writes (HitCalculator); a step is described only when its stored operation is one of these.
 const KNOWN_OPERATIONS = {
   effectiveAttack: ['native + grouped rounded native * (OL + passive + active skill rates) + caster-based flat grants', 'checked int64 grouped rate/10000, then flat grants'],
@@ -395,11 +404,9 @@ export function describeStepOperation(name, operation, policy) {
     return op === 'floor' ? '내림' : UNKNOWN_OPERATION;
   }
   if (name === 'B3' || name === 'B4' || name === 'B5') {
-    // Registered forms only: `multiply <factor>` or `multiply <factor>; floor` (HitCalculator); any other suffix is unconfirmed.
-    const m = /^multiply ([^;\s]+)(; floor)?$/.exec(op);
-    const factor = m ? Number(m[1]) : NaN;
-    if (!Number.isFinite(factor)) return UNKNOWN_OPERATION;
-    return `× ${formatAuditNumber(factor)} 곱함${m[2] ? ' (곱한 뒤 내림)' : ''}`;
+    const multiply = parseMultiplyOperation(op);
+    if (!multiply) return UNKNOWN_OPERATION;
+    return `× ${formatAuditNumber(multiply.factor)} 곱함${multiply.floored ? ' (곱한 뒤 내림)' : ''}`;
   }
   if (op === 'floor') return name === 'base' ? '내림' : name === 'distance' || name === 'fullBurst' || name === 'critical' || name === 'core' ? '기본 피해 × 보너스 비율 (내림)' : UNKNOWN_OPERATION;
   if (name === 'distance' || name === 'fullBurst' || name === 'critical' || name === 'core') return UNKNOWN_OPERATION;
@@ -667,10 +674,10 @@ export function buildDamageBreakdown(entry) {
     ? bonuses.reduce((sum, b) => sum + (b.active ? b.bonus : 0), 0) : null;
   const factors = ['B3', 'B4', 'B5'].map(name => {
     const t = term(name);
-    const match = /^multiply\s+([^;\s]+)/.exec(t?.operation ?? '');
-    const factor = match ? Number(match[1]) : NaN;
-    return { name, label: AUDIT_TERM_LABELS[name], present: Boolean(t), factor: isFiniteNumber(factor) ? factor : null,
-      before: val(t?.before), after: val(t?.after), floored: /floor/.test(t?.operation ?? '') };
+    // The factor is read only from a registered operation string; anything else leaves it unconfirmed (null).
+    const multiply = parseMultiplyOperation(t?.operation);
+    return { name, label: AUDIT_TERM_LABELS[name], present: Boolean(t), factor: multiply ? multiply.factor : null,
+      before: val(t?.before), after: val(t?.after), floored: multiply ? multiply.floored : false };
   });
   const finalValue = val(finalTerm?.after) ?? val(minimumTerm?.after);
   const storedDamage = val(entry?.damage);

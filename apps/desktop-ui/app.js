@@ -8,7 +8,7 @@ import { toServerTacticDto } from './damage-log-adapter.js';
 import { createSingleDeckStatsView } from './single-deck-stats.js';
 import { defaultPolicy, policyOptions } from './hit-policy.js';
 import { COND_WIRE, conditionWire, describeCombatProfileError, describeCompatibility, mountConditionControls } from './combat-conditions.js';
-import { errorText, friendlyServerMessage, koreanText, slotLabel } from './display-labels.js';
+import { describeChange, errorText, friendlyServerMessage, koreanText, slotLabel } from './display-labels.js';
 import { BOSS_WIRE, DEF_WIRE, DEFAULT_CRIT_MODE, DURATION_FRAMES, PELLET_POLICY, conditionsNote, critOptionsHtml, defenseFields, describeDefenseResult, describeSavedCombat, mountBossSelector } from './raid-conditions.js';
 
 const $=id=>document.getElementById(id);
@@ -96,7 +96,7 @@ async function api(path,method='GET',body){
   // status marks an HTTP answer; a rejected fetch (transport failure) carries none.
   // U-FIX-6: the Error message is Korean screen text; the server text stays in serverMessage/details for logic only.
   if(!response.ok)throw Object.assign(new Error(data.message?friendlyServerMessage(data.message,response.status):`요청 실패 (${response.status})`),
-    {status:response.status,code:data.code??null,details:data,serverMessage:data.message??null});
+    {display:true,status:response.status,code:data.code??null,details:data,serverMessage:data.message??null});
   return data;
 }
 Object.defineProperty(api,'token',{get:()=>boot.token,configurable:true});
@@ -165,7 +165,7 @@ async function refresh(force=false){
     const update=await api('/presentation/status');
     if(update.status!==imageStatus||update.revision!==imageRevision){
       imageStatus=update.status;imageRevision=update.revision;
-      if(imageStatus!=='idle')status(koreanText(update.message,'이미지 갱신 상태가 바뀌었습니다.'));
+      if(imageStatus!=='idle')status(imageMessage(update));
       if(['succeeded','partial'].includes(imageStatus)){await loadPresentation();renderNikkeCards();formation.render();renderDiagnostics();}
     }
     document.body.dataset.ready='true';
@@ -194,7 +194,7 @@ function renderSync(){
   if($('reauth'))$('reauth').onclick=()=>act(()=>api(`/connections/${c.id}/reauth`,'POST'));
   if($('cancel-sync'))$('cancel-sync').onclick=()=>act(()=>api(`/sync-jobs/${j.id}/cancel`,'POST'));
   document.querySelectorAll('[data-area]').forEach(b=>b.onclick=()=>act(()=>api(`/connections/${c.id}`,'PATCH',{area:Number(b.dataset.area)})));
-  $('refresh-images').onclick=()=>act(async()=>{const result=await api('/presentation/refresh','POST');imageStatus=result.status;status(koreanText(result.message,'이미지 갱신을 요청했습니다.'));});
+  $('refresh-images').onclick=()=>act(async()=>{const result=await api('/presentation/refresh','POST');imageStatus=result.status;status(imageMessage(result));});
 }
 function renderAccount(){
   const target=$('account-content');
@@ -246,9 +246,12 @@ formation.render=()=>{
   tacticsManager.render('burst-tactics-container');
 };
 
+const IMAGE_STATUS_TEXT={running:'이미지 및 카탈로그 준비 중',succeeded:'이미지 및 카탈로그 준비 완료',partial:'이미지 갱신 중 일부 항목을 처리하지 못했습니다.',failed:'이미지 갱신에 실패했습니다.',stopped:'백엔드가 종료 중입니다.'};
+const imageMessage=update=>koreanText(update?.message,IMAGE_STATUS_TEXT[update?.status]??'이미지 갱신 상태가 바뀌었습니다.');
 function renderDiagnostics(){
+  const knownNames=new Set([...state.presentationByCharacter.values()].map(p=>p?.displayName).filter(Boolean));
   const issues=(snapshot?.issues??[]).filter(i=>i.code!=='duplicate_identical');
-  $('advanced-content').innerHTML=`<div class="section-heading"><div><h2>고급 진단</h2><p>누락된 스펙과 저장 출처를 확인합니다.</p></div></div><article class="surface"><h3>수집 확인</h3>${issues.length?`<ul>${issues.map(i=>`<li data-issue-path="${esc(i.path)}">${esc(koreanText(i.message,'수집 값을 확인해야 합니다.'))}</li>`).join('')}</ul>`:'<p>검토할 항목이 없습니다.</p>'}</article><article class="surface"><h3>최근 변경</h3><ul>${(snapshot?.changes??[]).slice(0,30).map(v=>`<li>${esc(String(v).replace(/: (head|torso|arms?|legs?) 장비/,(_,k)=>`: ${slotLabel(k)} 장비`))}</li>`).join('')}</ul></article><article class="surface"><h3>이미지 출처</h3><p>이미지: 블라블라 및 사용자 제공 ZIP</p><p>캐릭터 ${state.presentation.characters.length}명 · ZIP 연결 ${state.presentation.importedPortraits??0}명 · 미수집 ${state.presentation.unresolved?.length??0}개</p></article>`;
+  $('advanced-content').innerHTML=`<div class="section-heading"><div><h2>고급 진단</h2><p>누락된 스펙과 저장 출처를 확인합니다.</p></div></div><article class="surface"><h3>수집 확인</h3>${issues.length?`<ul>${issues.map(i=>`<li data-issue-path="${esc(i.path)}">${esc(koreanText(i.message,'수집 값을 확인해야 합니다.'))}</li>`).join('')}</ul>`:'<p>검토할 항목이 없습니다.</p>'}</article><article class="surface"><h3>최근 변경</h3><ul>${(snapshot?.changes??[]).slice(0,30).map(v=>`<li>${esc(describeChange(v,knownNames))}</li>`).join('')}</ul></article><article class="surface"><h3>이미지 출처</h3><p>이미지: 블라블라 및 사용자 제공 ZIP</p><p>캐릭터 ${state.presentation.characters.length}명 · ZIP 연결 ${state.presentation.importedPortraits??0}명 · 미수집 ${state.presentation.unresolved?.length??0}개</p></article>`;
 }
 // R4: the fixed-DEF select stays only until the automatic switch wire is confirmed.
 const DEF_SELECT=()=>DEF_WIRE.confirmed?'':'<label>적 방어력<select name="defense"><option value="30925">30,925 · 누적 20억 전</option><option value="31784">31,784 · 누적 20억 후</option></select></label>';

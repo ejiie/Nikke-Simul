@@ -3,6 +3,8 @@
  * these labels. Character codes and raw key strings are never returned; unknown shapes get a generic Korean label.
  */
 
+import { REGISTERED_MESSAGES } from './registered-messages.js';
+
 export const SLOT_LABELS = Object.freeze({ head: '머리', torso: '몸통', arm: '팔', arms: '팔', leg: '다리', legs: '다리' });
 
 // Overload/option definition ids -> Korean (same wording as the equipment editor, without "증가").
@@ -49,7 +51,9 @@ export function describeSourceKey(source, { nameOf = () => null, resolveFunction
   }
 }
 
-// U-FIX-6: server error texts are codes/paths; the screen shows Korean only. The raw text stays on the Error as
+// U-FIX-6/7: server error texts are codes/paths. Allow-list only: a mapped code or a registered Korean text
+// (registered-messages.js, generated from the server sources) is shown; anything else becomes a generic Korean text,
+// whatever it contains. There is no deny-list of "code-like" shapes. The raw text stays on the Error as
 // `serverMessage` (and in `details`) for logic, never for display.
 const SERVER_MESSAGES = Object.freeze({
   analysis_not_integrated: '통계 모듈이 연결되지 않아 집계를 제공할 수 없습니다.',
@@ -73,15 +77,16 @@ const SERVER_MESSAGES = Object.freeze({
   combat_profile_invalid: '사거리·속성 데이터에 오류가 있습니다.',
   combat_member_profile_missing: '편성 멤버의 사거리·속성 데이터가 없습니다.'
 });
-// Internal identifiers inside otherwise Korean text: snake_case, dotted paths, 4+ digit numbers, lower/UpperCamelCase.
-const CODE_LIKE = /[a-z]+_[a-z0-9_]+|\w+\.[A-Za-z_]\w*|\b\d{4,}\b|[A-Z][a-z]+[A-Z]\w+|\b[a-z]+[A-Z]\w*/;
 
-/** Korean text for a server error message (code-like or English texts are never shown as is). */
+/** True only for an exact registered server text. */
+export const isRegisteredMessage = text => typeof text === 'string' && REGISTERED_MESSAGES.has(text);
+
+/** Korean text for a server error message: mapped code or registered text, else a generic text. */
 export function friendlyServerMessage(raw, status = null) {
-  const message = String(raw ?? '').trim();
+  const message = String(raw ?? '');
   const code = Object.keys(SERVER_MESSAGES).find(key => message === key || message.startsWith(`${key}:`) || message.startsWith(`${key} `));
   if (code) return SERVER_MESSAGES[code];
-  if (message && /[가-힣]/.test(message) && !CODE_LIKE.test(message)) return message;
+  if (isRegisteredMessage(message)) return message;
   return Number.isInteger(status) ? `요청을 처리하지 못했습니다 (HTTP ${status}).` : '요청을 처리하지 못했습니다.';
 }
 
@@ -103,14 +108,32 @@ const REASON_LABELS = Object.freeze({
 export function reasonLabel(code) {
   const key = String(code ?? '').trim();
   if (!key) return null;
-  if (REASON_LABELS[key]) return REASON_LABELS[key];
-  return /[가-힣]/.test(key) && !CODE_LIKE.test(key) ? key : '기타 사유';
+  return REASON_LABELS[key] ?? '기타 사유';
 }
 
-/** Korean text for a caught Error: Korean messages pass, anything else (transport/English/code-like) is generic. */
-export const errorText = error => friendlyServerMessage(error?.message, Number.isInteger(error?.status) ? error.status : null);
-/** Server-supplied free text (job/connection/issue messages): Korean passes, otherwise the given Korean fallback. */
-export function koreanText(raw, fallback) {
-  const message = String(raw ?? '').trim();
-  return message && /[가-힣]/.test(message) && !CODE_LIKE.test(message) ? message : fallback;
+/**
+ * Korean text for a caught Error. Errors the UI itself raised with Korean text carry `display: true`
+ * (see `displayError`); anything else (transport/English/unregistered server text) goes through the allow-list.
+ */
+export const errorText = error => error?.display === true && typeof error.message === 'string' ? error.message
+  : friendlyServerMessage(error?.message, Number.isInteger(error?.status) ? error.status : null);
+export const displayError = (message, extra = {}) => Object.assign(new Error(message), { display: true }, extra);
+/** Server-supplied free text (job/connection/issue messages): shown only when registered, else the Korean fallback. */
+export const koreanText = (raw, fallback) => (isRegisteredMessage(String(raw ?? '')) ? String(raw) : fallback);
+
+/**
+ * Snapshot change lines are server templates ("<이름>: 스펙 변경" ...). Only the registered templates are shown; the
+ * character name is kept only when it is a known display name, and the slot goes through `slotLabel`.
+ */
+export function describeChange(line, knownNames = new Set()) {
+  const text = String(line ?? '');
+  const fixed = ['계정 스탯 변경', '계정 큐브 레벨 변경', '스펙 변경 없음'];
+  if (fixed.includes(text)) return text;
+  const first = /^최초 수집: (\d{1,5})명$/.exec(text);
+  if (first) return text;
+  const named = /^(.+): (신규 수집|스펙 변경|로스터에서 제외)$/.exec(text);
+  if (named) return `${knownNames.has(named[1]) ? named[1] : '이름 미확인 니케'}: ${named[2]}`;
+  const slot = /^(.+): (head|torso|arm|arms|leg|legs) 장비\/잠금 변경$/.exec(text);
+  if (slot) return `${knownNames.has(slot[1]) ? slot[1] : '이름 미확인 니케'}: ${slotLabel(slot[2])} 장비/잠금 변경`;
+  return '변경 내역 (상세 미확인)';
 }

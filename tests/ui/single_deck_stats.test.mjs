@@ -61,7 +61,7 @@ await check('gpu_usable_only_when_eligible', () => {
   assert.ok(!pendingMarkup.includes('<option value="gpu-synthetic-0">'));
   assert.ok(!pendingMarkup.includes('<option value="gpu-synthetic-1">'));
   assert.ok(pendingMarkup.includes('사용 불가'));
-  assert.ok(pendingMarkup.includes('full battle GPU provider가 아직 구현되지 않았습니다.'));
+  assert.ok(!pendingMarkup.includes('full battle GPU provider') && pendingMarkup.includes('기타 사유')) // U-FIX-7: unregistered device reason text is not shown;
   assert.ok(html({ hardware: hardware.gpuEligible }).includes('<option value="gpu-synthetic-verified">'));
 });
 
