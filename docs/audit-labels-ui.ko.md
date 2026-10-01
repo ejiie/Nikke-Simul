@@ -97,3 +97,8 @@
 2. `damage-log-adapter.js:377` — `final`의 operation이 없거나 미등록이면 `round`로 시작하지 않는 한 `내림`으로 단정. → 저장 연산이 없거나 `round…`/`floor`가 아니면 `저장된 연산 미확인`. 같은 유형(저장 연산을 정책으로 추정)인 `effectiveDefense`(비 client 정책·operation 없음), 보너스 항(거리·풀버스트·크리·코어: `floor`일 때만 `(내림)`), B3~B5(배율 값을 못 읽을 때)도 `저장된 연산 미확인`으로 바꿨다.
 3. 같은 유형 재점검(`?? key`/`|| key` 원문 폴백, 미확인 값 추정): 전체 `apps/desktop-ui`에서 `LABELS[...] ?? 원값` 꼴을 다시 찾아 `combat-conditions.js:100`(무기군 원값 폴백)을 추가로 고쳤다. 나머지 폴백은 모두 한국어 미확인 문구다(`display-labels.js`, `compute-adapter.js`, `cards.js`, `local-lab-detail.js`, `single-deck-stats.js` 확인).
 4. 테스트: `damage_audit.test.mjs`에 `u_fix_7_missing_operation_is_unknown_not_guessed` 추가(operation 없음·미등록 × final·방어·보너스·B3). `node --test tests/ui/*.test.mjs` 6/6 통과(damage_audit 20항목).
+
+### 반려 2회차 (astra-6, 커밋 518e3ab)
+
+- `damage-log-adapter.js:379·374` — client_f32의 `final`·`effectiveDefense`가 operation이 비어 있지 않기만 하면 미등록 값(`weird`)도 확정 설명. → `final`·`effectiveDefense`는 엔진이 쓰는 등록 연산 문자열과 정확히 일치할 때만 설명하고(정책으로 추정하지 않음), 그 외 모든 단계도 `KNOWN_OPERATIONS`(HitCalculator 등록 연산) 안의 값일 때만 단계별 설명을 쓴다. 미등록·누락은 `저장된 연산 미확인`.
+- 테스트: `u_fix_7_missing_operation_is_unknown_not_guessed`에 client_f32의 미등록 `final`·`effectiveDefense`, 전 단계 이름 × (미등록/누락) 케이스, 등록 연산의 정상 설명 추가. `node --test tests/ui/*.test.mjs` 6/6 통과.

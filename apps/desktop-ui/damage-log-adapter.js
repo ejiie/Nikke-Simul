@@ -366,18 +366,33 @@ const STEP_DESCRIPTIONS = {
   product: '기본 × B × extra × 감소 × 방어비율 × 우월 코드 배율 (float32, 좌→우 곱)'
 };
 const UNKNOWN_OPERATION = '저장된 연산 미확인';
+// Stored operations the engine writes (HitCalculator); a step is described only when its stored operation is one of these.
+const KNOWN_OPERATIONS = {
+  effectiveAttack: ['native + grouped rounded native * (OL + passive + active skill rates) + caster-based flat grants', 'checked int64 grouped rate/10000, then flat grants'],
+  charge: ['base * (1 + multiplierBonus) + add; gated by fullCharge'],
+  P: ['attackDefenseDifference * coefficient * charge'],
+  minimum: ['defense >= attack'],
+  B2: ['P * (1 + active bonuses)', 'sum of floored base and active bonus terms'],
+  difference: ['checked int64 attack - defence; then cast float32'],
+  base: ['floor', 'float32 left-to-right damageRatio * statDamageRatio * chargeDamageRate'],
+  B: ['float32 critical -> core -> burst -> range, each rate - 1 then add'],
+  extra: ['float32 breakRate + addDamageRate - 1; provisional mapping'],
+  reduction: ['float32 1 - damageReductionRate; provisional mapping'],
+  defenceRatio: ['float32 1 - defenceRatioRate'],
+  product: ['float32 left-to-right base * B * extra * reduction * defenceRatio * element']
+};
 export function describeStepOperation(name, operation, policy) {
   const op = typeof operation === 'string' ? operation : '';
+  // Only registered stored operations are described; anything else stays unconfirmed (never inferred from the policy).
   if (name === 'effectiveDefense') {
-    if (op === 'ignore') return '방어 무시 타격이라 방어력 0으로 계산';
+    if (op === 'ignore' || op === 'true damage: 0; otherwise integer defence') return op === 'ignore' ? '방어 무시 타격이라 방어력 0으로 계산' : '일반 타격은 정수 방어력, 방어 무시 타격은 0';
     if (op === 'identity') return '적 방어력을 그대로 사용';
-    return policy === CLIENT_F32 && op ? '일반 타격은 정수 방어력, 방어 무시 타격은 0' : UNKNOWN_OPERATION;
+    return UNKNOWN_OPERATION;
   }
-  // A missing/unregistered stored operation is never guessed from the policy.
   if (name === 'final') {
-    if (!op) return UNKNOWN_OPERATION;
-    if (policy === CLIENT_F32) return '사사오입(0.5는 0에서 먼 쪽) 후 최소 1';
-    return op.startsWith('round') ? '반올림(동률은 짝수) 후 최소 1' : op === 'floor' ? '내림' : UNKNOWN_OPERATION;
+    if (op === 'MathF.Round AwayFromZero; max(1); checked int64') return '사사오입(0.5는 0에서 먼 쪽) 후 최소 1';
+    if (op === 'round ties-to-even; min 1') return '반올림(동률은 짝수) 후 최소 1';
+    return op === 'floor' ? '내림' : UNKNOWN_OPERATION;
   }
   if (name === 'B3' || name === 'B4' || name === 'B5') {
     const m = /^multiply\s+([^;\s]+)/.exec(op);
@@ -385,9 +400,9 @@ export function describeStepOperation(name, operation, policy) {
     if (!Number.isFinite(factor)) return UNKNOWN_OPERATION;
     return `× ${formatAuditNumber(factor)} 곱함${/floor/.test(op) ? ' (곱한 뒤 내림)' : ''}`;
   }
-  if (op === 'floor') return name === 'base' ? '내림' : '기본 피해 × 보너스 비율 (내림)';
+  if (op === 'floor') return name === 'base' ? '내림' : name === 'distance' || name === 'fullBurst' || name === 'critical' || name === 'core' ? '기본 피해 × 보너스 비율 (내림)' : UNKNOWN_OPERATION;
   if (name === 'distance' || name === 'fullBurst' || name === 'critical' || name === 'core') return UNKNOWN_OPERATION;
-  return STEP_DESCRIPTIONS[name] ?? UNKNOWN_OPERATION;
+  return KNOWN_OPERATIONS[name]?.includes(op) ? STEP_DESCRIPTIONS[name] ?? UNKNOWN_OPERATION : UNKNOWN_OPERATION;
 }
 const NATIVE_BASES = new Set(['native_recipient', 'native_caster']);
 const isFiniteNumber = v => typeof v === 'number' && Number.isFinite(v);

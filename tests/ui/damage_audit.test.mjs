@@ -328,6 +328,17 @@ await check('u_fix_7_missing_operation_is_unknown_not_guessed', () => {
   assert.equal(D('final', '', 'client_f32'), '저장된 연산 미확인');
   assert.equal(D('effectiveDefense', '', 'legacy_term_floor'), '저장된 연산 미확인');
   assert.equal(D('critical', '', 'legacy_term_floor'), '저장된 연산 미확인');
+  for (const n of ['effectiveAttack', 'charge', 'P', 'minimum', 'B2', 'difference', 'base', 'B', 'extra', 'reduction', 'defenceRatio', 'product', 'zzz']) {
+    assert.equal(D(n, 'weird', 'client_f32'), '저장된 연산 미확인', n); assert.equal(D(n, undefined, 'legacy_term_floor'), '저장된 연산 미확인', n);
+  }
+  assert.match(D('P', 'attackDefenseDifference * coefficient * charge', 'legacy_term_floor'), /스킬 계수/);
+  assert.equal(D('final', 'weird', 'client_f32'), '저장된 연산 미확인');
+  assert.equal(D('effectiveDefense', 'weird', 'client_f32'), '저장된 연산 미확인');
+  assert.equal(D('effectiveDefense', 'weird', 'legacy_term_floor'), '저장된 연산 미확인');
+  assert.match(D('final', 'MathF.Round AwayFromZero; max(1); checked int64', 'client_f32'), /사사오입/);
+  assert.match(D('effectiveDefense', 'true damage: 0; otherwise integer defence', 'client_f32'), /방어 무시/);
+  assert.match(D('effectiveDefense', 'ignore', 'legacy_term_floor'), /방어 무시/);
+  assert.match(D('effectiveDefense', 'identity', 'legacy_term_floor'), /그대로/);
   assert.equal(D('B3', 'noop', 'legacy_term_floor'), '저장된 연산 미확인');
   assert.equal(D('critical', 'floor', 'legacy_term_floor'), '기본 피해 × 보너스 비율 (내림)');
 });
