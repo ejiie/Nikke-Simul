@@ -1,5 +1,7 @@
 # 원본 main 및 실제 사용자 실행본 갱신 — 2026-09-29 (보스 거리·약점 속성)
 
+> 이후 같은 날 2차 배포로 다시 갱신됐다: [2026-09-29 2차](desktop-release-original-2026-09-29b.ko.md). 이 문서의 기능은 그대로 유효하다.
+
 ## 현재 사용 경로
 
 **사용자는 기존 바탕 화면 `Nikke Simul.lnk`를 실행하면 된다.** 대상은 원본 `C:/Users/user/Documents/GitHub/Nikke-Simul/artifacts/desktop/win-x64/Nikke Simul.exe`이며 바로가기·경로는 변경하지 않았다. 원격 push는 하지 않았다.

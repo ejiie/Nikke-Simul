@@ -80,6 +80,8 @@
   - UI 보고 검증: 실제 격리 API + Chromium(조건·손상 진단·client_f32 live), mock 브라우저 R1~R8 1500/850/500 넘침 0·JS 오류 0, 단위·Q3 26/26·기존 회귀 통과.
   - 참고: 기존 코드에 Nikke-Local-Lab 출처 표기가 남아 있다 — `apps/desktop-ui/app.js` 고급 진단의 "화면: Nikke-Local-Lab" 문구, `cards.js`·`local-lab-detail.js` 첫 줄 주석, README·`desktop-ui-migration.ko.md`·`desktop-spec-editor.ko.md`. 2026-09-29 정리: README·`desktop-ui-migration.ko.md`·`desktop-spec-editor.ko.md`의 프로젝트 이름·저장소 URL·고정 커밋은 Director가 "원본 관리 UI"로 바꿨다(작업 지시 문서는 담당이 참조 위치를 찾도록 이름 유지). 앱 화면 문구와 코드 주석 삭제는 F2-U 2단계에 포함한다. 파일 이름(`local-lab-detail.js`·`local-lab-adapter.js`)은 참조 경로가 많아 이번엔 바꾸지 않는다.
 
+- **배포 우선(사용자 지시, 2026-09-29):** F2-Q-6은 알려진 표시 결함으로 두고 U-FIX-7은 보류. QA `180f23b`를 Director `89785ae`로 통합(test 447/447)하고 원본 배포 완료 — [배포 기록](desktop-release-original-2026-09-29b.ko.md).
+
 ## 근거
 
 [사용자 요구 사항 R1~R8](user-requests-2026-09-29.ko.md)을 한 번에 처리한다(사용자 지시). 요구 원문·해석은 그 문서를 따른다. 보스 선택(R8)은 **표시만** 한다(사용자 선택, 2026-09-29): 이름·이미지 선택과 저장까지이며 약점·거리 등 전투 반영은 보스별 데이터가 준비되면 다음 단계에서 한다. 더미 보스 = 현재 동작.
