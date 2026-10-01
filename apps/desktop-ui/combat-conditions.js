@@ -19,7 +19,7 @@
  * `confirmed: false` reproduces the pre-wire form (old checkboxes) for comparison tests only.
  */
 
-import { errorText as friendlyError } from './display-labels.js';
+import { errorText as friendlyError, isRegisteredMessage } from './display-labels.js';
 export const COND_WIRE = Object.freeze({
   confirmed: true,
   catalogRoute: '/runtime/combat-conditions',
@@ -149,7 +149,8 @@ export function conditionWire(state, confirmed = COND_WIRE.confirmed) {
  */
 export function describeCompatibility(compat) {
   if (!compat || typeof compat !== 'object' || !text(compat.mode)) return { mode: 'unknown', text: '전투 조건 모드 기록 없음' };
-  const label = text(compat.label);
+  // Stored label text is shown only when it is a registered server text.
+  const label = isRegisteredMessage(text(compat.label)) ? text(compat.label) : null;
   if (compat.mode === 'per_member') {
     const state = createConditionState(compat);
     return { mode: 'per_member', label, text: `${label ?? '보스 거리·약점(멤버별)'} · 보스 거리 ${distanceSummary(state)} · 약점 ${elementSummary(state)}` };

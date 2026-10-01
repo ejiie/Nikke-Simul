@@ -34,7 +34,7 @@ import {
   formatAuditNumber,
   DAMAGE_LOG_PROVISIONAL_NOTICE
 } from './damage-log-adapter.js';
-import { errorText, koreanText } from './display-labels.js';
+import { displayError, errorText } from './display-labels.js';
 
 const $ = id => document.getElementById(id);
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -271,8 +271,8 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, ge
             <span class="status-pill neutral">Replay ID: ${esc(activeReplay.id)}</span>
           </div>
           <div class="surface empty-state" style="padding:24px;text-align:center;">
-            <p><strong>${esc(memberName)}</strong>의 시간별 발당 피해 로그를 ${uncollected ? '서버에 저장되어 있지 않습니다' : '표시할 수 없습니다'}.</p>
-            <p class="microcopy">${esc(koreanText(logMessage, '피해 로그를 표시할 수 없습니다.'))}</p>
+            <p><strong>${esc(memberName)}</strong>의 시간별 발당 피해 로그${uncollected ? '가 서버에 저장되어 있지 않습니다' : '를 표시할 수 없습니다'}.</p>
+            <p class="microcopy">${esc(logMessage)}</p>
             ${uncollected ? `<div style="margin-top:16px;">
               <button type="button" class="primary small-btn" id="btn-load-mock-preview">합성 Mock 미리보기 (UI 검증용)</button>
             </div>` : ''}
@@ -517,7 +517,7 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, ge
             status?.('서버 원본 JSON 로그를 내보냈습니다.');
             return;
           }
-          throw new Error(`서버 로그 내보내기 실패 (HTTP ${res.status})`);
+          throw displayError(`서버 로그 내보내기 실패 (HTTP ${res.status})`);
         } catch (err) {
           status?.(errorText(err));
           return;
@@ -548,7 +548,7 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, ge
             status?.('서버 원본 CSV 로그를 내보냈습니다.');
             return;
           }
-          throw new Error(`서버 로그 내보내기 실패 (HTTP ${res.status})`);
+          throw displayError(`서버 로그 내보내기 실패 (HTTP ${res.status})`);
         } catch (err) {
           status?.(errorText(err));
           return;

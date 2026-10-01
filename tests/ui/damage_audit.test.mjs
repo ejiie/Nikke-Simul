@@ -348,6 +348,26 @@ await check('u_fix_7_missing_operation_is_unknown_not_guessed', () => {
   assert.equal(D('critical', 'floor', 'legacy_term_floor'), '기본 피해 × 보너스 비율 (내림)');
 });
 
+await check('u_fix_7_card_and_table_read_only_registered_multiply_operations', () => {
+  const variants = ['multiply 1.25; qa_unknown_transform', 'multiply 1.25; floor_if_qa_condition', 'multiply 1.25\n', 'multiply 1.25; floor\n',
+    'multiply 0x10', 'multiply 0b11', 'multiply 1e2', 'multiply  1.25', 'Multiply 1.25', 'multiply'];
+  for (const policy of ['legacy_term_floor', 'nested_floor']) {
+    for (const op of variants) {
+      const entry = caseEntry('crit_core_fullburst_distance', policy);
+      entry.calculation = { ...entry.calculation, terms: entry.calculation.terms.map(t => ['B3', 'B4', 'B5'].includes(t.name) ? { ...t, operation: op } : t) };
+      const b = adapter.buildDamageBreakdown(entry);
+      assert.ok(b.factors.every(f => f.present && f.factor === null), `${policy}: ${JSON.stringify(op)}`);
+      const text = html(entry);
+      assert.ok(text.includes('B3 × B4 × B5') && /B3 × B4 × B5<\/span>\s*<strong[^>]*>미제공</.test(text), `${policy}: ${JSON.stringify(op)} card`);
+      assert.ok(!/× 1\.25|× 16|× 3 /.test(text), `${policy}: ${JSON.stringify(op)} number leaked`);
+    }
+  }
+  const ok = caseEntry('crit_core_fullburst_distance', 'legacy_term_floor');
+  assert.ok(adapter.buildDamageBreakdown(ok).factors.every(f => f.factor !== null));
+  assert.equal(adapter.parseMultiplyOperation('multiply 1E-05').factor, 0.00001);
+  assert.equal(adapter.parseMultiplyOperation('multiply -2.5; floor').floored, true);
+});
+
 await check('html_escape', () => {
   const evil = adapter.createAuditContext(replayWithInputs, [{ id: '5009', displayName: '<img src=x onerror=alert(1)>' }]);
   const entry = caseEntry('crit_core_fullburst_distance', 'legacy_term_floor');

@@ -30,7 +30,7 @@
 | `damage-log-adapter.js` `classifyBuffForHit` | 이유 문구 `타격 계산 입력(hit)` | `타격 계산 입력` |
 | `damage-log.js` 내보내기 오류 | 서버 응답 본문 `errText` | 본문 제거, `서버 로그 내보내기 실패 (HTTP n)` |
 | `damage-log.js`·`damage-log-adapter.js` (전술 저장·조회, 로그 조회 실패) | `err.message` | `errorText(err)` |
-| `app.js` 98~107, 156~172, 226·239, 321 | `error.message`(전송 실패 영문 등) | `errorText(error)` — 한국어만 통과, 그 외 일반 문구 |
+| `app.js` 98~107, 156~172, 226·239, 321 | `error.message`(전송 실패 영문 등) | `errorText(error)` — 등록 문구만 통과, 그 외 일반 문구 (QA 2차 차단 후 허용 목록) |
 | `app.js` 168 | `update.message`(이미지 갱신 상태) | `koreanText` |
 | `app.js` 178 | `connection.message` | `koreanText` |
 | `app.js` 183·185·187·189 | `connectionFailure.message`, `c.message`, `j.message` | `koreanText` + 한국어 대체 문구 |
@@ -53,7 +53,7 @@
 | `formation.js` 85 | `error.message` | `errorText` |
 | `local-lab-adapter.js` 150 | 저장 실패 `e.message` | `errorText` |
 
-공용 helper는 `display-labels.js`의 `errorText(error)`·`koreanText(raw, fallback)`다. 규칙은 U-FIX-6과 같다: 한글이 있고 코드 형태(`snake_case`, 경로, 4자리 이상 숫자, camelCase)가 없으면 통과, 아니면 한국어 대체 문구.
+공용 helper는 `display-labels.js`의 `errorText(error)`·`koreanText(raw, fallback)`·`friendlyServerMessage`·`reasonLabel`·`describeChange`다. **허용 목록 방식**(QA 2차 차단 후 구조 전환, 6절)이다: 서버·저장 문자열은 (a) 매핑된 코드, (b) `registered-messages.js`에 등록된 정확한 한국어 문구(서버·수집기 소스의 리터럴에서 `tests/ui/tools/gen_registered_messages.mjs`로 생성)일 때만 화면에 나오고, 그 외는 내용과 무관하게 일반 한국어 문구다. `CODE_LIKE` 같은 차단 정규식은 제거했다. UI가 직접 만든 한국어 오류는 `displayError`(`display: true`)로 표시한다.
 
 ### 확인했고 변경하지 않은 지점 (사유)
 
@@ -110,3 +110,14 @@
 - **U7-Q-3** (기존 결함) `damage-log.js` — 로그 없음(`api_error`·`unsupported_schema`·미로드)에서 `log:null`로 `generateGraphSvg(null)` 예외. → 로그가 없고 `no_damage`가 아니면 상태별 한국어 안내(`피해 로그를 불러오지 못했습니다` 등)를 표시하고 그래프 생성을 건너뛴다. Mock 미리보기 버튼은 미수집 상태에서만 표시.
 - 테스트(QA 재현과 같은 입력): `damage_audit` — 위 두 접미사·유사 변형의 B3~B5; `display_labels` — 혼합 문자열 5종과 정상 문장, 전송 실패(`TypeError: Failed to fetch`, HTTP 500) 시 viewer가 예외 없이 한국어 안내를 렌더하고 원문·그래프가 없음. `node --test tests/ui/*.test.mjs` 6/6 통과.
 - 전수 목록 보정: `damage-log.js` 로그 조회 실패 행은 `errorText`에 더해 위 안내 화면까지 이어지도록 수정.
+
+### QA 2차 차단·구조 전환 (독립 QA 재수용, 커밋 8da098f)
+
+QA 재수용에서 잔여 2유형이 남았다: (1) `buildDamageBreakdown`이 접두사 정규식으로 B3~B5 배율을 읽어, 표는 미확인인데 상단 `B3 × B4 × B5` 카드는 `1.25 × 1.25 × 1.25`(끝 개행·`0x10`·`0b11` 포함)로 표시, (2) `CODE_LIKE`가 `terms[].name`, `terms[0].operation`, `cache/replays`, `runtime\catalog`, `skill1Rate` 같은 변형을 통과. 원인은 내부 문자열을 정규식 차단 목록으로 골라내는 구조여서 변형이 계속 새는 것이다. 사용자 승인(A안)에 따라 **허용 목록 방식**으로 구조를 바꿨다.
+
+1. **서버·저장 문자열 → 허용 목록:** `friendlyServerMessage`·`koreanText`·`errorText`·`reasonLabel`은 매핑된 코드 또는 등록된 정확한 문구만 통과시키고, 한국어 문장에 내부 경로가 섞였든 아니든 등록되지 않으면 일반 문구(`요청을 처리하지 못했습니다`, `기타 사유`, 호출부 한국어 대체 문구)를 쓴다. 등록 목록은 서버 소스에서 생성(`registered-messages.js`, 212개)하며, 동기 검사가 테스트에 있다(`registered_messages_match_server_sources`). 정규식 `CODE_LIKE`와 `[가-힣]` 통과 규칙은 모두 삭제했다.
+2. **새로 허용 목록으로 바꾼 표시 지점:** `app.js` 변경 이력(`describeChange` — 등록 템플릿만, 이름은 알려진 표시명일 때만, 슬롯은 `slotLabel`), 이미지 갱신 상태(`imageMessage` — 등록 문구 아니면 상태별 한국어 문구), `combat-conditions.js` 호환 모드 `label`(등록 문구만), 장치 `reason`(`reasonLabel`은 등록 사유만, 미등록은 `기타 사유`). api()가 만든 오류와 UI가 직접 던지는 한국어 오류는 `display: true`로 구분한다.
+3. **배율·연산 해석:** `parseMultiplyOperation`이 `multiply <십진수>` 또는 `multiply <십진수>; floor` 전체 일치만 받는다(십진수는 `-?(0|[1-9]\d*)(\.\d+)?(E[+-]?\d+)?`). 끝 개행, `0x10`, `0b11`, 앞 0, 공백 2개, 접미사는 모두 미확인이다. 단계 표 설명과 `B3 × B4 × B5` 카드가 같은 함수를 쓰므로 일관된다(`buildDamageBreakdown`의 접두사 정규식 삭제).
+4. **유지:** UI가 직접 쓰는 한국어(`3.5배`, `GPU`, `LV.5`, 이름 미확인 등), 타격·발사·버스트 시전 번호, replay ID, fingerprint·버전·schema, 정책 id, 준비 스크립트 이름, 장치 식별 해시는 허용 목록 필터를 거치지 않는다.
+5. **리뷰 비차단 반영:** `damage-log.js` 조사 `로그를` → `로그가`(미수집 문구). 이전 단계에서 `logMessage`를 `koreanText`로 걸러 어댑터가 만든 한국어 안내가 가려지는 문제도 되돌렸다(어댑터 문구는 서버 문자열이 아니다).
+6. **테스트:** QA 형태(`terms[].name`, `terms[0].operation`, `attackBuffs[0].source`, `cache/replays`, `runtime\catalog`, `skill1Rate`, `multiply 1.25; qa_unknown_transform`, `0x10`, 등록 문구 뒤 추가 문자열·끝 개행)를 `display_labels`(허용 목록·변경 템플릿·등록 동기)와 `damage_audit`(카드·표 일관)에 추가했다. 정상 한국어·`3.5배`·`GPU`·`LV.5` 회귀 포함. 앞 절의 `CODE_LIKE` 보강(QA 1차 U7-Q-2 수정)은 이 구조 전환으로 대체되었다. `node --test tests/ui/*.test.mjs` 6/6 통과, 격리 서버에서 페이지 로드 오류 없음.
