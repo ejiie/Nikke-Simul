@@ -31,6 +31,10 @@ Director 통지 후 구현 커밋이 확정된 상태의 UI worktree에서(파�
 
 리뷰 통과 후 Director 통지. F2-Q-6 재현 경로·전수 목록의 화면 텍스트를 실제 격리 API·브라우저로 자체 검사하고 이전 F2 수용 항목 회귀. 담당 검사·mock·정답 재사용 금지.
 
-## 전달 확인
+## 전달 확인·진행
 
-(세션 준비 후 기록)
+| 단계 | 담당·터미널 | 요청 ID | 결과 |
+|---|---|---|---|
+| 구현 배정 | Sonnet 5.5 `term_c322a450…` | `c3628d2f-4709-4cf4-880c-e21345b40376` | `turn_started` |
+| 구현 인계 | — | — | 확정 UI `4622860`(`3d84fe4` ff 위), 보고서 `UI/docs/audit-labels-ui.ko.md`(2절 전수 목록: 수정 지점·변경 안 한 지점과 사유). 변경 15파일 — `apps/desktop-ui`·UI tests·UI 문서(제품 `src`·QA `tests/q3` 0). 구현 보고: `node --test tests/ui` 6/6, 저장 replay(검수 archive 읽기 전용) Chromium 렌더 금지어 0, 격리 포트 `/editor/` pageerror 0. 미실행: 검산 저장 → 근거 화면 종단(QA 몫) |
+| 리뷰 배정 | astra-6 `term_cfa51db6…`(UI worktree, 파일 수정 금지) | `34a3f5d7-c5c7-4dbd-a2ff-d90a981b6fce` | `turn_started` |
