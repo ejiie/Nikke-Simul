@@ -11,7 +11,7 @@
 | 계산 단계 제목·누락 안내 | `calculation.terms`·`terms 배열` 문구 | "저장된 단계별 기록"·"저장된 단계별 계산 기록" |
 | 누락 항목 이름 | `charge, P` 같은 키 | 한국어 항목명 (`missingLabels`; 키 `missing`은 데이터에 유지) |
 | 공격력 입력 제목 | "(hit 기록)" | "(타격 기록)" |
-| 알 수 없는 항목 | `기록 항목 <키>` | `기록된 계산 항목` / 설명 `저장된 연산 기록` |
+| 알 수 없는 항목 | `기록 항목 <키>` | `기록된 계산 항목` / 설명 `저장된 연산 미확인` |
 | 보조 문구 | `hit 입력 기준`, `발사 / Hit`, `(Hit #n)` | `타격 입력 기준`, `발사 / 타격`, `(타격 #n)` |
 
 저장 데이터(`steps[].operation`, `missing`, API, export)와 수식 기호(B, float32, damageRatio 등)는 그대로다. 곱셈 단계(B3~B5)는 저장된 `multiply <값>`에서 값만 읽어 "× 값 곱함"으로 표시한다.
@@ -44,6 +44,8 @@
 | `compute-adapter.js` | `probeFailures[]` 서버 문자열 | `koreanText` |
 | `single-deck-stats.js` 95·118 | `attempt n`, backend 원값, `driver` | `시도 n회`, CPU/GPU/기타 장치, `드라이버` |
 | `single-deck-stats.js` 237 | 응답 판정 원값 | 개선/악화/미확인 |
+| `app.js` 357 (`renderBurstSummary`) | 자동 버스트 `waitingReason`·`timeline[].reason` 원문 폴백 | 미등록 사유는 `대기 사유 미확인` (리뷰 반려 1회차) |
+| `combat-conditions.js` 100 | 무기군 `label` 폴백 `r.weaponType` 원값 | `무기군 미확인` (같은 유형 재점검) |
 | `combat-conditions.js` 376 | 사거리 오류 `reason` 원값 | `PROFILE_REASONS` 없으면 `사유 미확인` |
 | `combat-conditions.js` 242 | 오류 폴백 `error.message`/`String(error)` | `errorText` |
 | `raid-conditions.js` 183 | 보스 목록 오류 `e.message` | `errorText` |
@@ -86,3 +88,12 @@
 - 이 worktree의 Release `Nikke.Api.dll`을 임의 포트(57802, 5180/5181 아님)에서 `NIKKE_PROJECT_ROOT`=UI worktree, `NIKKE_DATA_ROOT`=임시 폴더로 실행했다. 데이터는 검수 쪽 격리 합성 데이터(`load1000-…/data`의 `accounts.db`·카탈로그·runtime 등)의 **복사본**이며 원본 폴더는 읽기만 했다. 서버는 검증 후 종료했다.
 - `/editor/`가 UI worktree의 최신 `app.js`(`koreanText` 포함)를 제공하고, 페이지가 `body[data-ready=true]`까지 로드되며 raid·고급·가져오기 탭 이동 중 JavaScript `pageerror`는 없었다. 콘솔 오류 4건은 전부 404 리소스 요청(합성 계정에 이미지 없음)이다.
 - **한계:** 이 확인은 새 모듈 import/구문 오류가 없는지와 UI 제공 경로 확인이다. 실제 격리 API로 검산 결과 저장 → 타격별 근거 화면까지의 종단 확인은 하지 않았다(검산 실행에 필요한 합성 편성·리플레이 준비가 검수 하니스에 묶여 있음). 해당 경로는 위 3절의 저장 리플레이 Chromium 렌더와 단위 테스트로 대신했고, 종단 재현은 QA 몫이다.
+
+## 6. 리뷰 이력
+
+### 반려 1회차 (astra-6, 커밋 4622860)
+
+1. `app.js:357` — 자동 버스트 요약의 `waitingReason`·`timeline[].reason`이 사전에 없으면 원문 출력(`reasons[key] ?? key`). → `reasonText`로 미등록은 `대기 사유 미확인`. 전수 목록(2절)에 추가.
+2. `damage-log-adapter.js:377` — `final`의 operation이 없거나 미등록이면 `round`로 시작하지 않는 한 `내림`으로 단정. → 저장 연산이 없거나 `round…`/`floor`가 아니면 `저장된 연산 미확인`. 같은 유형(저장 연산을 정책으로 추정)인 `effectiveDefense`(비 client 정책·operation 없음), 보너스 항(거리·풀버스트·크리·코어: `floor`일 때만 `(내림)`), B3~B5(배율 값을 못 읽을 때)도 `저장된 연산 미확인`으로 바꿨다.
+3. 같은 유형 재점검(`?? key`/`|| key` 원문 폴백, 미확인 값 추정): 전체 `apps/desktop-ui`에서 `LABELS[...] ?? 원값` 꼴을 다시 찾아 `combat-conditions.js:100`(무기군 원값 폴백)을 추가로 고쳤다. 나머지 폴백은 모두 한국어 미확인 문구다(`display-labels.js`, `compute-adapter.js`, `cards.js`, `local-lab-detail.js`, `single-deck-stats.js` 확인).
+4. 테스트: `damage_audit.test.mjs`에 `u_fix_7_missing_operation_is_unknown_not_guessed` 추가(operation 없음·미등록 × final·방어·보너스·B3). `node --test tests/ui/*.test.mjs` 6/6 통과(damage_audit 20항목).

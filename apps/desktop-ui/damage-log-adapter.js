@@ -365,26 +365,29 @@ const STEP_DESCRIPTIONS = {
   defenceRatio: '1 − defenceRatioRate (float32)',
   product: '기본 × B × extra × 감소 × 방어비율 × 우월 코드 배율 (float32, 좌→우 곱)'
 };
+const UNKNOWN_OPERATION = '저장된 연산 미확인';
 export function describeStepOperation(name, operation, policy) {
   const op = typeof operation === 'string' ? operation : '';
   if (name === 'effectiveDefense') {
     if (op === 'ignore') return '방어 무시 타격이라 방어력 0으로 계산';
     if (op === 'identity') return '적 방어력을 그대로 사용';
-    return policy === CLIENT_F32 ? '일반 타격은 정수 방어력, 방어 무시 타격은 0' : '적 방어력 적용';
+    return policy === CLIENT_F32 && op ? '일반 타격은 정수 방어력, 방어 무시 타격은 0' : UNKNOWN_OPERATION;
   }
+  // A missing/unregistered stored operation is never guessed from the policy.
   if (name === 'final') {
+    if (!op) return UNKNOWN_OPERATION;
     if (policy === CLIENT_F32) return '사사오입(0.5는 0에서 먼 쪽) 후 최소 1';
-    return op.startsWith('round') ? '반올림(동률은 짝수) 후 최소 1' : '내림';
+    return op.startsWith('round') ? '반올림(동률은 짝수) 후 최소 1' : op === 'floor' ? '내림' : UNKNOWN_OPERATION;
   }
   if (name === 'B3' || name === 'B4' || name === 'B5') {
     const m = /^multiply\s+([^;\s]+)/.exec(op);
     const factor = m ? Number(m[1]) : NaN;
-    if (!Number.isFinite(factor)) return '배율 곱셈';
+    if (!Number.isFinite(factor)) return UNKNOWN_OPERATION;
     return `× ${formatAuditNumber(factor)} 곱함${/floor/.test(op) ? ' (곱한 뒤 내림)' : ''}`;
   }
-  if (op === 'floor') return '내림';
-  if (name === 'distance' || name === 'fullBurst' || name === 'critical' || name === 'core') return '기본 피해 × 보너스 비율 (내림)';
-  return STEP_DESCRIPTIONS[name] ?? '저장된 연산 기록';
+  if (op === 'floor') return name === 'base' ? '내림' : '기본 피해 × 보너스 비율 (내림)';
+  if (name === 'distance' || name === 'fullBurst' || name === 'critical' || name === 'core') return UNKNOWN_OPERATION;
+  return STEP_DESCRIPTIONS[name] ?? UNKNOWN_OPERATION;
 }
 const NATIVE_BASES = new Set(['native_recipient', 'native_caster']);
 const isFiniteNumber = v => typeof v === 'number' && Number.isFinite(v);

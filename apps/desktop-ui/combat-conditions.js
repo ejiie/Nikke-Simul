@@ -97,7 +97,7 @@ export function normalizeCatalog(payload) {
   const weaponRanges = rows.filter(r => r && typeof r.weaponType === 'string').map(r => {
     const ranges = (Array.isArray(r.ranges) ? r.ranges : []).filter(x => x && isInt(x.min) && isInt(x.max))
       .map(x => ({ min: x.min, max: x.max, count: isInt(x.count) ? x.count : null, isTypical: x.isTypical === true }));
-    return { weaponType: r.weaponType, label: WEAPON_LABELS[r.weaponType] ?? r.weaponType,
+    return { weaponType: r.weaponType, label: WEAPON_LABELS[r.weaponType] ?? '무기군 미확인',
       characterCount: isInt(r.characterCount) ? r.characterCount : null,
       typical: ranges.find(x => x.isTypical) ?? null, ranges,
       exceptions: (Array.isArray(r.exceptions) ? r.exceptions : []).map(normalizeProfile).filter(Boolean),

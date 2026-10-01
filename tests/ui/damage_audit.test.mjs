@@ -313,9 +313,23 @@ await check('u_fix_7_audit_table_has_no_stored_keys_or_english_operations', () =
   assert.ok(steps.every(s => s.description && s.operation !== undefined)); // stored operation stays in data
   const unknown = { ...entry, calculation: { ...entry.calculation, terms: [{ name: 'weirdKey', before: 1, after: 2, operation: 'xyzzy' }] } };
   const t = html(unknown);
-  assert.ok(!t.includes('weirdKey</') && !t.includes('xyzzy') && t.includes('기록된 계산 항목') && t.includes('저장된 연산 기록'));
+  assert.ok(!t.includes('weirdKey</') && !t.includes('xyzzy') && t.includes('기록된 계산 항목') && t.includes('저장된 연산 미확인'));
   const bare = html({ hitId: 9, frame: 10, damage: 500, calculation: { policy: 'legacy_term_floor' }, buffs: [] });
   assert.ok(!bare.includes('calculation.terms'));
+});
+
+await check('u_fix_7_missing_operation_is_unknown_not_guessed', () => {
+  const D = adapter.describeStepOperation;
+  assert.equal(D('final', undefined, 'final_round_even'), '저장된 연산 미확인');
+  assert.equal(D('final', '', 'legacy_term_floor'), '저장된 연산 미확인');
+  assert.equal(D('final', 'weird', 'nested_floor'), '저장된 연산 미확인');
+  assert.equal(D('final', 'floor', 'legacy_term_floor'), '내림');
+  assert.match(D('final', 'round ties-to-even; min 1', 'final_round_even'), /반올림/);
+  assert.equal(D('final', '', 'client_f32'), '저장된 연산 미확인');
+  assert.equal(D('effectiveDefense', '', 'legacy_term_floor'), '저장된 연산 미확인');
+  assert.equal(D('critical', '', 'legacy_term_floor'), '저장된 연산 미확인');
+  assert.equal(D('B3', 'noop', 'legacy_term_floor'), '저장된 연산 미확인');
+  assert.equal(D('critical', 'floor', 'legacy_term_floor'), '기본 피해 × 보너스 비율 (내림)');
 });
 
 await check('html_escape', () => {
