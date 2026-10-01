@@ -105,3 +105,11 @@ export function reasonLabel(code) {
   if (REASON_LABELS[key]) return REASON_LABELS[key];
   return /[가-힣]/.test(key) && !CODE_LIKE.test(key) ? key : '기타 사유';
 }
+
+/** Korean text for a caught Error: Korean messages pass, anything else (transport/English/code-like) is generic. */
+export const errorText = error => friendlyServerMessage(error?.message, Number.isInteger(error?.status) ? error.status : null);
+/** Server-supplied free text (job/connection/issue messages): Korean passes, otherwise the given Korean fallback. */
+export function koreanText(raw, fallback) {
+  const message = String(raw ?? '').trim();
+  return message && /[가-힣]/.test(message) && !CODE_LIKE.test(message) ? message : fallback;
+}

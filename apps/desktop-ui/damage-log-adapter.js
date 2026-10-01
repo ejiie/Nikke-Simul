@@ -12,7 +12,7 @@
  */
 
 import { CLIENT_F32, CLIENT_F32_WIRE, policyInfo, readWireLong } from './hit-policy.js';
-import { basisLabel, describeSourceKey } from './display-labels.js';
+import { basisLabel, describeSourceKey, errorText } from './display-labels.js';
 
 export const DAMAGE_LOG_SCHEMA_VERSION = 1;
 export const DAMAGE_LOG_PROVISIONAL_NOTICE = '잠정 정확도 · 실게임 관측 대조 전 합성 시뮬레이션';
@@ -264,7 +264,7 @@ export async function saveBurstTacticToServer(api, accountId, snapshotId, format
     const res = await api(`/accounts/${accountId}/burst-tactic`, 'PUT', payload);
     return { ok: true, data: res };
   } catch (err) {
-    return { ok: false, error: err.message || '서버 전술 저장 실패' };
+    return { ok: false, error: errorText(err) };
   }
 }
 
@@ -289,7 +289,7 @@ export async function loadBurstTacticFromServer(api, accountId, membersWithMeta)
       return { ok: true, tactics: null, stale: false, executionStatus: res?.executionStatus || 'legacy' };
     }
   } catch (err) {
-    return { ok: false, error: err.message || '서버 전술 조회 실패' };
+    return { ok: false, error: errorText(err) };
   }
 }
 
@@ -346,7 +346,45 @@ const CLIENT_AXIS_NAMES = [
   [/^가산 묶음 · 크리티컬 보너스$/, 'B · criticalDamageRate'], [/^차지 배율 · 가산항$/, 'chargeDamageRate · 가산항'], [/^차지 배율$/, 'chargeDamageRate']
 ];
 export function termLabel(name, policy) {
-  return (policy === CLIENT_F32 ? CLIENT_TERM_LABELS[name] : AUDIT_TERM_LABELS[name]) ?? `기록 항목 ${name}`;
+  return (policy === CLIENT_F32 ? CLIENT_TERM_LABELS[name] : AUDIT_TERM_LABELS[name]) ?? '기록된 계산 항목'; // the stored key is never shown
+}
+
+// U-FIX-7: the stored `operation` is an English engine note; the screen shows a Korean per-step description.
+// The stored text stays in the data (steps[].operation) and is only parsed here for its factor/branch.
+const STEP_DESCRIPTIONS = {
+  effectiveAttack: '기초 공격력에 비율 버프를 더하고 고정 가산을 합산',
+  charge: '풀차지일 때만 기본 × (1 + 배율 증가) + 가산 적용',
+  P: '(최종 공격력 − 방어력) × 스킬 계수 × 차지 배율',
+  minimum: '방어력이 공격력 이상이라 최소 피해 1 적용',
+  B2: '기본 피해와 적용된 보너스를 합산',
+  difference: '최종 공격력 − 방어력 (정수 계산 후 float32 변환)',
+  base: '공방차 × 스킬 계수 × statDamageRatio × 차지 배율 (float32)',
+  B: '크리 → 코어 → 풀버스트 → 적정 거리 순으로 (배율 − 1)을 누적 (float32)',
+  extra: 'breakRate + addDamageRate − 1 (float32, 잠정 대응)',
+  reduction: '1 − damageReductionRate (float32, 잠정 대응)',
+  defenceRatio: '1 − defenceRatioRate (float32)',
+  product: '기본 × B × extra × 감소 × 방어비율 × 우월 코드 배율 (float32, 좌→우 곱)'
+};
+export function describeStepOperation(name, operation, policy) {
+  const op = typeof operation === 'string' ? operation : '';
+  if (name === 'effectiveDefense') {
+    if (op === 'ignore') return '방어 무시 타격이라 방어력 0으로 계산';
+    if (op === 'identity') return '적 방어력을 그대로 사용';
+    return policy === CLIENT_F32 ? '일반 타격은 정수 방어력, 방어 무시 타격은 0' : '적 방어력 적용';
+  }
+  if (name === 'final') {
+    if (policy === CLIENT_F32) return '사사오입(0.5는 0에서 먼 쪽) 후 최소 1';
+    return op.startsWith('round') ? '반올림(동률은 짝수) 후 최소 1' : '내림';
+  }
+  if (name === 'B3' || name === 'B4' || name === 'B5') {
+    const m = /^multiply\s+([^;\s]+)/.exec(op);
+    const factor = m ? Number(m[1]) : NaN;
+    if (!Number.isFinite(factor)) return '배율 곱셈';
+    return `× ${formatAuditNumber(factor)} 곱함${/floor/.test(op) ? ' (곱한 뒤 내림)' : ''}`;
+  }
+  if (op === 'floor') return '내림';
+  if (name === 'distance' || name === 'fullBurst' || name === 'critical' || name === 'core') return '기본 피해 × 보너스 비율 (내림)';
+  return STEP_DESCRIPTIONS[name] ?? '저장된 연산 기록';
 }
 const NATIVE_BASES = new Set(['native_recipient', 'native_caster']);
 const isFiniteNumber = v => typeof v === 'number' && Number.isFinite(v);
@@ -518,7 +556,7 @@ export function classifyBuffForHit(desc, hit, ctx = null) {
   const hitMissing = !hit || typeof hit !== 'object';
   const ownTarget = desc.typeId === 42 && desc.targetId != null && desc.targetId !== 'boss';
   if (hitMissing && !HIT_INDEPENDENT_TYPES.has(desc.typeId) && !ownTarget) {
-    return { group: 'unverified', axis: null, reason: '타격 계산 입력(hit) 미제공' };
+    return { group: 'unverified', axis: null, reason: '타격 계산 입력 미제공' };
   }
   hit = hitMissing ? {} : hit;
   const indirect = reason => ({ group: 'indirect', axis: null, reason });
@@ -646,9 +684,12 @@ export function buildDamageBreakdown(entry) {
     calculationDamage: val(calc?.damage),
     finalMatchesStored: finalValue !== null && storedDamage !== null ? finalValue === storedDamage : null,
     steps: (list ?? []).map(t => ({ name: t.name, label: termLabel(t.name, policy),
-      before: val(t.before), after: val(t.after), operation: typeof t.operation === 'string' ? t.operation : '' })),
+      before: val(t.before), after: val(t.after), operation: typeof t.operation === 'string' ? t.operation : '',
+      description: describeStepOperation(t.name, t.operation, policy) })),
     missing: !list ? ['terms'] : policy === CLIENT_F32 ? CLIENT_REQUIRED_TERMS.filter(n => !term(n))
       : required.filter(n => !term(n)).concat(finalTerm || minimumTerm ? [] : ['final']),
+    missingLabels: (!list ? [] : (policy === CLIENT_F32 ? CLIENT_REQUIRED_TERMS.filter(n => !term(n))
+      : required.filter(n => !term(n)).concat(finalTerm || minimumTerm ? [] : ['final']))).map(n => termLabel(n, policy)),
     client: policy === CLIENT_F32 ? buildClientBreakdown(term, hit, val) : null
   };
 }
@@ -989,11 +1030,11 @@ export async function fetchDamageLog(api, replayId, characterId, replayData, mem
         return {
           isMock: false,
           status: 'api_error',
-          error: err.message,
+          error: errorText(err),
           schemaVersion: null,
           truncated: false,
           log: null,
-          message: `서버 통신 실패: ${err.message}`
+          message: `서버 통신 실패: ${errorText(err)}`
         };
       }
     }

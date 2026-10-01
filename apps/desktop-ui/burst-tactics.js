@@ -11,6 +11,7 @@
  * - Cross-comparison of actual burst timeline vs user tactic settings
  */
 
+import { errorText } from './display-labels.js';
 import {
   auditBurstTactics,
   createDefaultTactics,
@@ -151,7 +152,7 @@ export function createBurstTacticsManager({ api, getSnapshot, getMembersWithMeta
     try {
       localStorage.setItem(storageKey(account), JSON.stringify(tactics));
     } catch (e) {
-      status?.(`로컬 저장 실패: ${e.message}`);
+      status?.(`로컬 저장 실패: ${errorText(e)}`);
     }
 
     // 2. Server API synchronization

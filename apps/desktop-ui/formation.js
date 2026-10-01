@@ -1,3 +1,4 @@
+import { errorText } from './display-labels.js';
 import { appendPortrait } from './cards.js';
 
 const $ = id => document.getElementById(id);
@@ -82,7 +83,7 @@ export function createFormation({ api, getSnapshot, getItem, getBuild, status, s
       const result = await api(`/accounts/${account}/formation`, 'PUT', { slots: [...draft] });
       if (expected !== generation) return;
       saved = [...result.slots]; draft = [...saved]; showRaid(); status('편성을 저장했습니다.');
-    } catch (error) { if (expected === generation) status(error.message); }
+    } catch (error) { if (expected === generation) status(errorText(error)); }
     finally { if (expected === generation) { saving = false; render(); renderCards(); } }
   };
   $('formation-cancel').onclick = () => { draft = [...saved]; showRaid(); render(); };

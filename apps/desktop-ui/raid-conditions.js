@@ -14,6 +14,8 @@
  * stores the selection. `confirmed: false` reproduces the pre-wire form for comparison tests only.
  */
 
+import { errorText } from './display-labels.js';
+
 export const DURATION_SECONDS = 180;
 export const DURATION_FRAMES = DURATION_SECONDS * 60;
 export const PELLET_POLICY = 'per_trigger';
@@ -180,7 +182,7 @@ export function mountBossSelector(container, { loadBosses = async () => null, on
     notice = list.notice;
     if (!bosses.some(b => b.id === selectedId)) selectedId = bosses.some(b => b.id === list.defaultId) ? list.defaultId : bosses[0].id;
     error = null; paint();
-  }).catch(e => { error = e?.message ?? String(e); paint(); });
+  }).catch(e => { error = errorText(e); paint(); });
   function open() {
     dialog.innerHTML = renderBossDialog(bosses, selectedId, { notice });
     dialog.querySelectorAll('[data-boss-id]').forEach(button => button.onclick = () => {

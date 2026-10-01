@@ -285,12 +285,37 @@ await check('non_full_charge_minimum_and_missing_terms', () => {
   partial.calculation = { ...partial.calculation, terms: partial.calculation.terms.filter(t => t.name !== 'charge') };
   const pb = adapter.buildDamageBreakdown(partial);
   assert.deepEqual(pb.missing, ['charge']); assert.equal(pb.charge.value, null);
-  assert.ok(html(partial).includes('누락된 계산 항목: charge'));
+  assert.ok(html(partial).includes('누락된 계산 항목: 차지 배율'));
   const mapped = adapter.mapServerEntryToHit(bare);
   assert.equal(mapped.audit.baseAtk, null); assert.equal(mapped.audit.chargeMultiplier, null); assert.equal(mapped.audit.statDiff, null);
   const wrong = { ...caseEntry('non_full_charge_core', 'legacy_term_floor'), damage: 1 };
   assert.equal(adapter.buildDamageBreakdown(wrong).finalMatchesStored, false);
   assert.ok(html(wrong).includes('불일치'));
+});
+
+await check('u_fix_7_audit_table_has_no_stored_keys_or_english_operations', () => {
+  const banned = /calculation\.terms|effectiveAttack|effectiveDefense|multiply|identity|native \+|floor|checked int64|float32 left|hit|terms/;
+  for (const policy of ['legacy_term_floor', 'nested_floor', 'final_round_even']) {
+    for (const name of Object.keys(fixture.cases)) {
+      const entry = caseEntry(name, policy);
+      const text = html(entry).replace(/data-term="[^"]*"/g, '');
+      const rows = text.split('<tr').filter(r => r.includes('audit-op'));
+      for (const row of rows) {
+        const plain = row.replace(/<[^>]+>/g, ' ');
+        assert.ok(!banned.test(plain), `${policy}/${name}: ${plain.slice(0, 160)}`);
+        assert.ok(!/<small class="audit-sub">[A-Za-z0-9]+<\/small>/.test(row), 'stored name subtitle');
+      }
+      assert.ok(!/calculation\.terms|\(hit 기록\)|저장된 연산/.test(text), `${policy}/${name}`);
+    }
+  }
+  const entry = caseEntry('crit_core_fullburst_distance', 'legacy_term_floor');
+  const steps = adapter.buildDamageBreakdown(entry).steps;
+  assert.ok(steps.every(s => s.description && s.operation !== undefined)); // stored operation stays in data
+  const unknown = { ...entry, calculation: { ...entry.calculation, terms: [{ name: 'weirdKey', before: 1, after: 2, operation: 'xyzzy' }] } };
+  const t = html(unknown);
+  assert.ok(!t.includes('weirdKey</') && !t.includes('xyzzy') && t.includes('기록된 계산 항목') && t.includes('저장된 연산 기록'));
+  const bare = html({ hitId: 9, frame: 10, damage: 500, calculation: { policy: 'legacy_term_floor' }, buffs: [] });
+  assert.ok(!bare.includes('calculation.terms'));
 });
 
 await check('html_escape', () => {

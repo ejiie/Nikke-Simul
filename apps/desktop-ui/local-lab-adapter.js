@@ -1,4 +1,5 @@
 // Card/detail projections and edit callbacks, backed by versioned Nikke-Simul snapshots.
+import { errorText } from './display-labels.js';
 import { renderEquipmentDetail, renderSkillDetail, renderCollectionDetail, numericEditor } from './local-lab-detail.js';
 const slots={head:'head',torso:'torso',arm:'arms',leg:'legs'};
 const company={elysion:1,missilis:2,tetra:3,pilgrim:4,abnormal:7};
@@ -147,7 +148,7 @@ function renderSave(){
       if(!input.disabled&&!input.checkValidity()){message.textContent='입력한 스펙의 범위를 확인하세요.';input.reportValidity();return;}
     }
     save.disabled=true;
-    try{await session.onSave(detailDraft());}catch(e){message.textContent=e.message;save.disabled=false;}
+    try{await session.onSave(detailDraft());}catch(e){message.textContent=errorText(e);save.disabled=false;}
   };
   bar.append(message,cancel,save);
 }

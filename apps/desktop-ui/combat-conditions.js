@@ -19,6 +19,7 @@
  * `confirmed: false` reproduces the pre-wire form (old checkboxes) for comparison tests only.
  */
 
+import { errorText as friendlyError } from './display-labels.js';
 export const COND_WIRE = Object.freeze({
   confirmed: true,
   catalogRoute: '/runtime/combat-conditions',
@@ -239,7 +240,7 @@ export function mountConditionControls(container, { getMembers = () => [], loadC
   const preview = (s = state) => memberPreview(getMembers(), profiles, s);
   const paint = () => { container.innerHTML = renderConditionControls(state, { legacy, catalog }); };
   const names = () => new Map(getMembers().map(m => [String(m.id), m.displayName ?? null]));
-  const errorText = error => describeCombatProfileError(error, names())?.text ?? error?.message ?? String(error);
+  const errorText = error => describeCombatProfileError(error, names())?.text ?? friendlyError(error);
   const ensureCatalog = () => catalogPromise ??= Promise.resolve(loadCatalog())
     .then(payload => { catalog = payload ? normalizeCatalog(payload) : null; catalogError = null; return catalog; })
     .catch(error => { catalog = null; catalogError = errorText(error); catalogPromise = null; return null; });
@@ -373,7 +374,7 @@ export function describeCombatProfileError(error, names = null) {
     // U-FIX-6: field meaning in Korean only; the raw path stays in the structured error.
     const fieldText = key && PROFILE_FIELDS[key] ? PROFILE_FIELDS[key] : /\.source\./.test(field ?? '') ? '출처 정보' : field ? '데이터 항목' : '항목 미기록';
     return { code, characterId: body.characterId ?? null, field, reason,
-      text: `사거리·속성 데이터 오류 · ${subject} · ${fieldText} · ${PROFILE_REASONS[reason] ?? reason ?? '사유 미기록'}. ${PREPARE_HINT}`,
+      text: `사거리·속성 데이터 오류 · ${subject} · ${fieldText} · ${PROFILE_REASONS[reason] ?? '사유 미확인'}. ${PREPARE_HINT}`,
       raw: field ? `${code}: ${field}: ${reason ?? '?'}` : message };
   }
   if (code === 'combat_profile_catalog_missing') {

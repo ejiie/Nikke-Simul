@@ -34,6 +34,7 @@ import {
   formatAuditNumber,
   DAMAGE_LOG_PROVISIONAL_NOTICE
 } from './damage-log-adapter.js';
+import { errorText } from './display-labels.js';
 
 const $ = id => document.getElementById(id);
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -73,7 +74,7 @@ function clientAuditCards(b, card, f) {
     card('extra', f32(c.extra), 'breakRate + addDamageRate − 1 · 잠정 대응'),
     card('1 − damageReductionRate', f32(c.reduction), '받는 대미지·분배 · 잠정 대응'),
     card('1 − defenceRatioRate', f32(c.defenceFactor), `실험·미확정 · 입력 ${input(c.defenceRatioRate)}`),
-    card('elementRate (입력)', input(c.rates.element), '감사 항 미기록 · hit 입력 기준'),
+    card('elementRate (입력)', input(c.rates.element), '검산 단계 미기록 · 타격 입력 기준'),
     card('정수화 전 곱 (float32)', f32(c.product)),
     card('정수화 정책', b.policy, '사사오입(0.5는 0에서 먼 쪽) · 최소 1', 'font-mono'),
     card('최종 피해', long(c.final), c.minimumApplied ? `최소 피해 1 적용 · ${finalSub}` : finalSub,
@@ -119,20 +120,20 @@ export function renderDamageAuditPanel(hit, audit) {
   const steps = b.hasSteps ? `
     <div class="table-scroll audit-steps-shell">
       <table class="audit-steps">
-        <thead><tr><th>단계</th><th>입력</th><th>결과</th><th>저장된 연산</th></tr></thead>
+        <thead><tr><th>단계</th><th>입력</th><th>결과</th><th>연산 설명</th></tr></thead>
         <tbody>${b.steps.map(s => `
           <tr data-term="${esc(s.name)}">
-            <td>${esc(s.label)} <small class="audit-sub">${esc(s.name)}</small></td>
+            <td>${esc(s.label)}</td>
             <td>${esc(f(s.before))}</td>
             <td><strong>${esc(f(s.after))}</strong></td>
-            <td class="audit-op">${esc(s.operation)}</td>
+            <td class="audit-op">${esc(s.description)}</td>
           </tr>`).join('')}
         </tbody>
       </table>
     </div>`
-    : '<p class="audit-missing">저장된 단계별 계산 기록(calculation.terms 배열)이 없어 정수화 단계를 검산할 수 없습니다.</p>';
+    : '<p class="audit-missing">저장된 단계별 계산 기록이 없어 정수화 단계를 검산할 수 없습니다.</p>';
   const missing = b.hasSteps && b.missing.length
-    ? `<p class="audit-missing">누락된 계산 항목: ${esc(b.missing.join(', '))} (미제공으로 표시)</p>` : '';
+    ? `<p class="audit-missing">누락된 계산 항목: ${esc(b.missingLabels.join(', '))} (미제공으로 표시)</p>` : '';
   const effectItem = e => `
     <li>
       <strong>${esc(e.sourceText)}</strong> · ${esc(e.label)} <span class="audit-effect-value">${esc(e.valueText)}</span>
@@ -146,7 +147,7 @@ export function renderDamageAuditPanel(hit, audit) {
       : '';
   }).join('');
   const attack = audit.attackSources?.length
-    ? `<div class="audit-effect-group" data-audit-group="attack"><h6>최종 공격력 입력 (hit 기록)</h6><ul>${audit.attackSources
+    ? `<div class="audit-effect-group" data-audit-group="attack"><h6>최종 공격력 입력 (타격 기록)</h6><ul>${audit.attackSources
       .map(s => `<li>${esc(s.kind)} · ${esc(s.source)} <span class="audit-effect-value">${esc(s.valueText)}</span></li>`).join('')}</ul></div>`
     : '';
   return `
@@ -157,7 +158,7 @@ export function renderDamageAuditPanel(hit, audit) {
       </div>
       <div class="audit-stats-grid">${cards}</div>
       <div class="audit-buffs-box">
-        <h5>계산 단계 (저장된 calculation.terms)</h5>
+        <h5>계산 단계 (저장된 단계별 기록)</h5>
         <ol class="audit-formula">${audit.formula.map(line => `<li>${esc(line)}</li>`).join('')}</ol>
         ${steps}${missing}
       </div>
@@ -342,7 +343,7 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, ge
       return `
         <tr class="${isSelected ? 'selected-row' : ''}" data-hit-id="${h.hitId}">
           <td>${h.seconds}초 <small>(${h.frame}F)</small></td>
-          <td>#${h.shotId ?? '—'} <small>(Hit #${h.hitId})</small></td>
+          <td>#${h.shotId ?? '—'} <small>(타격 #${h.hitId})</small></td>
           <td><strong>${num(h.damage)}</strong></td>
           <td>${num(h.cumulativeDamage)}</td>
           <td>${h.isFullCharge === true ? '<span class="pill-badge green">풀차지</span>'
@@ -458,7 +459,7 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, ge
             <thead>
               <tr>
                 <th>시간</th>
-                <th>발사 / Hit</th>
+                <th>발사 / 타격</th>
                 <th>발당 피해</th>
                 <th>누적 피해</th>
                 <th>차지 상태</th>
@@ -511,10 +512,9 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, ge
             status?.('서버 원본 JSON 로그를 내보냈습니다.');
             return;
           }
-          const errText = await res.text().catch(() => '');
-          throw new Error(`서버 로그 내보내기 실패 (${res.status}): ${errText}`);
+          throw new Error(`서버 로그 내보내기 실패 (HTTP ${res.status})`);
         } catch (err) {
-          status?.(err.message || 'JSON 내보내기 실패');
+          status?.(errorText(err));
           return;
         }
       }
@@ -543,10 +543,9 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, ge
             status?.('서버 원본 CSV 로그를 내보냈습니다.');
             return;
           }
-          const errText = await res.text().catch(() => '');
-          throw new Error(`서버 로그 내보내기 실패 (${res.status}): ${errText}`);
+          throw new Error(`서버 로그 내보내기 실패 (HTTP ${res.status})`);
         } catch (err) {
-          status?.(err.message || 'CSV 내보내기 실패');
+          status?.(errorText(err));
           return;
         }
       }
