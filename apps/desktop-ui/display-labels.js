@@ -73,7 +73,8 @@ const SERVER_MESSAGES = Object.freeze({
   combat_profile_invalid: '사거리·속성 데이터에 오류가 있습니다.',
   combat_member_profile_missing: '편성 멤버의 사거리·속성 데이터가 없습니다.'
 });
-const CODE_LIKE = /[a-z]+_[a-z0-9_]+|[a-z]+\.[a-z]+\.|\b\d{4,}\b|[A-Z][a-z]+[A-Z]\w+/;
+// Internal identifiers inside otherwise Korean text: snake_case, dotted paths, 4+ digit numbers, lower/UpperCamelCase.
+const CODE_LIKE = /[a-z]+_[a-z0-9_]+|\w+\.[A-Za-z_]\w*|\b\d{4,}\b|[A-Z][a-z]+[A-Z]\w+|\b[a-z]+[A-Z]\w*/;
 
 /** Korean text for a server error message (code-like or English texts are never shown as is). */
 export function friendlyServerMessage(raw, status = null) {

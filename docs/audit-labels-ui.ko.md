@@ -102,3 +102,11 @@
 
 - `damage-log-adapter.js:379·374` — client_f32의 `final`·`effectiveDefense`가 operation이 비어 있지 않기만 하면 미등록 값(`weird`)도 확정 설명. → `final`·`effectiveDefense`는 엔진이 쓰는 등록 연산 문자열과 정확히 일치할 때만 설명하고(정책으로 추정하지 않음), 그 외 모든 단계도 `KNOWN_OPERATIONS`(HitCalculator 등록 연산) 안의 값일 때만 단계별 설명을 쓴다. 미등록·누락은 `저장된 연산 미확인`.
 - 테스트: `u_fix_7_missing_operation_is_unknown_not_guessed`에 client_f32의 미등록 `final`·`effectiveDefense`, 전 단계 이름 × (미등록/누락) 케이스, 등록 연산의 정상 설명 추가. `node --test tests/ui/*.test.mjs` 6/6 통과.
+
+### QA 1차 차단 (독립 QA, 커밋 b401421)
+
+- **U7-Q-1** `damage-log-adapter.js` B3~B5 — 접두사만 검사해 `multiply 1.25; qa_unknown_transform`을 `× 1.25 곱함`, `multiply 1.25; floor_if_qa_condition`을 `곱한 뒤 내림`으로 단정. → 전체 문자열이 `multiply <값>` 또는 `multiply <값>; floor`(엔진 등록 형태)와 정확히 일치할 때만 설명하고 그 외는 `저장된 연산 미확인`. 다른 단계는 이미 `KNOWN_OPERATIONS`/`final`/`effectiveDefense`의 정확 일치 검사이며 접두사 검사는 남아 있지 않다.
+- **U7-Q-2** `display-labels.js` `CODE_LIKE` — `검사 필요: effectiveAttack`, `검사 필요: calculation.terms`처럼 한국어와 lowerCamelCase·점 경로가 섞이면 통과. → lowerCamelCase(`\b[a-z]+[A-Z]\w*`)와 점 경로(`\w+\.[A-Za-z_]\w*`)를 코드 형태에 추가. 섞인 문장은 `koreanText`/`friendlyServerMessage`/`reasonLabel`에서 한국어 대체 문구로 바뀐다. 정상 한국어 문장(`3.5배`, `LV.5` 등)은 통과하도록 확인.
+- **U7-Q-3** (기존 결함) `damage-log.js` — 로그 없음(`api_error`·`unsupported_schema`·미로드)에서 `log:null`로 `generateGraphSvg(null)` 예외. → 로그가 없고 `no_damage`가 아니면 상태별 한국어 안내(`피해 로그를 불러오지 못했습니다` 등)를 표시하고 그래프 생성을 건너뛴다. Mock 미리보기 버튼은 미수집 상태에서만 표시.
+- 테스트(QA 재현과 같은 입력): `damage_audit` — 위 두 접미사·유사 변형의 B3~B5; `display_labels` — 혼합 문자열 5종과 정상 문장, 전송 실패(`TypeError: Failed to fetch`, HTTP 500) 시 viewer가 예외 없이 한국어 안내를 렌더하고 원문·그래프가 없음. `node --test tests/ui/*.test.mjs` 6/6 통과.
+- 전수 목록 보정: `damage-log.js` 로그 조회 실패 행은 `errorText`에 더해 위 안내 화면까지 이어지도록 수정.
