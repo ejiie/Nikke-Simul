@@ -15,8 +15,8 @@
 
 | 역할 | 위치 | 세션 | 상태 |
 |---|---|---|---|
-| 구현 (sonnet-5.5) | 작업 영역의 기존 worktree(첫 작업은 `UI`) | Claude Code `claude --model sonnet --effort <지시서 값>` | 사용자 실행 대기 |
-| 리뷰 (astra-6) | 새 worktree `C:/Users/user/orca/workspaces/Nikke-Simul/리뷰` (브랜치 `ejiie/리뷰`, 기준 Director `3d84fe4`) | Codex `codex --model gpt-6-astra -c model_reasoning_effort="medium"` + `/permissions` Full access | worktree 생성 완료, 세션 사용자 실행 대기 |
+| 구현 (sonnet-5.5) | 작업 영역의 기존 worktree(첫 작업은 `UI`) | Claude Code Sonnet 5.5, 사용자 설정 effort **medium** — `term_c322a450…`(기존 UI 터미널에서 재시작) | 실행됨(2026-10-01) |
+| 리뷰 (astra-6) | **`UI` worktree에서 실행됨** — `term_cfa51db6…`, GPT-6-Astra medium, Full access. 구현 커밋 이후에만 읽기·빌드·테스트를 하고 파일을 수정하지 않는다는 조건으로 같은 worktree 사용 | Codex | 실행됨(2026-10-01). 별도 `리뷰` worktree(`ejiie/리뷰`)는 생성만 되어 미사용 |
 | 독립 QA | 기존 `검수` worktree (Codex, xhigh로 설정됨) | 기존 세션 | 유지 |
 
 Director의 에이전트 세션 생성(권한 우회 플래그 포함)은 자동 승인 정책에서 거부되어, 세션 실행은 사용자가 Orca에서 직접 한다. 리뷰 담당은 git 메타데이터 쓰기가 필요하므로(구현 커밋 merge·빌드) Full access가 필요하다(Backend 세션 권한 차단 전례).

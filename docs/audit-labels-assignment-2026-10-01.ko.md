@@ -11,7 +11,7 @@
 [구현·리뷰·QA 작업 구조](workflow-implement-review.ko.md)를 따른다.
 
 - 흐름: 구현(sonnet-5.5) → 리뷰(astra-6, 차단 7항목) → 독립 QA → Director.
-- 사고 수준: **구현 high**(여러 파일 전수 정리) / **리뷰 medium** / **QA high**. 반려 후 구현은 한 단계 상향.
+- 사고 수준: 구현 high로 계획했으나 **사용자가 구현 세션을 medium으로 설정**해 medium으로 진행 / **리뷰 medium** / **QA high**. 반려 후 구현은 한 단계 상향(high).
 - 리뷰 결과: 통과|반려 + `파일:줄 — 항목 번호 — 이유`, 빌드·테스트 1회 결과 포함.
 
 ## 구현 (UI worktree, sonnet-5.5)
@@ -23,9 +23,9 @@
 3. 실제 격리 API·브라우저 확인(원본 `data/local`·5180/5181 불변, EXE 배포 금지), 기존 회귀 유지.
 4. 커밋 후 Director에 한 번 인계(확정 커밋·보고서·전수 목록·검증 결과).
 
-## 리뷰 (리뷰 worktree, astra-6)
+## 리뷰 (UI worktree, astra-6)
 
-Director 통지 후 구현 커밋을 자기 브랜치에 일반 merge하고, [차단 7항목](workflow-implement-review.ko.md)으로 diff를 판정한다. 빌드·테스트 1회. 코드 수정·실험·종단 검증·범위 밖 요구 금지. 결과를 Director에 한 번 인계.
+Director 통지 후 구현 커밋이 확정된 상태의 UI worktree에서(파일 수정·커밋·merge 없이), [차단 7항목](workflow-implement-review.ko.md)으로 diff를 판정한다. 빌드·테스트 1회. 코드 수정·실험·종단 검증·범위 밖 요구 금지. 결과를 Director에 한 번 인계.
 
 ## QA (검수 worktree)
 
