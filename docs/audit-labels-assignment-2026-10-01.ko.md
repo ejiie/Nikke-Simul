@@ -44,6 +44,9 @@ Director 통지 후 구현 커밋이 확정된 상태의 UI worktree에서(파�
 | 리뷰 배정 | astra-6 `term_cfa51db6…`(UI worktree, 파일 수정 금지) | `34a3f5d7-c5c7-4dbd-a2ff-d90a981b6fce` | `turn_started` |
 | 리뷰 1차 | astra-6 | — | **반려(차단 2)**: (1) `apps/desktop-ui/app.js:357` 자동 버스트 요약 `waitingReason`·`timeline[].reason`이 미등록이면 원문 출력(`reasons[key] ?? key`), 전수 목록에도 누락 — 항목 3. (2) `apps/desktop-ui/damage-log-adapter.js:377` final의 operation이 누락·미등록이면 round로 시작하지 않는 한 "내림"으로 단정(`final_round_even` 저장 항목에서 operation 누락 시 정책과 반대 설명) — 항목 5. 비차단 없음. 리뷰어의 테스트 1회(`node --test tests/ui`)는 디렉터리 경로 진입 실패(MODULE_NOT_FOUND)로 실제 6파일 미실행 — 구현 회귀 아님, 재리뷰 시 `node --test tests/ui/*.test.mjs` 사용 |
 | 재작업 | 구현 ⇄ 리뷰 직접 왕복으로 전환 | — | 반려 1회차. 사고 수준 상향(high)은 사용자 확인 |
+| 직접 왕복 | 구현 `518e3ab` → 리뷰 반려 2회차(client_f32 `final`·`effectiveDefense`의 미등록 operation도 확정 설명) → 구현 `b401421` | — | 이력은 구현 보고서 6절 "리뷰 이력" |
+| **리뷰 최종** | astra-6 | — | **통과(`b401421`)**, 차단 0, 테스트 1회 6파일·내부 76/76, 비차단: 기존 모듈 형식 경고. 리뷰어는 Director에 전송(입력 수락)했다고 했으나 이 세션에 도착하지 않아 Director가 리뷰 터미널 화면으로 확인. 반려 2회 이내라 Director 판단 요청 없음 |
+| QA 배정 | 검수 `term_234e279b…` | (아래) | Director 확인: `3d84fe4..b401421` 제품 `src`·QA `tests/q3` 변경 0, QA 브랜치와 충돌 없음 |
 | 리뷰 2·3차 | 구현 ⇄ 리뷰 직접 왕복 | — | 반려 2회(1차 `4622860`: app.js 자동 버스트 사유 원문·final 연산 단정, 2차 `518e3ab`: client_f32 final·effectiveDefense 미등록 연산 확정 설명). 구현 보고서 6절 리뷰 이력에 누적 |
 | 리뷰 최종 | astra-6 → Director 1회 | — | **통과(2026-10-01)**: 확정 UI `b401421`(`3d84fe4` ff 위, `4622860`→`518e3ab`→`b401421`), 보고서 `UI/docs/audit-labels-ui.ko.md`. 차단 7항목 위반 없음. 리뷰어 테스트 1회 `node --test tests/ui/*.test.mjs` exit 0, 6/6 파일·내부 76/76. 비차단: 기존 `MODULE_TYPELESS_PACKAGE_JSON` 경고. Director 확인: 변경 15파일 모두 `apps/desktop-ui`·`tests/ui`·UI 보고서(제품 `src`·QA `tests/q3` 0), 원본 `main`=`3d84fe4` 위 fast-forward. **코드 리뷰 통과일 뿐 QA·통합·EXE 배포는 미완료.** |
 | QA 배정 | 검수 worktree(Codex) | — | **대기(미전달)**: 검수 터미널 `term_234e279b…`·`term_e86b74e5…`가 Codex 세션 없이 셸 프롬프트 상태라 셸 오입력 위험으로 전달하지 않음. 사용자가 검수 세션을 연 뒤 아래 QA 절 기준으로 전달 |
