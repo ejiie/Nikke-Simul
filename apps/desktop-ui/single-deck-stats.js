@@ -9,6 +9,7 @@
  */
 import { COND_WIRE, createConditionState, describeCombatProfileError, describeCompatibility, describePlannedConditions } from './combat-conditions.js';
 import { DEF_WIRE, describeDefensePolicy, describeSavedCombat } from './raid-conditions.js';
+import { own } from './own-lookup.js';
 import { optionLabel, reasonLabel, slotLabel } from './display-labels.js';
 
 // Character codes are never shown; names come from the deck (Korean display names).
@@ -34,7 +35,7 @@ export const DEFAULT_DURATION_FRAMES = 10800;
 export const DEFAULT_RUNS = 1000;
 export const PHASES = [['pilot', '파일럿'], ['final', '최종'], ['exploration', '탐색']];
 // Phase keys are shown by name (U-FIX-4); unknown values get a generic label, not the raw key.
-const phaseLabel = phase => ({ ...Object.fromEntries(PHASES), warmup: '예열' })[phase] ?? '기타 단계';
+const phaseLabel = phase => own({ ...Object.fromEntries(PHASES), warmup: '예열' }, phase) ?? '기타 단계';
 
 function bytes(value) {
   if (typeof value !== 'number' || !Number.isFinite(value)) return UNKNOWN;

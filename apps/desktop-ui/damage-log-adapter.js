@@ -13,6 +13,7 @@
 
 import { CLIENT_F32, CLIENT_F32_WIRE, policyInfo, readWireLong } from './hit-policy.js';
 import { basisLabel, describeSourceKey, errorText } from './display-labels.js';
+import { own } from './own-lookup.js';
 
 export const DAMAGE_LOG_SCHEMA_VERSION = 1;
 export const DAMAGE_LOG_PROVISIONAL_NOTICE = '잠정 정확도 · 실게임 관측 대조 전 합성 시뮬레이션';
@@ -346,7 +347,7 @@ const CLIENT_AXIS_NAMES = [
   [/^가산 묶음 · 크리티컬 보너스$/, 'B · criticalDamageRate'], [/^차지 배율 · 가산항$/, 'chargeDamageRate · 가산항'], [/^차지 배율$/, 'chargeDamageRate']
 ];
 export function termLabel(name, policy) {
-  return (policy === CLIENT_F32 ? CLIENT_TERM_LABELS[name] : AUDIT_TERM_LABELS[name]) ?? '기록된 계산 항목'; // the stored key is never shown
+  return (policy === CLIENT_F32 ? own(CLIENT_TERM_LABELS, name) : own(AUDIT_TERM_LABELS, name)) ?? '기록된 계산 항목'; // the stored key is never shown
 }
 
 // U-FIX-7: the stored `operation` is an English engine note; the screen shows a Korean per-step description.
@@ -410,7 +411,7 @@ export function describeStepOperation(name, operation, policy) {
   }
   if (op === 'floor') return name === 'base' ? '내림' : name === 'distance' || name === 'fullBurst' || name === 'critical' || name === 'core' ? '기본 피해 × 보너스 비율 (내림)' : UNKNOWN_OPERATION;
   if (name === 'distance' || name === 'fullBurst' || name === 'critical' || name === 'core') return UNKNOWN_OPERATION;
-  return KNOWN_OPERATIONS[name]?.includes(op) ? STEP_DESCRIPTIONS[name] ?? UNKNOWN_OPERATION : UNKNOWN_OPERATION;
+  return own(KNOWN_OPERATIONS, name)?.includes(op) ? own(STEP_DESCRIPTIONS, name) ?? UNKNOWN_OPERATION : UNKNOWN_OPERATION;
 }
 const NATIVE_BASES = new Set(['native_recipient', 'native_caster']);
 const isFiniteNumber = v => typeof v === 'number' && Number.isFinite(v);
@@ -485,7 +486,7 @@ function auditOriginText(sourceId, functionId, burstCastId, ctx) {
   if (functionId == null) parts.push('스킬 정보 미기록');
   else {
     const slot = ctx?.slots?.get(`${sourceId}:${functionId}`);
-    parts.push(slot ? AUDIT_SLOT_LABELS[slot] ?? '스킬 효과' : '스킬 효과');
+    parts.push(slot ? own(AUDIT_SLOT_LABELS, slot) ?? '스킬 효과' : '스킬 효과');
   }
   if (burstCastId != null) parts.push(`버스트 시전 이벤트 #${burstCastId}`);
   return parts.join(' · ');
@@ -495,7 +496,7 @@ function auditOriginText(sourceId, functionId, burstCastId, ctx) {
 export function describeBuffSnapshot(snapshot, frame, ctx = null) {
   const effect = snapshot?.effect ?? {};
   const typeId = Number.isInteger(effect.type) ? effect.type : null;
-  const def = typeId === null ? null : AUDIT_FUNCTION_TYPES[typeId] ?? null;
+  const def = typeId === null ? null : own(AUDIT_FUNCTION_TYPES, typeId) ?? null;
   const value = isFiniteNumber(effect.value) ? effect.value : null;
   const stacks = Number.isInteger(effect.stacks) && effect.stacks > 0 ? effect.stacks : null;
   const basis = typeof effect.basis === 'string' && effect.basis ? effect.basis : null;
@@ -676,7 +677,7 @@ export function buildDamageBreakdown(entry) {
     const t = term(name);
     // The factor is read only from a registered operation string; anything else leaves it unconfirmed (null).
     const multiply = parseMultiplyOperation(t?.operation);
-    return { name, label: AUDIT_TERM_LABELS[name], present: Boolean(t), factor: multiply ? multiply.factor : null,
+    return { name, label: own(AUDIT_TERM_LABELS, name), present: Boolean(t), factor: multiply ? multiply.factor : null,
       before: val(t?.before), after: val(t?.after), floored: multiply ? multiply.floored : false };
   });
   const finalValue = val(finalTerm?.after) ?? val(minimumTerm?.after);
@@ -787,7 +788,7 @@ export function buildHitAudit(entry, ctx = null) {
   const resolveFunction = fid => {
     for (const [key, slot] of ctx?.slots ?? []) {
       const [owner, id] = key.split(':');
-      if (id === String(fid)) return `${auditNikkeText(owner, ctx)} · ${AUDIT_SLOT_LABELS[slot] ?? '스킬 효과'}`;
+      if (id === String(fid)) return `${auditNikkeText(owner, ctx)} · ${own(AUDIT_SLOT_LABELS, slot) ?? '스킬 효과'}`;
     }
     return null;
   };

@@ -1,6 +1,7 @@
 // Nikke detail renderer functions.
 // Snapshot projection and edit operations live in local-lab-adapter.js.
 import { state, effectiveProfileValue, configuredSynchroLevel, queueIntegerValue,
+import { own } from "./own-lookup.js";
   queueControlledValue, queueReferenceValue, queueExactValue, upsertProfileOperations,
   renderNikkeDetail, renderEditOperations } from "./local-lab-adapter.js";
 const byId=id=>document.getElementById(id);
@@ -62,7 +63,7 @@ function appendPresentationImage(container, path, className, alt, fallbackText =
   return image;
 }
 
-function burstLabel(step) { return burstDisplayLabels[step] || "-"; }
+function burstLabel(step) { return own(burstDisplayLabels, step) || "-"; }
 
 function exactValueText(projection, unitLabel = null) {
   if (!projection || projection.unscaledValue == null) return "-";
@@ -255,14 +256,14 @@ function renderEquipmentDetail(subjectUid) {
     const icon = document.createElement("button");
     icon.type = "button";
     icon.className = "equipment-icon";
-    icon.title = `${equipmentSlotLabels[slot]} 장비 변경`;
-    icon.setAttribute("aria-label", `${equipmentSlotLabels[slot]} 장비 변경`);
+    icon.title = `${own(equipmentSlotLabels, slot)} 장비 변경`;
+    icon.setAttribute("aria-label", `${own(equipmentSlotLabels, slot)} 장비 변경`);
     if (support.imagePath) {
       appendPresentationImage(
         icon, support.imagePath, "equipment-image", support.displayName || "",
-        equipmentSlotLabels[slot].slice(0, 1));
+        own(equipmentSlotLabels, slot).slice(0, 1));
     } else {
-      icon.textContent = equipmentSlotLabels[slot].slice(0, 1);
+      icon.textContent = own(equipmentSlotLabels, slot).slice(0, 1);
     }
     if (support.tier) {
       const tierBadge = document.createElement("span");
@@ -273,7 +274,7 @@ function renderEquipmentDetail(subjectUid) {
     const heading = document.createElement("div");
     heading.className = "equipment-stat-panel";
     const name = document.createElement("strong");
-    name.textContent = support.displayName || `${equipmentSlotLabels[slot]} 장비`;
+    name.textContent = support.displayName || `${own(equipmentSlotLabels, slot)} 장비`;
     const statTitle = document.createElement("span");
     statTitle.className = "equipment-column-title";
     statTitle.textContent = "장비 능력치";
@@ -393,7 +394,7 @@ function renderEquipmentDetail(subjectUid) {
     picker.className = "equipment-picker";
     picker.hidden = true;
     const pickerTitle = document.createElement("strong");
-    pickerTitle.textContent = `${equipmentSlotLabels[slot]} 장비 선택`;
+    pickerTitle.textContent = `${own(equipmentSlotLabels, slot)} 장비 선택`;
     const pickerChoices = document.createElement("div");
     pickerChoices.className = "equipment-picker-choices";
     const character = state.presentationByCharacter.get(subjectUid) || {};
@@ -567,9 +568,9 @@ function renderCollectionDetail(subjectUid, presentation) {
   if (support.imagePath) {
     appendPresentationImage(
       icon, support.imagePath, "collection-image", support.displayName || "",
-      weaponLabels[presentation.weaponCode]?.slice(0, 1) || "소");
+      own(weaponLabels, presentation.weaponCode)?.slice(0, 1) || "소");
   } else {
-    icon.textContent = weaponLabels[presentation.weaponCode]?.slice(0, 1) || "소";
+    icon.textContent = own(weaponLabels, presentation.weaponCode)?.slice(0, 1) || "소";
   }
   const copy = document.createElement("div");
   const title = document.createElement("h3");
@@ -577,7 +578,7 @@ function renderCollectionDetail(subjectUid, presentation) {
   const description = document.createElement("p");
   description.textContent = kind === "favorite"
     ? `${presentation.displayName || "선택 니케"} 전용 애장품`
-    : `${weaponLabels[presentation.weaponCode] || "무기군"} 전용 소장품`;
+    : `${own(weaponLabels, presentation.weaponCode) || "무기군"} 전용 소장품`;
   copy.append(title, description);
   const phase = document.createElement("div");
   phase.className = "collection-phase";

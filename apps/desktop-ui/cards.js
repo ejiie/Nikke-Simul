@@ -1,5 +1,6 @@
 // Nikke card DOM, icon rails, growth strip and filters; the account adapter lives in app.js.
 import { bindCardGesture } from './card-gesture.js';
+import { own } from "./own-lookup.js";
 const byId=id=>document.getElementById(id);
 const value=id=>byId(id).value.trim();
 let state,effectiveProfileValue,configuredCharacterLevel,openNikkeDetail,isSelecting,isChosen,selectCharacter;
@@ -73,9 +74,9 @@ function appendPresentationImage(container, path, className, alt, fallbackText =
   container.appendChild(image);
   return image;
 }
-function burstLabel(step) { return burstDisplayLabels[step] || "-"; }
+function burstLabel(step) { return own(burstDisplayLabels, step) || "-"; }
 function burstAssetPath(step) {
-  const code = burstAssetCodes[step];
+  const code = own(burstAssetCodes, step);
   return code ? `${uiAssetRoot}/burst-${code}.png` : null;
 }
 export function renderNikkeCards(subjects = null, ownedSubjects = null) {
@@ -141,19 +142,19 @@ export function renderNikkeCards(subjects = null, ownedSubjects = null) {
     const iconDefinitions = [
       {
         kind: "element",
-        label: elementLabels[item.elementCode] || "속성 미확인",
-        path: elementAssetNames[item.elementCode]
-          ? `${uiAssetRoot}/code-${elementAssetNames[item.elementCode]}.png`
+        label: own(elementLabels, item.elementCode) || "속성 미확인",
+        path: own(elementAssetNames, item.elementCode)
+          ? `${uiAssetRoot}/code-${own(elementAssetNames, item.elementCode)}.png`
           : null,
-        fallback: elementGlyphs[item.elementCode] || "?"
+        fallback: own(elementGlyphs, item.elementCode) || "?"
       },
       {
         kind: "weapon",
-        label: weaponLabels[item.weaponCode] || "무기군 미확인",
-        path: weaponAssetNames[item.weaponCode]
-          ? `${uiAssetRoot}/weapon-${weaponAssetNames[item.weaponCode]}.png`
+        label: own(weaponLabels, item.weaponCode) || "무기군 미확인",
+        path: own(weaponAssetNames, item.weaponCode)
+          ? `${uiAssetRoot}/weapon-${own(weaponAssetNames, item.weaponCode)}.png`
           : null,
-        fallback: weaponShortLabels[item.weaponCode] || "?"
+        fallback: own(weaponShortLabels, item.weaponCode) || "?"
       },
       {
         kind: "burst",

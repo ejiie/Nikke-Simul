@@ -4,6 +4,7 @@
  */
 
 import { REGISTERED_MESSAGES } from './registered-messages.js';
+import { own } from './own-lookup.js';
 
 export const SLOT_LABELS = Object.freeze({ head: '머리', torso: '몸통', arm: '팔', arms: '팔', leg: '다리', legs: '다리' });
 
@@ -21,9 +22,9 @@ export const BASIS_LABELS = Object.freeze({
   caster_charge_centiseconds: '시전자 차지 시간 기준'
 });
 
-export const slotLabel = key => SLOT_LABELS[key] ?? '장비';
-export const optionLabel = key => OPTION_LABELS[key] ?? null;
-export const basisLabel = key => key ? BASIS_LABELS[key] ?? '적용 기준 미확인' : '적용 기준 미기록';
+export const slotLabel = key => own(SLOT_LABELS, key) ?? '장비';
+export const optionLabel = key => own(OPTION_LABELS, key) ?? null;
+export const basisLabel = key => key ? own(BASIS_LABELS, key) ?? '적용 기준 미확인' : '적용 기준 미기록';
 
 /**
  * Display text for a buff source key such as `overload:5004:head:1:StatAtk`, `cube:<id>:<type>`,
@@ -85,7 +86,7 @@ export const isRegisteredMessage = text => typeof text === 'string' && REGISTERE
 export function friendlyServerMessage(raw, status = null) {
   const message = String(raw ?? '');
   const code = Object.keys(SERVER_MESSAGES).find(key => message === key || message.startsWith(`${key}:`) || message.startsWith(`${key} `));
-  if (code) return SERVER_MESSAGES[code];
+  if (code) return own(SERVER_MESSAGES, code);
   if (isRegisteredMessage(message)) return message;
   return Number.isInteger(status) ? `요청을 처리하지 못했습니다 (HTTP ${status}).` : '요청을 처리하지 못했습니다.';
 }
@@ -108,7 +109,7 @@ const REASON_LABELS = Object.freeze({
 export function reasonLabel(code) {
   const key = String(code ?? '').trim();
   if (!key) return null;
-  return REASON_LABELS[key] ?? '기타 사유';
+  return own(REASON_LABELS, key) ?? '기타 사유';
 }
 
 /**

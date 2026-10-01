@@ -8,6 +8,10 @@ const root = path.resolve(import.meta.dirname, '../..');
 const labels = await import(pathToFileURL(path.join(root, 'apps/desktop-ui/display-labels.js')));
 const adapter = await import(pathToFileURL(path.join(root, 'apps/desktop-ui/damage-log-adapter.js')));
 const viewer = await import(pathToFileURL(path.join(root, 'apps/desktop-ui/damage-log.js')));
+const compute = await import(pathToFileURL(path.join(root, 'apps/desktop-ui/compute-adapter.js')));
+const cond = await import(pathToFileURL(path.join(root, 'apps/desktop-ui/combat-conditions.js')));
+const raid = await import(pathToFileURL(path.join(root, 'apps/desktop-ui/raid-conditions.js')));
+const { own } = await import(pathToFileURL(path.join(root, 'apps/desktop-ui/own-lookup.js')));
 
 const checks = [];
 async function check(name, fn) {
@@ -104,7 +108,7 @@ await check('compute_reason_codes_korean', () => {
 await check('unregistered_server_text_is_never_shown_whatever_it_contains', () => {
   const registered = '평타 계수가 없습니다.';
   const mixed = ['검사 필요: effectiveAttack', '검사 필요: calculation.terms', '검사 필요: terms[].name', '검사 필요: terms[0].operation',
-    '검사 필요: attackBuffs[0].source', '검사 필요: cache/replays', '검사 필요: runtime\catalog', '검사 필요: skill1Rate', '검사 필요: multiply 1.25; qa_unknown_transform',
+    '검사 필요: attackBuffs[0].source', '검사 필요: cache/replays', String.raw`검사 필요: runtime\catalog`, '검사 필요: skill1Rate', '검사 필요: multiply 1.25; qa_unknown_transform',
     '검사 필요: 0x10', '정상처럼 보이는 한국어 문장입니다.', 'plain english', `${registered} terms[0].operation`, `${registered}
 `, ` ${registered}`];
   for (const raw of mixed) {
@@ -156,6 +160,54 @@ await check('registered_messages_match_server_sources', async () => {
   const { spawnSync } = await import('node:child_process');
   const r = spawnSync(process.execPath, [path.join(root, 'tests/ui/tools/gen_registered_messages.mjs'), '--check'], { encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr + r.stdout);
+});
+
+// U-FIX-7 QA 3rd block (U7-Q-4/5): label tables answer own keys only; inherited members never reach the screen.
+const INHERITED = ['constructor', 'toString', '__proto__', 'hasOwnProperty', 'valueOf', 'isPrototypeOf', 'toLocaleString'];
+await check('own_lookup_ignores_inherited_members', () => {
+  for (const key of INHERITED) {
+    assert.equal(own({ a: 1 }, key), undefined, key);
+    assert.equal(own(Object.create(null), key), undefined, key);
+  }
+  assert.equal(own({ a: 1 }, 'a'), 1);
+  assert.equal(own({ 1: 'x' }, 1), 'x');
+  assert.equal(own(null, 'a'), undefined);
+  assert.equal(own({ a: 1 }, { toString() { return 'a'; } }), undefined);
+});
+
+await check('label_tables_never_show_inherited_members', () => {
+  const bad = /function|\[object|native code|undefined|null|constructor|toString|__proto__|hasOwnProperty|valueOf|isPrototypeOf/;
+  for (const key of INHERITED) {
+    const shown = [
+      labels.slotLabel(key), labels.optionLabel(key) ?? '없음', labels.basisLabel(key), labels.reasonLabel(key),
+      labels.friendlyServerMessage(key, 400), labels.errorText(new Error(key)),
+      labels.describeSourceKey(`overload:5004:${key}:1:${key}`, { nameOf: () => '앨리스' }),
+      labels.describeSourceKey(`cube:1:${key}`), labels.describeSourceKey(`${key}:1:2`),
+      compute.describeComputeError(key), compute.describeUnsupportedReason(key) ?? '없음',
+      compute.describeBatch({ id: 'b', state: key }).stateLabel,
+      compute.describeHardwareProfile({ gpus: [{ id: 'g', name: 'GPU', stages: { runtime: key }, reason: key }] }).devices.map(d => d.stageLabel).join(' '),
+      adapter.termLabel(key, 'client_f32'), adapter.termLabel(key, 'legacy_term_floor'),
+      adapter.describeStepOperation(key, key, 'client_f32'), adapter.describeStepOperation('final', key, 'final_round_even'),
+      cond.normalizeCatalog({ weaponRanges: [{ weaponType: key, ranges: [] }] }).weaponRanges.map(r => r.label).join(' '),
+      cond.describeCombatProfileError({ code: 'combat_profile_invalid', details: { field: `a.${key}`, reason: key, characterId: key } })?.text ?? '',
+      cond.describeCompatibility({ mode: key }).text
+    ];
+    for (const text of shown) assert.ok(!bad.test(String(text).replace(/미확인|미구현|미기록|미해석/g, '')), `${key}: ${text}`);
+  }
+});
+
+await check('unregistered_mode_and_values_are_not_echoed', () => {
+  for (const mode of ['qa_unknown_mode', 'terms[0].operation', 'skill1Rate', '0x10']) {
+    const d = cond.describeCompatibility({ mode, label: '검사 필요: effectiveAttack' });
+    assert.equal(d.mode, 'unknown');
+    assert.equal(d.text, '알 수 없는 조건 모드', mode);
+    assert.ok(!d.text.includes(mode));
+  }
+  assert.equal(cond.describeCompatibility({ mode: 'legacy_global', label: '이전 방식(전원 적용)', legacyProperDistance: true }).text.startsWith('이전 방식(전원 적용)'), true);
+  const saved = raid.describeSavedCombat({ durationFrames: 10800 }, { battleConditions: { label: '검사 필요: terms[0].operation', defenseMode: 'fixed', initialDefense: 30925 } });
+  assert.ok(!saved.includes('terms[0]') && saved.includes('전투 조건'), saved);
+  const registeredLabel = raid.describeSavedCombat({}, { battleConditions: { label: '이전 방식(고정 방어력)', defenseMode: 'fixed', initialDefense: 30925 } });
+  assert.ok(registeredLabel.includes('이전 방식(고정 방어력)'));
 });
 
 const failed = checks.filter(c => !c.passed);
