@@ -38,3 +38,5 @@ Director 통지 후 구현 커밋이 확정된 상태의 UI worktree에서(파�
 | 구현 배정 | Sonnet 5.5 `term_c322a450…` | `c3628d2f-4709-4cf4-880c-e21345b40376` | `turn_started` |
 | 구현 인계 | — | — | 확정 UI `4622860`(`3d84fe4` ff 위), 보고서 `UI/docs/audit-labels-ui.ko.md`(2절 전수 목록: 수정 지점·변경 안 한 지점과 사유). 변경 15파일 — `apps/desktop-ui`·UI tests·UI 문서(제품 `src`·QA `tests/q3` 0). 구현 보고: `node --test tests/ui` 6/6, 저장 replay(검수 archive 읽기 전용) Chromium 렌더 금지어 0, 격리 포트 `/editor/` pageerror 0. 미실행: 검산 저장 → 근거 화면 종단(QA 몫) |
 | 리뷰 배정 | astra-6 `term_cfa51db6…`(UI worktree, 파일 수정 금지) | `34a3f5d7-c5c7-4dbd-a2ff-d90a981b6fce` | `turn_started` |
+| 리뷰 1차 | astra-6 | — | **반려(차단 2)**: (1) `apps/desktop-ui/app.js:357` 자동 버스트 요약 `waitingReason`·`timeline[].reason`이 미등록이면 원문 출력(`reasons[key] ?? key`), 전수 목록에도 누락 — 항목 3. (2) `apps/desktop-ui/damage-log-adapter.js:377` final의 operation이 누락·미등록이면 round로 시작하지 않는 한 "내림"으로 단정(`final_round_even` 저장 항목에서 operation 누락 시 정책과 반대 설명) — 항목 5. 비차단 없음. 리뷰어의 테스트 1회(`node --test tests/ui`)는 디렉터리 경로 진입 실패(MODULE_NOT_FOUND)로 실제 6파일 미실행 — 구현 회귀 아님, 재리뷰 시 `node --test tests/ui/*.test.mjs` 사용 |
+| 재작업 | 구현 ⇄ 리뷰 직접 왕복으로 전환 | — | 반려 1회차. 사고 수준 상향(high)은 사용자 확인 |
