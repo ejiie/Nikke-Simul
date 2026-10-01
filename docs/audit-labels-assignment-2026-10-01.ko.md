@@ -47,6 +47,8 @@ Director 통지 후 구현 커밋이 확정된 상태의 UI worktree에서(파�
 | 직접 왕복 | 구현 `518e3ab` → 리뷰 반려 2회차(client_f32 `final`·`effectiveDefense`의 미등록 operation도 확정 설명) → 구현 `b401421` | — | 이력은 구현 보고서 6절 "리뷰 이력" |
 | **리뷰 최종** | astra-6 | — | **통과(`b401421`)**, 차단 0, 테스트 1회 6파일·내부 76/76, 비차단: 기존 모듈 형식 경고. 리뷰어는 Director에 전송(입력 수락)했다고 했으나 이 세션에 도착하지 않아 Director가 리뷰 터미널 화면으로 확인. 반려 2회 이내라 Director 판단 요청 없음 |
 | QA 배정 | 검수 `term_234e279b…` | (아래) | Director 확인: `3d84fe4..b401421` 제품 `src`·QA `tests/q3` 변경 0, QA 브랜치와 충돌 없음 |
+| QA 배정 사고 | — | `4464b839…` | 검수 터미널의 Codex 세션이 이미 종료돼 지시문이 PowerShell 명령으로 실행됨("명령 없음" 오류, 부작용 없음). Director가 `codex resume --last`로 재개를 시도했으나 최근 세션(리뷰어 대화)을 잡아 중단. 사용자가 QA 세션을 새로 준비(GPT-6-Astra high, Full access) |
+| QA 재배정 | 검수 `term_234e279b…` | `bc872612-a130-4821-b6e1-1f9ebaf61bbe` | `turn_started`. 새 대화일 수 있어 역할·이전 QA 보고서·규칙을 지시에 포함 |
 | 리뷰 2·3차 | 구현 ⇄ 리뷰 직접 왕복 | — | 반려 2회(1차 `4622860`: app.js 자동 버스트 사유 원문·final 연산 단정, 2차 `518e3ab`: client_f32 final·effectiveDefense 미등록 연산 확정 설명). 구현 보고서 6절 리뷰 이력에 누적 |
 | 리뷰 최종 | astra-6 → Director 1회 | — | **통과(2026-10-01)**: 확정 UI `b401421`(`3d84fe4` ff 위, `4622860`→`518e3ab`→`b401421`), 보고서 `UI/docs/audit-labels-ui.ko.md`. 차단 7항목 위반 없음. 리뷰어 테스트 1회 `node --test tests/ui/*.test.mjs` exit 0, 6/6 파일·내부 76/76. 비차단: 기존 `MODULE_TYPELESS_PACKAGE_JSON` 경고. Director 확인: 변경 15파일 모두 `apps/desktop-ui`·`tests/ui`·UI 보고서(제품 `src`·QA `tests/q3` 0), 원본 `main`=`3d84fe4` 위 fast-forward. **코드 리뷰 통과일 뿐 QA·통합·EXE 배포는 미완료.** |
 | QA 배정 | 검수 worktree(Codex) | — | **대기(미전달)**: 검수 터미널 `term_234e279b…`·`term_e86b74e5…`가 Codex 세션 없이 셸 프롬프트 상태라 셸 오입력 위험으로 전달하지 않음. 사용자가 검수 세션을 연 뒤 아래 QA 절 기준으로 전달 |
