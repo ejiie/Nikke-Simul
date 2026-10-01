@@ -34,7 +34,7 @@ import {
   formatAuditNumber,
   DAMAGE_LOG_PROVISIONAL_NOTICE
 } from './damage-log-adapter.js';
-import { errorText } from './display-labels.js';
+import { errorText, koreanText } from './display-labels.js';
 
 const $ = id => document.getElementById(id);
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -246,7 +246,12 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, ge
     `).join('');
 
     // If uncollected or no_damage and not in mock mode:
-    if (logStatus === 'uncollected' && !activeLogData) {
+    if (!activeLogData && logStatus !== 'no_damage') {
+      // Every status without a log (uncollected, api_error, unsupported_schema, not loaded) gets a Korean notice.
+      const uncollected = logStatus === 'uncollected';
+      const pill = uncollected ? '로그 미수집 상태 (서버 E1/B1 연동 대기)'
+        : logStatus === 'api_error' ? '피해 로그를 불러오지 못했습니다'
+          : logStatus === 'unsupported_schema' ? '지원하지 않는 로그 형식' : '피해 로그 없음';
       container.innerHTML = `
         <section class="surface damage-log-section">
           <div class="damage-log-topbar">
@@ -262,15 +267,15 @@ export function createDamageLogViewer({ api, getSnapshot, getMembersWithMeta, ge
             </div>
           </div>
           <div class="status-badges-row">
-            <span class="status-pill warning">로그 미수집 상태 (서버 E1/B1 연동 대기)</span>
+            <span class="status-pill warning">${pill}</span>
             <span class="status-pill neutral">Replay ID: ${esc(activeReplay.id)}</span>
           </div>
           <div class="surface empty-state" style="padding:24px;text-align:center;">
-            <p><strong>${esc(memberName)}</strong>의 시간별 발당 피해 로그가 서버에 저장되어 있지 않습니다.</p>
-            <p class="microcopy">${esc(logMessage)}</p>
-            <div style="margin-top:16px;">
+            <p><strong>${esc(memberName)}</strong>의 시간별 발당 피해 로그를 ${uncollected ? '서버에 저장되어 있지 않습니다' : '표시할 수 없습니다'}.</p>
+            <p class="microcopy">${esc(koreanText(logMessage, '피해 로그를 표시할 수 없습니다.'))}</p>
+            ${uncollected ? `<div style="margin-top:16px;">
               <button type="button" class="primary small-btn" id="btn-load-mock-preview">합성 Mock 미리보기 (UI 검증용)</button>
-            </div>
+            </div>` : ''}
           </div>
         </section>
       `;

@@ -99,6 +99,34 @@ await check('compute_reason_codes_korean', () => {
   assert.equal(r(null), null);
 });
 
+// U-FIX-7 QA: Korean text mixed with internal identifiers is not shown as is (U7-Q-2).
+await check('mixed_korean_and_internal_identifiers_are_replaced', () => {
+  for (const raw of ['검사 필요: effectiveAttack', '검사 필요: calculation.terms', '확인: characters.5004.equipment.head', '값 오류 snake_case_code', '확인 필요 EngineVersion']) {
+    assert.equal(labels.koreanText(raw, '대체'), '대체', raw);
+    assert.notEqual(labels.friendlyServerMessage(raw), raw, raw);
+  }
+  for (const ok of ['수집 값을 확인해야 합니다.', '장비 티어·강화·제조사를 확인하세요.', '평타 계수가 없습니다.', '배율 3.5배 적용', 'LV.5 달성']) assert.equal(labels.koreanText(ok, '대체'), ok, ok);
+});
+
+// U-FIX-7 QA: a log lookup without a log shows a Korean notice and never builds the graph (U7-Q-3).
+await check('missing_damage_log_shows_korean_notice_without_exception', async () => {
+  const container = { innerHTML: '', querySelectorAll: () => [] };
+  const select = { onchange: null };
+  globalThis.document = { getElementById: id => id === 'damage-log-container' ? container : id === 'log-character-select' ? select : null };
+  try {
+    const members = [{ id: '5004', displayName: '앨리스', burstStep: 3 }];
+    for (const failure of [new TypeError('Failed to fetch'), Object.assign(new Error('boom'), { status: 500 })]) {
+      const api = async () => { throw failure; };
+      const v = viewer.createDamageLogViewer({ api, getSnapshot: () => ({ id: 's' }), getMembersWithMeta: () => members, getToken: () => '', status: () => {} });
+      v.setReplay({ id: 'r1', result: { totalDamage: 1145772 }, conditions: {} });
+      await new Promise(resolve => setTimeout(resolve, 50));
+      const text = container.innerHTML;
+      assert.ok(text.includes('피해 로그를 불러오지 못했습니다'), text.slice(0, 200));
+      assert.ok(!text.includes('Failed to fetch') && !text.includes('boom') && !text.includes('damage-graph-svg'));
+    }
+  } finally { delete globalThis.document; }
+});
+
 const failed = checks.filter(c => !c.passed);
 console.log(JSON.stringify({ total: checks.length, failed: failed.length, checks }, null, 2));
 if (failed.length) process.exit(1);

@@ -328,6 +328,11 @@ await check('u_fix_7_missing_operation_is_unknown_not_guessed', () => {
   assert.equal(D('final', '', 'client_f32'), '저장된 연산 미확인');
   assert.equal(D('effectiveDefense', '', 'legacy_term_floor'), '저장된 연산 미확인');
   assert.equal(D('critical', '', 'legacy_term_floor'), '저장된 연산 미확인');
+  for (const bad of ['multiply 1.25; qa_unknown_transform', 'multiply 1.25; floor_if_qa_condition', 'multiply 1.25;floor', 'multiply 1.25; floor; x', 'multiply  1.25', 'multiply abc', 'x multiply 1.25']) {
+    for (const n of ['B3', 'B4', 'B5']) assert.equal(D(n, bad, 'nested_floor'), '저장된 연산 미확인', `${n}: ${bad}`);
+  }
+  assert.equal(D('B3', 'multiply 1.25', 'legacy_term_floor'), '× 1.25 곱함');
+  assert.equal(D('B4', 'multiply 1.25; floor', 'nested_floor'), '× 1.25 곱함 (곱한 뒤 내림)');
   for (const n of ['effectiveAttack', 'charge', 'P', 'minimum', 'B2', 'difference', 'base', 'B', 'extra', 'reduction', 'defenceRatio', 'product', 'zzz']) {
     assert.equal(D(n, 'weird', 'client_f32'), '저장된 연산 미확인', n); assert.equal(D(n, undefined, 'legacy_term_floor'), '저장된 연산 미확인', n);
   }

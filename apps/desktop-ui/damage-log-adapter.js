@@ -395,10 +395,11 @@ export function describeStepOperation(name, operation, policy) {
     return op === 'floor' ? '내림' : UNKNOWN_OPERATION;
   }
   if (name === 'B3' || name === 'B4' || name === 'B5') {
-    const m = /^multiply\s+([^;\s]+)/.exec(op);
+    // Registered forms only: `multiply <factor>` or `multiply <factor>; floor` (HitCalculator); any other suffix is unconfirmed.
+    const m = /^multiply ([^;\s]+)(; floor)?$/.exec(op);
     const factor = m ? Number(m[1]) : NaN;
     if (!Number.isFinite(factor)) return UNKNOWN_OPERATION;
-    return `× ${formatAuditNumber(factor)} 곱함${/floor/.test(op) ? ' (곱한 뒤 내림)' : ''}`;
+    return `× ${formatAuditNumber(factor)} 곱함${m[2] ? ' (곱한 뒤 내림)' : ''}`;
   }
   if (op === 'floor') return name === 'base' ? '내림' : name === 'distance' || name === 'fullBurst' || name === 'critical' || name === 'core' ? '기본 피해 × 보너스 비율 (내림)' : UNKNOWN_OPERATION;
   if (name === 'distance' || name === 'fullBurst' || name === 'critical' || name === 'core') return UNKNOWN_OPERATION;
