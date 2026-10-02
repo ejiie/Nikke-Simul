@@ -49,4 +49,13 @@
 ## 진행
 
 - **S-SKILL-1 판단 요청(구현, 2026-10-03):** 신데렐라 : 크리스탈 웨이브(#5175)는 고정 원천 3종(`skill_chains.json` 192명·`roledata_clean.json`·`blabla_roledata.json`)에 없어 조립 불가 — 추정 금지 원칙에 따라 "원천 없음"으로 미조립. 나머지 4명은 원천 있음, 파이프라인 재현 확인(현 runtime catalog `9c98c91c…` 정확히 재현).
-- **Director 판단:** 5번째 자리를 전투력 다음 순서 **#5101 레드 후드(791,834, 원천 있음, 버스트 단계 5 = 올버스트)**로 대체한다 — 전투력 순서 원칙 유지, 올버스트라 덱 구성 다양성에도 도움. **#5175는 원천 갱신(사용자 StaticData 재생성) 후 후속 묶음**에서 다룬다. 원천 미수록 사실은 보고서에 남긴다.
+- **Director 판단:** 5번째 자리를 전투력 다음 순서 **#5101 레드 후드(791,834, 원천 있음, 버스트 단계 5 = 올버스트)**로 대체한다 — 전투력 순서 원칙 유지, 올버스트라 덱 구성 다양성에도 도움. **#5175는 원천 갱신 후 후속 묶음**에서 다룬다. 원천 미수록 사실은 보고서에 남긴다.
+- **원천 3종 출처 확인(Director, 2026-10-03, 레거시 저장소 `Nikke-Dmg-Simulator` 생성 스크립트 추적):**
+
+  | 원천 | 출처 | 생성 | 시점 |
+|---|---|---|---|
+  | `skill_chains.json` | 게임 StaticData(decoded mpk: Character·CharacterSkill·Function·StateEffect·SkillInfo·Monster 표) | `DataPipeline/crawler/staticdata_skill_chains.py` | StaticData 7/8, 산출 7/16 |
+  | `blabla_roledata.json` | blablalink 공개 roledata(`sg-tools-cdn.blablalink.com`, en) | `getFromBlaLinkRoledata.py` | 7/1 |
+  | `roledata_clean.json` | `blabla_roledata.json` 정규화(무기·스탯 입력) | `DataPipeline/etl/roledata_cleaner.py` | 8/19 |
+
+  - **#5175 미수록 원인 정정:** decoded StaticData `CharacterTable`에는 #5175(와 #5176)가 **이미 있다**. `skill_chains` 조립이 니케 범위를 `blabla_roledata` 로스터(192명, 최대 #5174)로 제한해서 빠졌다. 따라서 StaticData 재생성은 필수가 아니고, **blabla roledata 갱신**(무기·스탯 입력인 `roledata_clean`도 같은 원천이라 어차피 필요) → `skill_chains`·`roledata_clean` 재생성 → Nikke-Simul 원천 manifest hash 재고정이 필요하다. 최신 니케가 7/8 이후라면 StaticData 갱신도 함께 필요하다.
