@@ -35,6 +35,11 @@
 
 - **리뷰 1차 반려(`c7b6c83`, 2026-10-02):** (a) 소유 밖 연결 변경 범위 확인 없음 → Director 판단 요청, (b) 보고서 71행 — 요구 5의 기존 5인 180초 전후 비교가 다른 합성 멤버 fixture로 대체됨. 빌드·테스트 235/235, 버전·fingerprint 연결 확인. legacy 정책의 방어율 비모델링 유지는 비차단.
 - **Director 판단(범위 예외 승인, 이번 작업 한정):** WeaponReplay.cs 장탄 조립 호출 2곳·client 정책 분기·버전, PreparedSkillReplay·TeamBurstController 버전 각 1줄, SkillReplay 히트 입력 외 SyncGun/정책 허용·분기·버전, 기존 `hit-damage-client-f32`·`hit-damage-client-formula`·`hit-damage-source-investigation` 문서 동기화. 조건: 연결·버전 외 동작 변경 금지, 문서는 이번 구현 사실만 반영하고 기존 기록은 정정 표시, 소유 밖 변경 목록을 보고서 표로, S-SKILL-1과의 Engine 충돌은 Director 통합 때 merge. (b) 반려는 유지 — 계정 접근 없이 공개 표/합성 스탯으로 리타·블랑·누아르·앨리스·모더니아 5인 비교 보완.
+- **리뷰 최종 통과(2026-10-02):** HEAD `2b16883`(구현 `c7b6c83`), 반려 1회 해소. 5인 180초 4시나리오×기존 정책 2×seed 5 전후 일치, 공개 표 12개 hash 불변, Core 235/235, 버전·fingerprint 확인. 비차단: 보고서 "dprod 차이 0"은 base 시나리오 한정(OL .145 seed1 772,905,797 vs 772,905,689 등 차이 있음).
+- **QA 배정(2026-10-02):** 검수 `term_234e279b…`, B-DATA-1과 순서대로(E-PREC-1 먼저). 착수 확인.
+- **QA 최종: 통과, 1,106/1,106, 제품 차단 0.** 검수 `6bb1be2`(Director `3b19b4c` + 대상 `2b16883` 병합 `ca0e096`), [QA 보고서](C:/Users/user/orca/workspaces/Nikke-Simul/검수/docs/precision-followup-qa.ko.md), 증거 검수 `artifacts/single-deck-qa/precision1/evidence-index.json`. 독립 Fraction binary32/64 산술 1,003검사, 기본 `client_f32` 구 결과 264건 동일, dprod 결과 중 float32 비표현 정수 161건. 방어율 true 예외·96/파츠 분리·96 중복 제거·장탄 raw/10000 사사오입 checked 통과. 기존 5인 180초 40개 결과 전후 동일. 실제 API 27검사(구 결과 조회 보존, 구 resume 409, fingerprint 분리). 공개 표 12개 hash 동일.
+  - 비차단 문서 정정(QA 보고서에 정확한 범위 기록): (1) "dprod 차이 0"은 base·저지 조건 한정 — OL .145 seed1 client 772,905,797 vs dprod 772,905,689(−108) 등 5시드 모두 차이, "2^24 이상에서만 차이"로 일반화 불가. (2) "dprod API 미노출"은 단일 히트 API(400)에만 맞고, replay/compute에 정책을 명시하면 실제 실행된다(승인 범위의 SkillReplay 정책 연결 결과). UI 선택지는 없다.
+- **Director 통합:** `6d83dec`(`--no-ff`, 제품 트리 = QA `6bb1be2`). Release 빌드 경고 0·오류 0, .NET 486/486(Analysis 41·Sync 164·Compute 46·Core 235), UI 7/7. **원본 배포 전**(사용자 확인 후).
 
 ## B-DATA-1 — 보스 StaticData 속성 (Backend worktree)
 
@@ -49,6 +54,7 @@
 
 - 구현: `Backend` Sonnet `term_9d9ce9f4…`(high), 리뷰: astra `term_ed5e9c16…`(medium), QA high. **B-DATA-1 리뷰 통과 뒤 착수**(같은 짝 직렬).
 - **레거시 저장소 불변:** `C:/Users/user/Documents/GitHub/Nikke-Dmg-Simulator`에는 사용자의 미커밋 변경이 있고, Nikke-Simul `prepare-legacy.ps1`이 그 파일들의 hash를 고정 검사한다. 레거시 `Database/**`를 덮어쓰거나 그 저장소에서 Git 조작을 하지 않는다. 레거시 스크립트는 읽기/호출만 하고 출력 경로는 Nikke-Simul 쪽 Git 제외 위치(예: `artifacts/sources/<snapshot-id>/`)로 돌린다(필요하면 Nikke-Simul `tools/data-pipeline`에 래퍼 작성).
+- **범위 갱신(2026-10-02):** blabla 수집·StaticData 받기·해독은 Director가 끝냈다(아래 진행). D-SRC-1은 그 산출물을 입력으로 **제품 파이프라인 반영**만 한다: EpinelPS 스키마 기반 디코드를 Nikke-Simul `tools/data-pipeline`에 자체 완결형으로 옮기고(스키마 출처·커밋 기록), 새 snapshot(`blabla-20261002`·`staticdata-20261002`) hash를 manifest에 추가, 새 원천으로 `skill_chains`·`roledata_clean` 재생성(니케 범위는 새 로스터), 기존 고정 원천 재현 유지, 니케별 diff 보고. 보스 카탈로그 시즌 41·42 채우기도 함께(B-DATA-1 후속). 아래 원래 할 일 목록 중 수집 단계는 완료된 것으로 본다.
 - 할 일:
   1. blablalink 공개 roledata(`sg-tools-cdn.blablalink.com`, 로그인 불필요) 새 스냅샷 수집 → `roledata_clean` 정규화.
   2. 니케 범위를 새 로스터로 `skill_chains` 재조립. StaticData 입력은 기존 decoded 표(7/8)를 그대로 쓰고, 새 로스터 중 StaticData에 없는 니케는 "StaticData 미수록"으로 목록화(추정 금지) — 이 경우 사용자에게 StaticData 갱신을 요청한다.
@@ -69,7 +75,25 @@
    - `EpinelPS/gameconfig.json`: 현재 StaticData 팩 `data/qa-260917-09c/566822`(2026-09-17 빌드) URL·salt 2개. 레거시 보유분은 `qa-260611-06b/536334`(6/11) → 약 3개월 뒤처짐.
    - 팩 받기·복호 방식(로비 `get-static-data-pack-info-mpk` → PBKDF2 → AES-CBC → zip `data` → AES-CTR)은 레거시 `DataPipeline/crawler/getFromNikkeStaticData.py`(NikkeTools 출처)와 같다. 레거시 스크립트로 최신 팩을 받을 수 있다.
    - **가장 큰 가치 = 표 스키마:** `EpinelPS/Data/JsonStaticData.cs`에 MemoryPack 레코드 클래스 874개(필드 순서·타입). 레거시 디코드 필드와 비교하면 Function·CharacterSkill·Character·StateEffect·SkillInfo·MonsterParts·MonsterStatEnhance는 이름 표기만 다르고 순서·개수 같음. **`MonsterRecord`에 `DefenceRatioRatio`(= 방어율 후보)가 `AttackRatio` 뒤에 새로 끼어 있다** — 레거시 위치 기반 디코더로 새 팩을 읽으면 MonsterTable 이후 필드가 밀린다. 새 팩 디코드 시 EpinelPS 스키마로 표 정의를 갱신해야 한다. B-DATA-1의 방어율 필드 근거로도 쓴다.
-   - 상태: **라이브 서버에서 팩 받기는 레거시 정책상 사용자 명시 승인 후에만 실행**(복호 산출물 커밋·재배포 금지, 로컬 전용). 승인 대기.
+   - 상태: **라이브 서버에서 팩 받기는 레거시 정책상 사용자 명시 승인 후에만 실행**(복호 산출물 커밋·재배포 금지, 로컬 전용). → 사용자 승인("StaticData 받기. 그리고, 해독하여 정보 추출.") 후 실행 — 아래 3.
+3. **StaticData 받기·해독 완료(2026-10-02):** 레거시 `getFromNikkeStaticData.py`를 출력 경로만 바꿔 실행 → 팩 `data/qa-260917-09c/567891`, 복호 `StaticData.zip` `00f1f611…`(17,491,305바이트), Git 제외 `artifacts/sources/staticdata-20261002/`.
+   - 해독: Director 임시 디코더 `artifacts/sources/tools/decode_staticdata_epinel.py`(EpinelPS `JsonStaticData.cs` `17eb33f` 사본을 스키마로 파싱, 선언 순서·enum int32·DateTime int64, 레코드마다 멤버 수 일치·버퍼 끝 강제). 결과 `decoded/` — **8,949개 표 성공, 실패 0**, 스키마 없음 619(필드 맵 241 등 이벤트·맵 표, 전투 무관).
+   - 전투 표 전부 정상: Function 21,254(기존 19,459 → 추가 1,795, `function_value` 변경 35), Character 1,996행(name_code 209 — blabla 202명 전원 포함), CharacterSkill 4,667, StateEffect 5,429, SkillInfo 9,810, CharacterShot 273, CharacterStat 75,600, Monster 2,204, MonsterParts 715, MonsterStatEnhance 35,552, MonsterSkill 5,231, WaveData 167개, SoloRaidManager 43행(**시즌 41·42 포함**), SoloRaidPreset 336.
+   - **방어율 `defence_ratio_ratio`:** 몬스터 2,201개 0, 비0은 같은 이름의 테스트성 몬스터 3개(3000·11000·−1000)뿐. 솔로 레이드 보스는 전부 0 → B-DATA-1의 8/12판 값 0과 일치.
+   - 이 디코더는 Director 탐색용이다. 제품 파이프라인 반영(스키마 고정·manifest·테스트)은 D-SRC-1에서 한다.
+
+### B-DATA-1 진행
+
+- **리뷰 최종 통과(2026-10-02):** Backend HEAD `2c41185`(구현 `cd4caba`, 문서 `403b37b`), 반려 1회(선언된 null 보존·미선언 null 거부, 중첩 수치 strict) 해소. Sync 187/0, Python 17/0. 계산 경로 변경 없음. 한계: 시즌 41·42 unavailable(8/12판 원천에 없음).
+- **Director 판단(보고서 핵심 결과 2):** 바탕 화면 8/12판 StaticData 읽기 전용 디코드는 사후 수용(다운로드 없음, hash 기록). **방어율 원값 0 유지** — 9/17판에서도 솔로 레이드 보스 전부 0으로 확인. 단위·적용 조건은 계속 미확인으로 둔다. 시즌 41·42는 9/17판에 있으므로 D-SRC-1에서 새 원천 고정과 함께 채운다.
+- **QA 배정(2026-10-02):** E-PREC-1 다음 순서로 같은 검수 세션.
+
+### S-SKILL-1 진행
+
+- **리뷰 1차 반려 항목 5 → Director 정책 판단(2026-10-02):** 스노우 화이트·맥스웰 버스트 교체 무기 모션 값 미확정. 구현 권장 (a) **잠정 정책 승인** — 시전 즉시 차지 시작(조준 지연 0), 풀차지, 탄창은 설명문 고정값. 조건: trace·limitations에 잠정 라벨, 수동 톡톡이 미지원 거부 유지, 정책 값 한곳 정의, 보고서 가설 2에 영향(1발 발사 시점 ≤0.2초) 명시. 교체 무기 표 고정은 D-SRC-1 뒤 후속. 커밋 `fc36a09`, 보고서 `docs/ssr-skill-batch1-engine.ko.md`.
+- **리뷰 최종 통과(2026-10-02):** 엔진 HEAD `27b99ee`(`dbe9b68` → `fc36a09` → `27b99ee`), 반려 1회 해소. 잠정 정책은 `ReplacementWeaponPolicy`(`SkillDefinitions.cs`) 한 곳 정의·실행부 참조·trace basis·limitations·수동 tap 거부 확인. 관통 파싱 strict(Pierce/None만, 누락·미지 값 오류). 버전 미상향 — 기존 5인 20 seed 동일. 리뷰어 직접 실행 `dbe9b68` Core/Engine 231/231·Python 43/43; 최신 Core 232·Python 44는 구현 보고치.
+  - **실제 범위: 스노우 화이트·맥스웰 조립(버스트는 관통 다중 타격 미모델로 부분 지원)**, 라피 : 레드 후드·홍련 : 흑영·레드 후드는 **미지원 진단**(실행 거부). 미지원 원인: 팀 버스트 단계 규칙(AllStep·편성 의존 단계 변경·IsBurstStepState 1~3), 부착 투사체(182~185), CycleUse·DamageShareInstant, ChargeTimeChangetoDamage(129), TargetGroupid·TimingTriggerValueChange(130·131) 등. → 이 효과 묶음은 후속 엔진 확장 배정 후보(팀 버스트 규칙 우선).
+- **QA:** 검수 세션이 E-PREC-1 → B-DATA-1 진행 중이라 **세 번째로 대기**. 앞선 QA 보고 후 전달(xhigh 권장).
 
 ## 이후
 

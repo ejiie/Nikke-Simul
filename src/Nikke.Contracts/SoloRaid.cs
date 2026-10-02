@@ -16,7 +16,8 @@ public record BossElement(int Id,string Key,int WeakId,string? WeakKey);
 public record BossLevelStats(int Level,long Hp,int Attack,int Defence);
 public record BossLevelChangeStep(int Step,long RangeFrom,long? RangeTo,int Level,BossLevelStats? Stats);
 public record BossLevelChange(int GroupId,IReadOnlyList<BossLevelChangeStep> Steps);
-public record BossChallenge(int PresetId,int Level,int CharacterLevel,BossLevelStats? Stats,BossLevelChange? LevelChange);
+// LevelChangeGroupId is the raw preset value (0 = no level-change group); it makes a null LevelChange verifiable.
+public record BossChallenge(int PresetId,int Level,int CharacterLevel,int LevelChangeGroupId,BossLevelStats? Stats,BossLevelChange? LevelChange);
 public record BossPart(int Id,int PartsType,bool IsMain,bool Damageable,int HpRatio,int DamageHpRatio,int DefenceRatio,
     int PassiveSkillId,bool VisibleHp,IReadOnlyList<string> CoreMarkers);
 public record BossCore(string Kind,IReadOnlyList<int> PartIds,string? Evidence);

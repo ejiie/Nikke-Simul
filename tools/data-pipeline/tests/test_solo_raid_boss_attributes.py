@@ -87,6 +87,8 @@ class BossAttributeTests(unittest.TestCase):
         self.assertEqual({'id': 100001, 'key': 'Fire', 'weakId': 200001, 'weakKey': 'Water'}, one['element'])
         self.assertEqual({'id': 200001, 'key': 'Water', 'weakId': 400001, 'weakKey': 'Electronic'}, two['element'])
         self.assertEqual((390, 400), (one['challenge']['level'], one['challenge']['characterLevel']))
+        self.assertEqual(904, one['challenge']['levelChangeGroupId'])
+        self.assertEqual(904, one['challenge']['levelChange']['groupId'])
         self.assertEqual(3900, one['challenge']['stats']['defence'])
         self.assertEqual([45, 85], [x['level'] for x in one['ladder']])
         self.assertEqual((10000, 0, 1001), (one['defenceRatio'], one['defenceRatioRate'], one['monsterId']))
@@ -95,6 +97,13 @@ class BossAttributeTests(unittest.TestCase):
         self.assertEqual(4000, steps[1]['stats']['defence'])
         self.assertEqual(2, len(one['parts']))
         self.assertEqual({'kind': 'separate_part', 'partIds': [50102], 'evidence': 'collider_name_contains_core'}, one['core'])
+
+    def test_missing_model_row_is_a_declared_unconfirmed_null(self):
+        entries = archive_entries()
+        entries['MonsterModelTable.mpk'] = enc_table('MonsterModelData', [fill('MonsterModelData', id=502, mon_prefab='boss2')])
+        one = build(entries)['bosses'][0]
+        self.assertIsNone(one['modelPrefab'])
+        self.assertIn('model_prefab', one['unconfirmed'])
 
     def test_missing_core_marker_is_unconfirmed_not_guessed(self):
         two = build(archive_entries())['bosses'][1]
