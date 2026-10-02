@@ -32,7 +32,7 @@ Director의 `hit-damage-assignments-2026-09-28.ko.md`, 연결된 `hit-damage-cli
 | statDamageRatio | 새 StatDamageRatio, 기본 1 | 원천 불명, 스킬 계수 추정 미채택 |
 | chargeDamageRate | FullCharge 때 ChargeBase × (1 + ChargeMultiplierBonus) + ChargeAdd, 아니면 1 | 모든 연산 float |
 | crit/core/burst/range rate | 활성일 때 1 + 해당 Bonus, 비활성 1 | 순서 고정, 각 덧셈/차 float |
-| addDamageRate | 1 + AttackDamage + 활성 PierceDamage + **활성 PartsDamage** + 해당 dot/sequential/true 보너스 | 잠정. parts 포함은 2026-10-03 E-PREC-1 갱신([보고서](precision-followup-engine.ko.md)); 이전에는 parts가 breakRate였다 |
+| addDamageRate | 1 + AttackDamage + 활성 PierceDamage + **활성 PartsDamage**(2026-10-03 E-PREC-1 정정; ~~parts 제외~~) + 해당 dot/sequential/true 보너스 | 잠정. [E-PREC-1 보고서](precision-followup-engine.ko.md) |
 | breakRate | **저지 대상(`InterruptionTarget`)일 때 1 + `InterruptionDamage`(BreakDamage 96), 아니면 1** | 2026-10-03 E-PREC-1 갱신(이전: parts 적중 때 1 + PartsDamage — 폐기, H-SRC 근거). 원천 의미는 유력 후보 |
 | damageReductionRate | −(DamageTaken + 해당 distribution 보너스) | 잠정 |
 | defenceRatioRate | 새 DefenceRatioRate, 기본 0. **true damage는 항상 0(= `1 − rate` = 1)** | 최근 기믹 입력, 원천/조건 미확정. true 예외는 2026-10-03 사용자 확인·E-PREC-1 반영 |

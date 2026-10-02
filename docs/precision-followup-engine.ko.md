@@ -10,7 +10,7 @@
 | 2 | true damage는 방어율 미적용 | 완료(client 계열 2개 정책) — 아래 "열린 질문" 참조 | `HitCalculator.PrepareClient` |
 | 3 | 저지(96)·파츠(112) 분리, 96 중복 제거 | 완료 | `HitContext.InterruptionTarget/InterruptionDamage`, `PrepareClient`, `SkillReplay.Damage` |
 | 4 | 장탄 조립 `long` 전환 | 완료 | `StatBuffCalculator.ApplyAmmo`, `SkillReplay.SyncGun`, `WeaponReplay` |
-| 5 | 결과 변경 항목(2·3·4) 전후 비교, 1은 기존 결과 동일 | 완료 | 아래 "전후 비교" |
+| 5 | 기존 5인(리타·블랑·앨리스·누아르·모더니아) 180초 전후 비교 — 결과 변경 항목(2·3·4), 1은 기존 결과 동일 | 완료(공개 표 + 합성 스탯, 계정 접근 없음) | 아래 "전후 비교 A" |
 
 ## 1. `client_f32_dprod` 후보 정의
 
@@ -59,7 +59,31 @@
 
 ## 전후 비교
 
-합성 5인 180초 fixture(`tools/benchmarks/engine/fixture.json`, 방어력 30,925 고정, 크리 off — `ClientF32ReplayEvidenceTests` 증거와 같은 조건):
+### A. 리타·블랑·앨리스·누아르·모더니아 5인 180초 (공개 표 + 합성 스탯, 리뷰 반려 #5 보완)
+
+계정 접근 없이 비교했다. 공개 표(`game-catalog.json`, `calculation/*`, `runtime/*` — 12개 파일)를 worktree `artifacts/precision-followup/five-public/public/`로 복사해 읽었고, 합성 계정(Lv400, 스킬 1·2·버스트 10, 장비·큐브·소장품·한계돌파·코어·호감도·콘솔 0)을 코드로 만들어 `RuntimeReplayService.RunSkills`로 실제 멤버 입력을 산출했다. 원본 `accounts.db`·세션·캐시·presentation·5180/5181·EXE는 열지 않았다. 공개 표 hash는 실행 전후 동일(변경 0): `game-catalog.json` `debc8bd3…2b4`, `calculation/current.json` `ee0a0057…24f6`, `runtime/current.json` `fd80fda1…91ba`, runtime `catalog.json` `9c98c91c…71cd`(전체 12개 목록은 `source-hashes-{before,after}.json`).
+
+- **변경 전** = `e96b147`의 `src`(`git archive`로 scratchpad에 추출), **변경 후** = 이 worktree `src`. 같은 프로브(`artifacts/precision-followup/five-public/Probe.Program.cs`, Git 제외)를 두 쪽에 컴파일해 실행했다.
+- 조건: 10,800F, 고정 DEF 30,925, 코어 ON, 앨리스 수동 풀차지, 크리 `sample`이지만 **시드 고정 RNG 1~5**를 `SkillReplay.Run`에 주입(결정적, 두 쪽 동일 시드), 자동 버스트 tactic(1단계 리타·2단계 블랑·3단계 앨리스·누아르·모더니아, 3단계 로테이션 앨리스·모더니아, `next_ready`). 정책 `client_f32`와 `legacy_term_floor`.
+- 시나리오: ① base ② `interruptionTarget=true` ③ 5인 head OL 장탄 +14.5% ④ 장탄 +11.81%.
+
+| 시나리오 | 정책 | 시드 1~5 멤버별 피해·발수·치명타·장탄·잔탄 | 팀 피해(시드 1) |
+|---|---|---|---:|
+| base | `client_f32` | 5개 모두 **전후 동일** | 718,382,334 |
+| base | `legacy_term_floor` | 5개 모두 동일 | 718,335,114 |
+| interruptionTarget | `client_f32` / legacy | 5개 모두 동일 | 718,382,334 / 718,335,114 |
+| 장탄 +14.5% | `client_f32` / legacy | 5개 모두 동일 | 772,905,797 / 772,850,811 |
+| 장탄 +11.81% | `client_f32` / legacy | 5개 모두 동일 | 767,946,890 / 767,891,945 |
+
+`client_f32`의 시드별 팀 피해: 718,382,334 · 706,999,032 · 710,967,650 · 708,935,937 · 712,395,060. 시드 1 base 멤버: 리타 71,558,406(발 3,310, 장탄 125), 블랑 44,396,700(1,782, 65), 앨리스 228,820,635(196, 11), 누아르 163,012,068(270발·2,700히트, 14), 모더니아 210,594,525(8,059, 229).
+
+- 해석: **기존 5인의 `client_f32` 결과는 전부 불변**이다. 이 변경이 5인 경로에서 실제로 값을 바꾸지 않는 이유를 확인했다 — 2(true damage 방어율)는 런타임이 `DamageType="true"`를 만들지 않아 해당 없음; 3(저지)은 누아르 로드아웃에 96 효과가 있으나 이 편성·180초에서 `buff_on` 0회(발동 조건 미충족)라 활성되지 않아 `interruptionTarget`을 켜도 동일; 4(장탄)는 +14.5%·+11.81% OL에서 최대 장탄이 전후 동일(리타 137/134, 블랑 69/67, 앨리스·누아르·모더니아 각 시나리오 동일) — 이 네이티브 장탄 값들에서는 x.5 경계가 나오지 않아 반올림 차이가 없다. 반올림 경계 자체는 단위 테스트(100×14.5%: 114→115)가 보인다. 저지 경로의 실제 활성은 합성 런타임 테스트가 보인다.
+- 관찰(이번 변경과 무관, 전후 동일): 장탄 OL을 넣은 시나리오에서 앨리스·누아르 최대 장탄이 base(11/14)보다 줄어든다(7/10). 합성 head 장비 한 줄이 들어가면서 다른 입력이 바뀌는 것으로 보이며 이 보고서의 범위가 아니다 — 필요하면 후속 점검.
+- `client_f32_dprod`(변경 후만 실행 가능): 시드 1~5 모두 `client_f32`와 팀·멤버 피해 차이 0. 히트당 피해가 ~1e5 규모(float32 간격 <0.01)라 곱셈 정밀도 차이가 나타나지 않는다. 차이는 2^24 이상 큰 타격(SW 버스트급)에서 생기며 단위 테스트가 보인다.
+
+### B. 합성 fixture 5멤버 (보조 증거)
+
+`tools/benchmarks/engine/fixture.json`, 방어력 30,925 고정, 크리 off:
 
 | 항목 | 변경 전(기준 `e96b147`) | 변경 후 |
 |---|---:|---:|
@@ -68,8 +92,7 @@
 | 멤버별 `client_f32`(4인 / `5004`) | 302,652,598 / 136,253,442 | 동일 |
 | `client_f32_dprod` 총합 | (해당 없음) | 1,346,863,834 (멤버별도 동일) |
 
-- 이 fixture는 true damage·저지 대상·OL 장탄이 없고 피해가 ~1.5e5 규모라 2·3·4 변경과 dprod 차이가 드러나지 않는다 — **기존 결과 불변**이 확인된 것이고, 2·3·4의 결과 변경 자체는 위 단위·런타임 테스트가 보인다(저지 대상 하나·true+방어율·장탄 14.5%). 실제 계정 5인(앨리스·모더니아·리타·누아르·블랑) 180초 비교는 계정 DB·스냅샷 접근이 필요해 수행하지 않았다(금지 사항). 이 변경들이 실제 5인에 미치는 영향이 필요하면 QA/Director가 합성 fixture로 요청.
-- 증거 JSON: `artifacts/precision-followup/<guid>/fixture-5member-180s.json`(Git 제외, 테스트 실행이 생성).
+증거 JSON: `artifacts/precision-followup/<guid>/fixture-5member-180s.json`, `.../five-public/report-{before,after}.json`(모두 Git 제외).
 
 ## 규칙 버전·fingerprint(차단 7항목 #7)
 
@@ -84,9 +107,27 @@
 
 `ComputePreparation.RulesVersion`이 SkillReplay·TeamBurst·HitCalculator·StatBuff·Boss 버전과 정책을 이어 붙이므로 fingerprint가 분리되고(기존 Compute 테스트 46개 통과), 이전 저장본은 `engine_or_rules_version_changed`로 거절된다. 정책 이름이 RulesVersion에 들어가므로 `client_f32_dprod` 결과도 기본 결과와 섞이지 않는다.
 
-## 소유 범위 점검(차단 #1)
+## 소유 범위 밖 변경 (Director 승인 2026-10-03)
 
-지시서의 소유 목록 밖이지만 위 변경에 필수여서 최소로 건드린 파일: `src/Nikke.Engine/WeaponReplay.cs`(장탄 호출부 2곳, 정책 분기 3곳, 버전), `src/Nikke.Engine/Skills/TeamBurstController.cs`·`PreparedSkillReplay.cs`(버전 상수 한 줄씩), `SkillReplay.cs`(히트 입력 구성 외에 `SyncGun` 장탄 호출, 정책 허용 목록·client 분기 3곳, 버전). 모두 같은 변경의 연결 부분이다. 이 범위 해석이 과하면 반려 사유로 지적해 주길 바란다. UI·API 계약(`Nikke.Contracts`)·Data 계층 파일은 수정하지 않았다.
+Director가 이번 작업 한정으로 승인했다(조건: 연결·버전 외 동작 변경 금지, 문서는 이번 구현 사실만 반영하고 기존 결정·기록은 지우지 않고 정정 표시, 엔진 worktree 충돌은 Director 통합 때 merge로 해결하며 범위를 넓혀 미리 맞추지 않음). 커밋 `c7b6c83` 기준 줄:
+
+| 파일:줄 | 변경 | 이유 |
+|---|---|---|
+| `src/Nikke.Engine/WeaponReplay.cs:72` | Version 상수 | 장탄 결과 변경 → 규칙 버전 상향 |
+| `WeaponReplay.cs:93`, `:200` | `Apply`→`ApplyAmmo` | 최대 장탄 조립을 스킬 리플레이와 같은 `long` 경로로(두 리플레이 불일치 방지) |
+| `WeaponReplay.cs:177`, `:213` | `== DefaultPolicy`→`IsClientPolicy` | 새 client 계열 정책이 같은 정수 검증 경로를 쓰도록 |
+| `src/Nikke.Engine/Skills/PreparedSkillReplay.cs:18` | Version 상수 | summary 구현 버전 → fingerprint 분리 |
+| `src/Nikke.Engine/Skills/TeamBurstController.cs:32` | Version 상수 | 팀 리플레이 결과 `RulesVersion` 표시·캐시 키 |
+| `src/Nikke.Engine/Skills/SkillReplay.cs:11` | Version 상수 | 결과 변경 → 규칙 버전 |
+| `SkillReplay.cs:91` | 정책 허용 목록에 `client_f32_dprod` | 후보 정책을 리플레이에서 선택 가능하게 |
+| `SkillReplay.cs:428`, `:524` | `IsClientPolicy` 분기 | 후보 정책도 정수 공격력 경로 |
+| `SkillReplay.cs:578-588` | `SyncGun` 장탄 조립을 `ApplyAmmo`로 | 항목 4 |
+| `SkillReplay.cs:608-610` | 히트 입력: 96 → `InterruptionTarget/Damage` | 항목 3(소유 범위의 "히트 입력 구성") |
+| `docs/hit-damage-client-f32.ko.md:35,36,38` | 표 3행 정정 표시 | addDamageRate·breakRate·defenceRatioRate 대응 변경 |
+| `docs/hit-damage-client-formula.ko.md:60,79,118` | 정정 표시(취소선 + 정정문) | 96 중복·분리 완료 반영 |
+| `docs/hit-damage-source-investigation.ko.md:7` | 역사 기록 주의문 | "현 엔진" 서술이 조사 시점 기준임을 표시 |
+
+UI·API 계약(`Nikke.Contracts`)·Data 계층 파일은 수정하지 않았다.
 
 ## API/계약 영향 보고(수정 없음)
 
@@ -94,9 +135,9 @@
 - `client_f32_dprod`는 `HitWire.Policies`에 없어 API로 선택할 수 없다(요구대로 미노출). 노출 시 후속 배정이 필요하다.
 - 단일 히트 응답의 `defenceRatio`·`extra` term operation 문구와 true damage 결과가 바뀐다.
 
-## 열린 질문(Director 판단 요청, 차단 아님)
+## 열린 질문 → 해소 (Director 동의, 비차단)
 
-- 지시서 2번 "모든 정책에 반영": legacy 3정책(`legacy_term_floor`·`final_round_even`·`nested_floor`)은 애초에 `DefenceRatioRate` 항을 계산하지 않는다(단일 히트 응답 limitations에 이미 명시). 이를 "모든 정책"에 방어율 항 자체를 새로 넣으라는 뜻으로 읽으면 legacy 결과가 바뀌므로, **방어율 항이 있는 두 client 정책에만 반영**하고 legacy는 기존 비모델링을 유지했다. 필요하면 후속 지시를 요청한다.
+- 지시서 2번 "모든 정책에 반영": legacy 3정책(`legacy_term_floor`·`final_round_even`·`nested_floor`)은 애초에 `DefenceRatioRate` 항을 계산하지 않는다(단일 히트 응답 limitations에 이미 명시). 이를 "모든 정책"에 방어율 항 자체를 새로 넣으라는 뜻으로 읽으면 legacy 결과가 바뀌므로, **방어율 항이 있는 두 client 정책에만 반영**하고 legacy는 기존 비모델링을 유지했다. Director가 2026-10-03 "legacy 방어율 비모델링 유지는 비차단 기록 동의"로 확정했다.
 
 ## 검증 결과
 
@@ -115,9 +156,14 @@
 
 ## 보존 규칙 확인
 
-- 원본 `data/local`은 공개 표 `calculation/5fec7706…/{cube_effect_table,collection}.json`만 읽었고(위 hash 전후 동일, 복사본 없음) `accounts.db`·세션·캐시·presentation은 열지 않았다. 5180/5181·원본 EXE 접근 없음.
+- 원본 `data/local`은 공개 표만 읽었다: 장탄 점검 `calculation/5fec7706…/{cube_effect_table,collection}.json`, 5인 비교 12개 파일(위 "전후 비교 A"). 모두 hash 전후 동일, 복사본은 worktree `artifacts/` 안(Git 제외). `accounts.db`·세션·캐시·presentation은 열지 않았다(합성 계정은 코드로 생성). 5180/5181·원본 EXE 접근 없음.
 - `package-lock.json`은 미추적 상태로 두었고 커밋하지 않는다. push·배포·새 워커 없음.
 
 ## 리뷰 이력
 
-(아직 리뷰 전. 반려·수정은 여기에 누적한다.)
+### 1차 리뷰 — 반려 (astra-6, 커밋 `c7b6c83`)
+
+1. 차단 #1 — 명시 소유 밖 `WeaponReplay.cs`·`PreparedSkillReplay.cs`·`TeamBurstController.cs`, `SkillReplay`의 히트 입력 외 변경, `docs/hit-damage-*.ko.md` 3개. → 리뷰어가 Director에 범위 판단을 요청했고 **Director가 2026-10-03 이번 작업 한정으로 승인**(조건은 위 "소유 범위 밖 변경" 절). 이 절에 파일·줄·이유 표를 추가했고, 문서 정정은 취소선 정정 표시로 바꿔 기존 기록을 보존했다.
+2. 차단 #3·#6 — 기존 5인 180초 전후 비교 누락(합성 멤버 fixture로 대체). Director가 반려 유지·보완 지시. → 위 "전후 비교 A"로 보완: 공개 표 + 합성 스탯으로 리타·블랑·앨리스·누아르·모더니아의 실제 스킬 경로를 변경 전/후 코드에 시드 고정으로 실행, `client_f32`·legacy 모두 5개 시드·4개 시나리오 전부 동일. 모순·누락 점검으로 본 보고서의 이전 문장 "기존 5인 비교는 수행하지 않았다"를 삭제했다.
+
+비차단 의견 기록: legacy 정책의 방어율 비모델링 유지(Director 동의), dprod의 float32 extra/감소 항 정의 명시 확인.
