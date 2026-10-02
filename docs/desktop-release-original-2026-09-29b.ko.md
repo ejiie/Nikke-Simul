@@ -1,5 +1,7 @@
 # 원본 main 및 실제 사용자 실행본 갱신 — 2026-09-29 2차 (전투 조건 정리·보스 선택)
 
+> 이후 2026-10-02에 다시 갱신됐다: [desktop-release-original-2026-10-02.ko.md](desktop-release-original-2026-10-02.ko.md). 알려진 결함 F2-Q-6은 그 배포에서 수정됐다.
+
 ## 현재 사용 경로
 
 **사용자는 기존 바탕 화면 `Nikke Simul.lnk`를 실행하면 된다.** 대상은 원본 `C:/Users/user/Documents/GitHub/Nikke-Simul/artifacts/desktop/win-x64/Nikke Simul.exe`. 바로가기·경로 변경 없음, 원격 push 없음.
