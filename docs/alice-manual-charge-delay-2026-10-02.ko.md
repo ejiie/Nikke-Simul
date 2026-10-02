@@ -37,3 +37,5 @@
 - 작업 구조: [구현·리뷰·QA](workflow-implement-review.ko.md). 엔진 규칙·수치 변경이므로 **구현 xhigh / 리뷰 medium / QA xhigh**.
 - 세션(2026-10-02 사용자 실행): 엔진 worktree 구현 Sonnet 5.5 `term_1fba2b21…`(**high** — 계획 xhigh보다 한 단계 낮게 실행됨, 사용자 세션 설정 존중), 리뷰 astra-6 `term_ec372feb…`(medium, Full access). 구현 ⇄ 리뷰 직접 왕복, 리뷰 통과 시 Director → QA.
 - 기준: Director `2487bbd`(현재 Director HEAD, 엔진 `1a86ec9` 포함)를 엔진 브랜치에 일반 merge한 뒤 작업. 소유: `src/Nikke.Core/**`, `src/Nikke.Engine/**`, 엔진 tests, 보고서 `docs/manual-charge-delay-engine.ko.md`.
+- **리뷰 1차 반려(코드 아님, 2026-10-02):** 구현이 5인 비교를 위해 원본 `data/local`의 공개 표 12개(`game-catalog.json`, `calculation/*`, `runtime/*`)를 읽기 전용으로 복사해 합성 계정 비교를 돌림(hash 전후 동일, `accounts.db`·세션·캐시 미접근, 보고서 `d758867`에 기록). 리뷰가 차단 2번(원본 `data/local` 접근 금지)으로 반려하고 구현이 Director 판단을 요청.
+- **Director 판단: 사후 승인.** 공개 표의 읽기 전용 사용은 H-SRC·I-BE·QA에서 hash 확인 조건으로 반복 수용한 관행이며 차단 2번의 취지(계정·캐시 보호, 변경 금지)를 어기지 않는다. 5인 비교 수치는 증거로 유효. 조건: 복사본이 자기 worktree 밖(시스템 임시 폴더 등)에 있으면 자기 artifacts로 옮기거나 삭제, 사용 파일 목록·hash를 보고서에 유지. 규칙 문구를 [작업 구조](workflow-implement-review.ko.md) 차단 2번에 명시했다.
