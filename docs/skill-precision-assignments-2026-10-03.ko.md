@@ -94,6 +94,10 @@
   - **Director 조치:** Backend 구현에 D-SRC-1보다 먼저 별도 커밋으로 수정 지시(객체·컬렉션 요소 검사 공통화, 8개 주입 + 같은 유형 회귀), 리뷰 직접 왕복 → Director → QA 재배정. 세 건 동시 배포는 이 수정 QA 통과 후.
   - **수정 리뷰 최종 통과:** Backend `a050853`(부모 `b8951ca`). element·weakKey 미선언 null 거부, `StrictGraph`가 도메인 검증 전에 전체 그래프의 non-nullable 멤버·컬렉션/딕셔너리 null 요소를 공통 거부(500 경로 제거). 회귀: 컬렉션/객체 null 12경로, 미선언 null·키 누락 29경로, 선언 null 7경로. Sync 231/231, Python 18/18. **계약 변경:** `challenge.levelChangeGroupId` 필수 — 이전 준비 파일은 409, 재준비 필요(배포 시 준비 스크립트 실행 여부 확인). D-SRC-1 미추적 파일과 분리됨.
   - **재QA 전달(2026-10-02):** 검수 착수 확인.
+  - **재QA 최종: 통과, 1,682/1,682, 차단 0.** 검수 `9ee11a7`(대상 `a050853`을 `e6295ca` 위 merge `7f961fe`). 원래 8개 주입 전부 409 `boss_attributes_invalid`, 확장 null 매트릭스·`source.entries` dictionary null 포함, 실제 API 545검사 HTTP 500 0, 선언 null·실제 0 200 보존, 기존 5인 60건 동일.
+  - **배포 조건(QA):** 이전 준비 파일은 409 → 배포 때 `prepare_solo_raid_boss_attributes.py --static-data-zip <고정 8/12 ZIP> --presentation-root <배포 dataRoot>/presentation` 실행 필수. Git/DLL 통합만으로 준비되지 않는다.
+  - **Director 통합 `1d01ed8`**(`--no-ff`, 제품 트리 = QA `9ee11a7`). Release 빌드 경고 0·오류 0, .NET 553/553(Analysis 41·Compute 46·Sync 231·Core 235), data-pipeline Python OK. **UI 6/7 — `display_labels.test.mjs` `registered_messages_match_server_sources` 실패:** B-DATA-1 새 서버 문구 약 27개(예: "방어율", "보스 속성 준비 필요", "원값(단위 미확인)")가 `apps/desktop-ui/registered-messages.js` 허용 목록에 없음. QA는 이 Node UI 테스트를 돌리지 않았다.
+  - **조치:** Backend 구현에 재생성 별도 커밋 + 내부 근거 메모(예: "사용자 R4…", "그룹 904…")가 표시 문구로 나가지 않는지 검토 지시, 리뷰 직접 왕복 → Director. 배포 전 최종 확인에 UI 7/7 포함.
 
 ### S-SKILL-1 진행
 
