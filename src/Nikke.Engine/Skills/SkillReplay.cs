@@ -8,7 +8,7 @@ namespace Nikke.Engine.Skills;
 // Prescribed measurements and the P04 controller share the same effect/weapon execution.
 public static class SkillReplay
 {
-    public const string Version = "p03.skills.6-manual-charge-delay";
+    public const string Version = "p03.skills.7-precision-1";
     public static SkillReplayResult Run(IReadOnlyList<SkillReplayMember> members, SkillGraph graph,
         SkillReplayConditions conditions, IRandomSource random = null,
         ICombatEventSink events = null, ISkillBattleDriver driver = null)
@@ -95,7 +95,7 @@ public static class SkillReplay
         if (members is null || members.Count is < 1 or > 5 || members.Any(m => m is null || m.Weapon is null || m.Skills is null
             || !double.IsFinite(m.NativeHp) || m.NativeHp <= 0 || m.NativeHp > 1e12)
             || graph?.Functions is null || graph.CharacterSkills is null || c?.Combat is null
-            || c.RoundingPolicy is not ("client_f32" or "legacy_term_floor" or "final_round_even" or "nested_floor")
+            || c.RoundingPolicy is not ("client_f32" or "client_f32_dprod" or "legacy_term_floor" or "final_round_even" or "nested_floor")
             || c.Casts is null || c.HpObservations is null || c.InitialHpRatios is null || c.InitialCovers is null
             || c.LowestHpTargetBasis is not ("ratio" or "absolute") || c.LowestCoverTargetBasis is not ("ratio" or "absolute")
             || c.Casts.Count > 200 || c.HpObservations.Count > 500)
@@ -446,7 +446,7 @@ public static class SkillReplay
             long? attackGrant = null;
             if (f.FunctionType == 1 && f.FunctionStandard == 1 && target != owner)
             {
-                if(input.RoundingPolicy==HitCalculator.DefaultPolicy)
+                if(HitCalculator.IsClientPolicy(input.RoundingPolicy))
                 {
                     long native=StatBuffCalculator.RequireInteger(owner.Input.Weapon.Hit.StatAttack);
                     attackGrant=checked(StatBuffCalculator.ApplyAttack(native,
@@ -544,7 +544,7 @@ public static class SkillReplay
             IEnumerable<Actor> available = body.PreferTargetCondition == 1 ? team.Where(a=>a!=owner) : team;
             return (body.PreferTarget switch
             {
-                17 => input.RoundingPolicy==HitCalculator.DefaultPolicy
+                17 => HitCalculator.IsClientPolicy(input.RoundingPolicy)
                     ? available.OrderByDescending(a=>IntegerEffectiveAttack(a)) : available.OrderByDescending(a=>EffectiveAttack(a)),
                 47 => available.OrderBy(a=>input.LowestCoverTargetBasis=="ratio" ? a.CoverRatio : a.CoverRatio*a.CoverMaxHp),
                 11 => available.OrderBy(a=>input.LowestHpTargetBasis=="ratio" ? Ratio(a) : a.Hp),
@@ -609,9 +609,11 @@ public static class SkillReplay
             }
             else if (mode?.Profile is null && a.ModeGun is not null) a.ModeGun=null;
             var w=a.Input.Weapon.Weapon; var b=a.Input.Weapon.Buffs;
-            var ammoRates=On(a,14).Where(e=>e.Function.FunctionValueType==2).Select(e=>new StatRateBuff(Key(e),e.Value,e.Stacks)).ToArray();
-            int maxAmmo=checked((int)StatBuffCalculator.Apply(w.maxAmmo,b.Ammo,ammoRates)
-                + (int)On(a,14).Where(e=>e.Function.FunctionValueType==1).Sum(e=>e.Value*e.Stacks));
+            var ammoRates=On(a,14).Where(e=>e.Function.FunctionValueType==2)
+                .Select(e=>StatRateBuff.FromRaw(Key(e),e.Function.FunctionValue,e.Stacks)).ToArray();
+            // Same exact integer path as attack; flat ammo grants are integer function values.
+            long maxAmmo=checked(StatBuffCalculator.ApplyAmmo(w.maxAmmo,b.Ammo,ammoRates)
+                + On(a,14).Where(e=>e.Function.FunctionValueType==1).Sum(e=>checked(e.Function.FunctionValue*e.Stacks)));
             // The replacement magazine is the documented fixed size; the base weapon's ammo buffs are not applied to it.
             if (a.ModeGun is not null && ReplacementWeaponPolicy.IgnoreBaseAmmoBuffs) maxAmmo=mode.Profile.MaxAmmo;
             var charge=On(a,61).Where(e=>e.Basis!="caster_charge_centiseconds").Select(e=>new StatRateBuff(Key(e),e.Value,e.Stacks));
@@ -619,7 +621,7 @@ public static class SkillReplay
             int chargeCs=OverloadProcessor.ReduceTimeCs(SkillUnits.Cs(chargeSec),Terms(b.ChargeSpeed.Concat(charge)))
                 - checked((int)On(a,61).Where(e=>e.Basis=="caster_charge_centiseconds").Sum(e=>e.Value*e.Stacks));
             int reloadCs=OverloadProcessor.ReduceTimeCs(SkillUnits.Cs(w.reloadTimeSec),Terms(b.ReloadSpeed));
-            a.Gun.ApplyRuntime(Math.Max(1,maxAmmo),Math.Max(0,chargeCs),reloadCs,On(a,5).Any(),mode?.Rate);
+            a.Gun.ApplyRuntime(checked((int)Math.Max(1L,maxAmmo)),Math.Max(0,chargeCs),reloadCs,On(a,5).Any(),mode?.Rate);
             a.GunDirty=false;
         }
         // Charge-then-release replacement weapon (e.g. Snow White / Maxwell burst). Fire rate comes from the official body value.
@@ -655,7 +657,9 @@ public static class SkillReplay
                 CritBonus=a.Input.Weapon.Hit.CritBonus+On(a,51).Sum(e=>e.Value*e.Stacks),
                 Pierce=normal && (profile?.Pierce==true || On(a,54).Any()),
                 DamageTaken=a.Input.Weapon.Hit.DamageTaken+On(null,42).Sum(e=>e.Value*e.Stacks),
-                AttackDamage=a.Input.Weapon.Hit.AttackDamage+(input.InterruptionTarget ? On(a,96).Sum(e=>e.Value*e.Stacks) : 0)
+                // Interruption (96) feeds breakRate through its own judgement; it no longer also enters AttackDamage.
+                InterruptionTarget=input.InterruptionTarget,
+                InterruptionDamage=a.Input.Weapon.Hit.InterruptionDamage+On(a,96).Sum(e=>e.Value*e.Stacks)
             };
             var calculation=input.DamageLog?.CharacterId==a.Id
                 ? HitCalculator.Evaluate(h,input.RoundingPolicy) : null;

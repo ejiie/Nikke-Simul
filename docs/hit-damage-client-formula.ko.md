@@ -57,7 +57,7 @@ Attack = statAtk + sum(round(statAtk * atkBuff * buffNum))
 
 [H-SRC 보고서](C:/Users/user/orca/workspaces/Nikke-Simul/Backend/docs/hit-damage-source-investigation.ko.md)(Backend `f4ab2fc`)를 Director가 읽고 검토했다. 기존 테이블·고정 upstream·공개 스키마의 **읽기 전용 원천 조사**이며 클라이언트 연산 추적·실측 대조·실게임 수용이 아니다. 항별 근거·신뢰도 전체는 보고서를 따른다.
 
-- **`breakRate`:** `BreakDamage(96)`은 누아르의 **저지 부위** 공격 효과이고 `PartsDamage(112)`와 별개다. breakRate의 유력 후보는 저지 보너스이며, parts는 `addDamageRate` 쪽이 유력하다. 현 런타임은 96을 `InterruptionTarget` 조건에서 이미 `AttackDamage`에 합치므로, 분리 시 빼지 않으면 두 번 적용된다. `extra`는 두 항의 합이라 잠정 분해(H-F32의 `breakRate = 1 + PartsDamage`)와 수치는 같지만 의미 대응은 틀릴 가능성이 높다.
+- **`breakRate`:** `BreakDamage(96)`은 누아르의 **저지 부위** 공격 효과이고 `PartsDamage(112)`와 별개다. breakRate의 유력 후보는 저지 보너스이며, parts는 `addDamageRate` 쪽이 유력하다. 현 런타임은 96을 `InterruptionTarget` 조건에서 이미 `AttackDamage`에 합치므로, 분리 시 빼지 않으면 두 번 적용된다. **→ 2026-10-03 E-PREC-1에서 분리 완료**: 저지 입력(`InterruptionTarget`·`InterruptionDamage`)을 breakRate로, parts를 addDamageRate로 옮기고 런타임의 96→`AttackDamage` 중복을 제거했다([보고서](precision-followup-engine.ko.md)). `extra`는 두 항의 합이라 잠정 분해(H-F32의 `breakRate = 1 + PartsDamage`)와 수치는 같지만 의미 대응은 틀릴 가능성이 높다.
 - **`statDamageRatio`:** 미확정. 스킬 계수는 `CharacterSkillTable`·`FunctionTable`에 있고, 별도로 `MonsterStatEnhanceTable.level_statdamageratio`(공개 스키마 `int`)가 있다. 몬스터 공격자 스탯 배율일 가능성과 양립하나 가설이다. 같은 ID `331250`이 mpk 250917 / 구 decoded 0.0으로 불일치한다. 니케 공격에 보스 행 값을 넣을 근거는 없어 **기본 1 유지**.
 - **`damageRatio`:** 무기·스킬 타격 계수로 유력. 단 현 `Coefficient`는 이미 `multiplier/100 × (1 + NormalAttackMultiplier)`의 복합 값이라, 같은 증가분을 `statDamageRatio`에 다시 넣으면 중복이다.
 - **`defenceRatioRate`:** 후보 `MonsterData.DefenceRatioRatio:int`가 기존 decoder 스키마(client `150.6.9` 기록)에 있으나, 조사한 MonsterTable 두 벌에는 키가 없다. 적용 보스·조건·값·단위 모두 불명. 기존 `defence_ratio=10000`을 대용하면 안 된다. **기본 0 유지**, 카탈로그 자동 채움 불가.
@@ -76,7 +76,7 @@ Attack = statAtk + sum(round(statAtk * atkBuff * buffNum))
 | `statDamageRatio` | 없음 | **누락** — 사용자 추정(스킬 계수) 미확정. 후보 `MonsterStatEnhance.level_statdamageratio`, 기본 1 |
 | `chargeDamageRate` | `charge = base × (1 + 배율 증가분) + 가산` | 대응 |
 | `B` (crit→core→burst→range, `float32` 누적) | `1 + Σbonus` (double, distance→burst→crit→core) | **정밀도·누적 순서 다름** |
-| `extra = breakRate + addDamageRate − 1` | B3 = `1 + attackDamage + pierce + parts + dot + sequential + true` | 합산 구조 유사. breakRate = 저지(96) 유력, parts(112)는 addDamageRate 유력. 96은 현재 AttackDamage에 포함 |
+| `extra = breakRate + addDamageRate − 1` | B3 = `1 + attackDamage + pierce + parts + dot + sequential + true` | 합산 구조 유사. breakRate = 저지(96) 유력, parts(112)는 addDamageRate 유력. ~~96은 현재 AttackDamage에 포함~~ → 2026-10-03 E-PREC-1 정정: 엔진 반영 완료, 96은 더 이상 AttackDamage에 합치지 않음 |
 | `1 − damageReductionRate` | B4 = `1 + damageTaken + distribution` | damageTaken 부호 대응 유력(블랑 −3926). distribution 위치는 추정 |
 | `1 − defenceRatioRate` | 없음 | **누락** — 추가 필수(결정 3). 후보 `MonsterData.DefenceRatioRatio`, 값·보스 불명, 기본 0 |
 | `elementRate` | B5 | 대응 |
@@ -115,7 +115,7 @@ Attack = statAtk + sum(round(statAtk * atkBuff * buffNum))
 
 ## 후속 작업
 
-2026-09-28 아래 1·2를 배정했다: [H-F32·H-SRC 지시서](hit-damage-assignments-2026-09-28.ko.md). **2(H-SRC)는 원천 조사 완료·Director 검토 수용**, **1(H-F32)은 구현·통합 연결·독립 QA 수용 후 2026-09-28 Director 통합·원본 배포 완료([I-BE·I-UI·Q-F32 지시서](client-f32-integration-assignments-2026-09-28.ko.md), [2026-09-28 원본 배포 기록](desktop-release-original-2026-09-28.ko.md))** — [H-F32 보고서](C:/Users/user/orca/workspaces/Nikke-Simul/시뮬레이션-엔진-담당/docs/hit-damage-client-f32.ko.md)(엔진 브랜치 `53b3d10`/`5ced15a`). 3·4는 미배정이다. 추가 후속: 클라이언트 질문 답변 후 break/parts 분리(저지 입력 신설·96 중복 제거)와 `statDamageRatio`·`defenceRatioRate` 원천 연결.
+2026-09-28 아래 1·2를 배정했다: [H-F32·H-SRC 지시서](hit-damage-assignments-2026-09-28.ko.md). **2(H-SRC)는 원천 조사 완료·Director 검토 수용**, **1(H-F32)은 구현·통합 연결·독립 QA 수용 후 2026-09-28 Director 통합·원본 배포 완료([I-BE·I-UI·Q-F32 지시서](client-f32-integration-assignments-2026-09-28.ko.md), [2026-09-28 원본 배포 기록](desktop-release-original-2026-09-28.ko.md))** — [H-F32 보고서](C:/Users/user/orca/workspaces/Nikke-Simul/시뮬레이션-엔진-담당/docs/hit-damage-client-f32.ko.md)(엔진 브랜치 `53b3d10`/`5ced15a`). 3·4는 미배정이다. 추가 후속: ~~클라이언트 질문 답변 후 break/parts 분리(저지 입력 신설·96 중복 제거)와 `statDamageRatio`·`defenceRatioRate` 원천 연결.~~ → 2026-10-03 E-PREC-1 정정: break/parts 분리(저지 입력 신설·96 중복 제거)는 완료(true damage 방어율 예외 포함), `statDamageRatio`·`defenceRatioRate` 원천 연결은 미완.
 
 1. `HitCalculator`에 `client_f32` policy 추가: `long` 공격력 조립 → `float32` 대미지 경로 → 사사오입 `max(1, round)`. 기존 후보는 비교용으로 유지한다. `defenceRatioRate`(기본 0)는 필수로, `statDamageRatio`(기본 1)는 조사 결과 전까지 중립값 입력으로 추가한다. 입력 계약 버전 변경 여부는 구현 시 결정한다.
 2. `statDamageRatio`·`damageRatio`·`defenceRatioRate` 원천 조사를 담당자에게 배정한다. 사용자 추정을 확정 사실로 전달하지 않는다.

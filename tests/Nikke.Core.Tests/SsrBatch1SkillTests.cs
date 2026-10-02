@@ -202,4 +202,15 @@ public class SsrBatch1SkillTests
         Assert.True(SkillReplay.Run([m], Graph(), Cond("full_charge"), new FixedRandom(.99)).Members[0].Shots > 0);
         Assert.True(SkillReplay.Run([Member("5012")], Graph(), Cond("tap"), new FixedRandom(.99)).Members[0].Shots > 0);
     }
+
+    [Fact]
+    public void Base_ammo_buffs_use_the_integer_path_but_never_enlarge_the_replacement_magazine()
+    {
+        var ammo = F(60, type: 14, timing: 1, value: 10000) with { DurationType = 3 };   // +100% max ammo for the whole battle
+        var m = WithSlots(Member("5012", [60]), burst: ChargeBurst());
+        var r = SkillReplay.Run([m], Graph(ammo), Conditions(400) with { Casts = [new(5, "5012")] }, new FixedRandom(.99));
+        var swapShot = Assert.Single(r.Events, e => e.Kind == "shot" && e.Frame == 5 + 59);
+        Assert.Equal(0, swapShot.Value);                                  // 1-round replacement magazine, not 1 * 2
+        Assert.Equal(m.Weapon.Weapon.maxAmmo * 2, r.Members[0].MaxAmmo);   // base weapon: exact +100%
+    }
 }

@@ -93,13 +93,21 @@ Director 추출 목록(`ssr-by-cp.json`, '묑카엘' 계정 전투력 순, 이�
 ## 검증
 
 - **새 단위 테스트 15개**(`tests/Nikke.Core.Tests/SsrBatch1SkillTests.cs`): body 2·13·15가 body 1과 같은 피해, StatCritical이 샘플 크리 확률을 올림(0.20 난수: 15% 미크리 → +10% 크리), 풀버스트 창 안/밖의 조건 효과, 상태 21·28의 미지원 값 진단, 몬스터 임계값/소환 timing 비활성, 교체 총 정책 라벨(trace·limitations)과 수동 톡톡이 거부, 교체 무기 1발(차지 60F 뒤 `cast + 59`F, ChargeBase 10, 풀차지·관통, 이후 `weapon_restored basis=shots_spent`), 기본 총 상태 동결·탄 연속, 차지 속도 버프로 30F, 2발 교체, 프로필 없는 ChangeWeapon의 기존 경로, 프로필 검증 거부. Python 4개(`weapon_change_profile` 파싱·누락/레벨 가변 거부·**Additional Effect 명시 Pierce/None 구분과 누락·미지의 효과 거부**·AllStep 숫자 두 원천 대조).
-- **Release 전체:** `Nikke.Core.Tests` **232/232**(기존 217 + 15), `Nikke.Analysis.Tests` 41/41, `Nikke.Compute.Tests` 46/46, `Nikke.Sync.Tests` 164/164. Python 데이터 파이프라인 44/44. 실패 0·skip 0.
+- **Release 전체:** `Nikke.Core.Tests` **232/232**(기존 217 + 15; merge 후 수치는 아래 merge 절), `Nikke.Analysis.Tests` 41/41, `Nikke.Compute.Tests` 46/46, `Nikke.Sync.Tests` 164/164. Python 데이터 파이프라인 44/44. 실패 0·skip 0.
 - **기존 5인 회귀(합성 Lv400 계정, 리타·블랑·앨리스·누아르·모더니아, 180초, seed 1~20):** 수정 전(`d932716` 엔진)과 이후를 같은 persisted 입력으로 돌려 팀 피해·멤버별 발수·타수·피해·풀버스트 횟수·첫 풀버스트 시점이 **20개 seed 모두 완전히 동일**(평균 팀 피해 6.621e8, 풀버스트 12회). 새 효과 타입이 기존 5명에게 휴면 상태임을 확인한 것이다.
 - **새 캐릭터 실데이터 실행(실제 runtime catalog, 합성 계정, 리타·블랑·스노우 화이트·맥스웰·앨리스, 자동 버스트):** 실행 성공, 풀버스트 4회(블랑 쿨다운 40초가 사이클을 제한 — 원 덱은 팀원의 쿨다운 감소 효과가 있어 12회), 평균 팀 피해 2.876e8. seed 1에서 스노우 화이트는 버스트마다 1발의 풀차지 관통 샷(WeaponShotId 1022002, FullBurst, 코어 가정)을 쏘고 맥스웰은 교체 샷(1010202)과 기본 풀차지 사격을 한다. 이 수치는 장비·OL 없는 합성 계정이라 사용자 관측(2.3B급)과 직접 비교하지 않는다.
 
 ## 버전·fingerprint
 
-규칙 버전(SkillReplay·TeamBurstController·PreparedSkillReplay·WeaponReplay)은 **올리지 않았다.** 근거: 새 효과 타입은 이전에 `미지원`으로 거부되던 캐릭터에만 적용되고, 기존 5명의 결과는 위 회귀로 비트 동일하다(지시서: 새 효과 타입이 기존 계산에 영향이 있을 때만 상향). 새로 만든 runtime catalog의 ID는 `2e6e8d06…`(10명)이며 기존 배포 catalog `9c98c91c…`(5명)와 다르다 — `PreparedCompute`의 data version이 fingerprint에 들어가므로 catalog를 교체하면 기존 5인 입력의 fingerprint·캐시도 새 키로 분리된다(결과 값은 같음). 교체·배포·UI 지원 목록 표시는 Backend/QA 후속이다. 미지원 3명은 catalog에는 있고 실행은 거부되므로 UI가 `allLevelsExecutable=false`로 막는지 확인이 필요하다.
+S-SKILL-1 자체는 규칙 버전을 **올리지 않았다.** 근거: 새 효과 타입은 이전에 `미지원`으로 거부되던 캐릭터에만 적용되고, 기존 5명의 결과는 회귀로 비트 동일하다(지시서: 새 효과 타입이 기존 계산에 영향이 있을 때만 상향). 현재 코드의 버전 문자열은 **E-PREC-1이 올린 값을 그대로 유지**한다: SkillReplay `p03.skills.7-precision-1`, TeamBurstController `p04.team.7-precision-1`, PreparedSkillReplay `cpu-summary.6-precision-1`, WeaponReplay `p03.weapon-reference.5-precision-1`, HitCalculator `p02.5-client-f32-prec1`, StatBuffCalculator `native-stat-shared-buffs-v4-ammo-i64`. **추가 상향 불필요 판단:** E-PREC merge 뒤에도 기존 5인 결과가 Director 6d83dec 엔진과 20 seed 모두 동일하고, S-SKILL의 교체 무기·새 효과 경로는 기존 캐릭터에 휴면이다(교체 총 정책 값은 E-PREC 정수 장탄 경로와 독립 — 아래 merge 절). 새로 만든 runtime catalog의 ID는 `2e6e8d06…`(10명)이며 기존 배포 catalog `9c98c91c…`(5명)와 다르다 — `PreparedCompute`의 data version이 fingerprint에 들어가므로 catalog를 교체하면 기존 5인 입력의 fingerprint·캐시도 새 키로 분리된다(결과 값은 같음). 교체·배포·UI 지원 목록 표시는 Backend/QA 후속이다. 미지원 3명은 catalog에는 있고 실행은 거부되므로 UI가 `allLevelsExecutable=false`로 막는지 확인이 필요하다.
+
+## Director HEAD merge (E-PREC-1 통합, `d1bd49d`)
+
+QA가 엔진 `27b99ee`를 Director `6d83dec` 위에 merge하자 `SkillReplay.cs`의 장탄 조립(`SyncGun`)에서 충돌이 났다. 엔진 브랜치에 Director 최신 HEAD(`d1bd49d`)를 일반 merge해 해소했다. 충돌은 이 한 곳(두 구간)뿐이었고 다른 파일은 자동 병합됐다.
+
+- **원칙대로 해소:** 기본 무기는 E-PREC의 정수 장탄 경로(`StatRateBuff.FromRaw`, `StatBuffCalculator.ApplyAmmo`, 평탄 증가는 `checked(FunctionValue*Stacks)`, `long maxAmmo`)를 **그대로** 쓰고, 교체 무기 탄창은 그 바로 뒤에서 `ReplacementWeaponPolicy.IgnoreBaseAmmoBuffs`일 때 설명문 고정값(`mode.Profile.MaxAmmo`, long)으로 **덮어쓴다**(기본 무기 탄창 버프 비적용). `ApplyRuntime`은 `checked((int)Math.Max(1L, maxAmmo))`.
+- **둘 다 보존 확인:** `Nikke.Core.Tests` **251/251**(Director의 E-PREC 장탄 테스트 포함 250 + 새 상호작용 테스트 1개 `Base_ammo_buffs_use_the_integer_path_but_never_enlarge_the_replacement_magazine`: +100% 탄창 버프에서 기본 무기 최대 장탄은 정확히 2배, 교체 샷 직후 탄은 0). Analysis 41, Compute 46, Sync 164, Python 44/44 통과.
+- **기존 5인 180초 회귀:** 같은 persisted 입력을 Director 엔진(`git archive Director`)과 merge 결과에 20 seed 돌려 팀 피해·멤버별 발수·타수·피해·풀버스트 횟수·첫 풀버스트 시점이 **모두 동일**(평균 팀 피해 6.621e8, 풀버스트 12회). 공개 표 10개 hash 집합 동일(합 `e20277b8…`), 스노우 화이트 덱 실행도 성공(평균 2.876e8).
 
 ## 다음 후보 (Director 판단 필요)
 
@@ -124,3 +132,7 @@ Director 추출 목록(`ssr-by-cp.json`, '묑카엘' 계정 전투력 순, 이�
 
 - 결함 2 해소(Additional Effect 필수, Pierce/None만, 누락·미지 값 ValueError, 회귀 테스트 확인), 결함 1 중 수동 tap 강제는 `Validate` 거부로 해소, trace/limitations 표기 확인. 남은 차단은 `SkillReplay.cs:635`(항목 3·5) — 조준 지연 0 잠정 정책이 승인 전에도 실행됨. 리뷰어 직접 실행은 dbe9b68 Core 231/231·Python 43/43, fc36a09 값은 구현자 보고치로 구분. 새 결함 추가 아님.
 - 구현 담당 대응: **Director 승인 수령(2026-10-03, 옵션 a)** 후 조건 반영 — 정책 값을 `ReplacementWeaponPolicy` 한 곳에 모음, 라벨·톡톡이 거부 유지, 보고서 가설 2에 "실측·교체 무기 표 고정 전 잠정"과 영향(≤0.2초) 명시. 코드 동작 변화 없음(상수 이동). Core 232/232 재실행 통과. 이 항목만 재판정 요청.
+
+### Director HEAD merge 재리뷰 (대상: merge 커밋)
+
+- 범위: `SkillReplay.cs` 장탄 조립 충돌 해소만(위 merge 절). 결과·대응은 여기에 누적한다.
