@@ -87,6 +87,11 @@
 - **리뷰 최종 통과(2026-10-02):** Backend HEAD `2c41185`(구현 `cd4caba`, 문서 `403b37b`), 반려 1회(선언된 null 보존·미선언 null 거부, 중첩 수치 strict) 해소. Sync 187/0, Python 17/0. 계산 경로 변경 없음. 한계: 시즌 41·42 unavailable(8/12판 원천에 없음).
 - **Director 판단(보고서 핵심 결과 2):** 바탕 화면 8/12판 StaticData 읽기 전용 디코드는 사후 수용(다운로드 없음, hash 기록). **방어율 원값 0 유지** — 9/17판에서도 솔로 레이드 보스 전부 0으로 확인. 단위·적용 조건은 계속 미확인으로 둔다. 시즌 41·42는 9/17판에 있으므로 D-SRC-1에서 새 원천 고정과 함께 채운다.
 - **QA 배정(2026-10-02):** E-PREC-1 다음 순서로 같은 검수 세션.
+- **QA 최종: 차단 2유형.** 검수 `e6295ca`(제품 병합 `0c26d1c` = E-PREC QA `6bb1be2` + Backend `2c41185`), [QA 보고서](C:/Users/user/orca/workspaces/Nikke-Simul/검수/docs/boss-static-attributes-qa.ko.md), 1,419검사 중 1,411 통과·8 실패.
+  - **BD1-Q-1:** `unconfirmed=[]`인데 `element=null` 또는 `element.weakKey=null` 단독 주입 → GET 200(선언 없는 null은 409여야 함). `SoloRaidBossCatalog.cs:63,67`.
+  - **BD1-Q-2:** 컬렉션 요소 null 주입 → `bosses[0]`·`challenge.levelChange.steps[0]` 500 NullReferenceException, `parts[0]`·`ladder[0]`·`diagnostics[0]`·`fields[0]` 200으로 null 반환(손상 입력 409 계약 위반). `SoloRaidBossCatalog.cs:35,53,69`.
+  - 통과: raw-wire 판독 340/340, strict 중첩 수치 243/243, 실제 0·선언된 null 보존, 방어율 0·시즌 41/42 unavailable, 기존 보스 목록 바이트·계산 입력·fingerprint 불변, 기존 5인 60건 동일.
+  - **Director 조치:** Backend 구현에 D-SRC-1보다 먼저 별도 커밋으로 수정 지시(객체·컬렉션 요소 검사 공통화, 8개 주입 + 같은 유형 회귀), 리뷰 직접 왕복 → Director → QA 재배정. 세 건 동시 배포는 이 수정 QA 통과 후.
 
 ### S-SKILL-1 진행
 
@@ -94,6 +99,8 @@
 - **리뷰 최종 통과(2026-10-02):** 엔진 HEAD `27b99ee`(`dbe9b68` → `fc36a09` → `27b99ee`), 반려 1회 해소. 잠정 정책은 `ReplacementWeaponPolicy`(`SkillDefinitions.cs`) 한 곳 정의·실행부 참조·trace basis·limitations·수동 tap 거부 확인. 관통 파싱 strict(Pierce/None만, 누락·미지 값 오류). 버전 미상향 — 기존 5인 20 seed 동일. 리뷰어 직접 실행 `dbe9b68` Core/Engine 231/231·Python 43/43; 최신 Core 232·Python 44는 구현 보고치.
   - **실제 범위: 스노우 화이트·맥스웰 조립(버스트는 관통 다중 타격 미모델로 부분 지원)**, 라피 : 레드 후드·홍련 : 흑영·레드 후드는 **미지원 진단**(실행 거부). 미지원 원인: 팀 버스트 단계 규칙(AllStep·편성 의존 단계 변경·IsBurstStepState 1~3), 부착 투사체(182~185), CycleUse·DamageShareInstant, ChargeTimeChangetoDamage(129), TargetGroupid·TimingTriggerValueChange(130·131) 등. → 이 효과 묶음은 후속 엔진 확장 배정 후보(팀 버스트 규칙 우선).
 - **QA:** 검수 세션이 E-PREC-1 → B-DATA-1 진행 중이라 **세 번째로 대기**. 앞선 QA 보고 후 전달(xhigh 권장).
+- **QA 1차 전달 후 중단(2026-10-02):** QA가 E-PREC 통합본 위에 merge하자 `SkillReplay.cs` 장탄 조립 충돌(E-PREC 정수 장탄 vs 교체 무기 탄창 정책). QA가 직접 해소하려 해 **Director가 중단**시켰다 — 제품 코드 수정은 QA 독립성 위반. 검수 브랜치는 `e6295ca`로 복구 확인.
+  - **조치:** 엔진 구현이 Director 최신 HEAD를 엔진 브랜치에 merge해 충돌 해소(기본 무기는 E-PREC 정수 장탄 경로, 교체 무기는 `ReplacementWeaponPolicy` 고정 탄창), 두 기능 회귀·기존 5인 결과 Director `6d83dec`와 동일 확인 → 리뷰(merge 해소 부분) → Director → QA 재전달.
 
 ### 배포·D-SRC-1 전달
 
