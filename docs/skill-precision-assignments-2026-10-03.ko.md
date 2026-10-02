@@ -41,3 +41,7 @@
 ## 이후
 
 각 리뷰 최종 통과 → Director → 독립 QA(검수 `term_234e279b…`) → 통합·배포. 통계(크리 편차 실험 등)는 대미지 정책 확정 뒤 배정한다.
+
+## 전달 확인
+
+지시서 커밋 `e96b147`. 전달 직전 여섯 터미널 모두 대기 상태 확인. 구현 3명 `input_accepted`·`turn_started`(S-SKILL-1 `term_1fba2b21…`, E-PREC-1 `term_80f56a78…`, B-DATA-1 `term_9d9ce9f4…`), 리뷰 3명 안내 전달(`term_ec372feb…`은 `input_accepted`, 나머지 둘 `turn_started`). 착수 확인이며 구현 완료가 아니다.
