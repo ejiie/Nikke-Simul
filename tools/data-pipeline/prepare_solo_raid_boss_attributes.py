@@ -385,6 +385,8 @@ def build_attributes(archive, expected_seasons, expected_images=None):
                   'damageHpRatio': p['damage_hp_ratio'], 'defenceRatio': p['defence_ratio'],
                   'passiveSkillId': p['passive_skill_id'], 'visibleHp': p['visible_hp'],
                   'coreMarkers': part_markers(p)} for p in parts_by_model.get(monster['monster_model_id'], [])]
+        if model is None:
+            unconfirmed.append('model_prefab')
         if element is None:
             unconfirmed.append('element')
         elif element['weakKey'] is None:
@@ -402,8 +404,8 @@ def build_attributes(archive, expected_seasons, expected_images=None):
             'defenceRatio': monster['defence_ratio'], 'defenceRatioRate': monster['defence_ratio_ratio'],
             'attackRatio': monster['attack_ratio'],
             'challenge': {'presetId': challenge['Id'], 'level': challenge['Monster_stage_lv'],
-                          'characterLevel': challenge['Character_lv'], 'stats': challenge_stat,
-                          'levelChange': level_change},
+                          'characterLevel': challenge['Character_lv'], 'levelChangeGroupId': change_group,
+                          'stats': challenge_stat, 'levelChange': level_change},
             'ladder': ladder, 'parts': parts, 'core': core, 'unconfirmed': unconfirmed})
     source = {name: {'sha256': digest(raw), 'size': len(raw), 'records': len(tables[name]) if name in tables else None}
               for name, raw in raws.items()}

@@ -100,3 +100,18 @@ python tools/data-pipeline/prepare_solo_raid_boss_attributes.py --static-data-zi
 수정 중 얻은 추가 결함: strict로 바꾸자 실제 준비 파일이 409가 됐다 — 준비기 diagnostics에 `displayable` 키가 없었다(느슨한 읽기가 `false`로 조용히 채우고 있었음). 준비기가 `displayable:false`를 쓰도록 고치고 진단 필드 집합 테스트를 추가했다. 격리 API 검사로 실제 파일의 strict 읽기를 확인했다.
 
 재실행: Sync 187/0, Core 217, Compute 46, Analysis 41 통과, Python 17/17, 격리 API passed.
+
+### 독립 QA 차단 — BD1-Q-1·BD1-Q-2 (Director 지시로 D-SRC-1보다 먼저 수정)
+
+QA 보고서 `검수/docs/boss-static-attributes-qa.ko.md`(1,419검사 중 1,411 통과·8 실패). 수정은 D-SRC-1 변경과 분리한 별도 커밋이다.
+
+| # | 결함 | 수정 |
+|---|---|---|
+| BD1-Q-1 | `unconfirmed:[]`인데 `element:null` 또는 `element.weakKey:null` 단독 주입이 GET 200 | 읽기 검증을 필드별 땜질 대신 **선언 규칙 하나**로 통일: nullable 멤버의 null은 `unconfirmed`의 이유 코드(`element`·`weak_element`·`model_prefab`·`challenge_level_stats`·`level_change_rows`·`level_change_step_<n>_stats`·`core_position`)로 설명될 때만 허용. 이에 필요한 `challenge.levelChangeGroupId`(preset 원값)를 준비기 wire에 추가해 `levelChange:null`이 "그룹 없음"(0)인지 "누락"인지 구분 |
+| BD1-Q-2 | `bosses[0]`·`steps[0]` null → 500 NullReferenceException, `parts[0]`·`ladder[0]`·`diagnostics[0]`·`fields[0]` null → 200으로 통과 | 새 `StrictGraph`(리플렉션 + NullabilityInfo)가 역직렬화 직후 **그래프 전체**를 걷는다: non-nullable 멤버와 컬렉션·딕셔너리 요소의 null은 어느 깊이에서든 `boss_attributes_invalid`(409). 이후 도메인 검증은 이 검사 뒤에만 실행되어 NRE가 불가능 |
+
+도메인 규칙 추가분: 미사용 시즌은 `reason` 외 속성 없음 / 가용 시즌 `reason:null` / `modelPrefab` null은 `model_prefab` 선언(준비기도 모델 행이 없으면 선언) / `levelChange`는 `levelChangeGroupId`와 일치하고 `rangeTo:null`은 마지막 단계만 / `core.kind:"unconfirmed"`는 evidence·partIds 없음 + `core_position` 선언, 그 외 kind는 evidence·partIds 필수 / `source`·진단 `season` 필수.
+
+회귀(Sync, 신규): 컬렉션·객체 null 12경로 409, **undeclared null + 키 누락 각 29경로 409**(QA 8개 주입 전부 포함), 선언된 null 7경로 200(다른 속성 보존), 미확인 코어·그룹 0·미사용 시즌·0 보존·수치 형식·손상 파일. 변이 검사: `StrictGraph` 호출을 끄면 10건 실패해 회귀가 실제로 잡는다. 격리 API 검사 확장: 실제 준비 파일에 14경로 null 주입 중 해당 13경로가 409 `boss_attributes_invalid`, 선언된 null 5경로 200, 원본 복원 후 응답 동일(포트 58984).
+
+재실행: Sync 231/0, Core 235, Compute 46, Analysis 41 통과, Python 18/18, 격리 API passed. wire에 `challenge.levelChangeGroupId`가 추가되어 **이전 준비 파일은 409**다(재준비 필요, 원본 배포에는 아직 속성 파일이 없다).

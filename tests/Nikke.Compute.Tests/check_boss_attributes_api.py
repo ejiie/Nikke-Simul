@@ -77,7 +77,58 @@ def main():
             # the existing boss list API is untouched (no catalog prepared in this root -> explicit diagnostic)
             old = json.loads(get('/api/presentation/solo-raid-bosses'))
             assert old['bosses'][0]['id'] == 'dummy' and old['complete'] is False
-            report.update(status='passed', bosses=len(catalog['bosses']), available=40, unavailable=[41, 42])
+            # BD1-Q-1/Q-2 injections into the isolated file: every one must be 409 boss_attributes_invalid; declared nulls stay 200.
+            original = prepared.read_text(encoding='utf-8')
+            accepted, rejected = [], []
+
+            def inject(path, value, declare=None, remove=False):
+                doc = json.loads(original)
+                node = doc
+                tokens = path.split('/')
+                for token in tokens[:-1]:
+                    node = node[int(token)] if token.isdigit() else node[token]
+                last = tokens[-1]
+                if remove:
+                    del node[last]
+                elif last.isdigit():
+                    node[int(last)] = value
+                else:
+                    node[last] = value
+                if declare:
+                    doc['bosses'][0]['unconfirmed'].append(declare)
+                prepared.write_text(json.dumps(doc, ensure_ascii=False), encoding='utf-8')
+                try:
+                    with urllib.request.urlopen(f'http://127.0.0.1:{port}/api/presentation/solo-raid-bosses/attributes', timeout=10) as response:
+                        return response.status, response.read()
+                except urllib.error.HTTPError as error:
+                    return error.code, error.read()
+
+            undeclared = ['bosses/0/element', 'bosses/0/element/weakKey', 'bosses/0', 'bosses/0/challenge/levelChange/steps/0',
+                          'bosses/0/parts/0', 'bosses/0/ladder/0', 'diagnostics/0', 'fields/0', 'bosses/0/challenge/stats',
+                          'bosses/0/challenge/levelChange', 'bosses/0/challenge/levelChange/steps/0/stats', 'bosses/0/modelPrefab',
+                          'bosses/0/core/evidence', 'bosses/0/parts/0/coreMarkers/0']
+            expected_doc = json.loads(original)
+            for path in undeclared:
+                node = expected_doc
+                for token in path.split('/'):
+                    if token.isdigit() and not (isinstance(node, list) and int(token) < len(node)):
+                        break
+                    node = node[int(token)] if token.isdigit() else node[token]
+                else:
+                    status, body = inject(path, None)
+                    assert status == 409 and b'boss_attributes_invalid' in body, (path, status, body[:200])
+                    rejected.append(path)
+            declared = [('bosses/0/element', 'element'), ('bosses/0/element/weakKey', 'weak_element'),
+                        ('bosses/0/challenge/stats', 'challenge_level_stats'), ('bosses/0/challenge/levelChange', 'level_change_rows'),
+                        ('bosses/0/challenge/levelChange/steps/0/stats', 'level_change_step_1_stats')]
+            for path, code in declared:
+                status, body = inject(path, None, declare=code)
+                assert status == 200, (path, status, body[:200])
+                accepted.append(path)
+            prepared.write_text(original, encoding='utf-8')
+            assert json.loads(get('/api/presentation/solo-raid-bosses/attributes')) == catalog
+            report.update(status='passed', bosses=len(catalog['bosses']), available=40, unavailable=[41, 42],
+                          injectionsRejected=rejected, declaredNullsAccepted=accepted)
     finally:
         if process is not None:
             process.terminate()
@@ -85,7 +136,7 @@ def main():
         report['sourceChanges'] = [] if sha(source) == source_hash else [str(source)]
         (data.parent / 'api-summary.json').write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
     assert not report['sourceChanges']
-    print(json.dumps({k: report[k] for k in ('status', 'port', 'bosses', 'available', 'unavailable')}))
+    print(json.dumps({k: report[k] for k in ('status', 'port', 'bosses', 'available', 'unavailable')} | {'injectionsRejected': len(report['injectionsRejected']), 'declaredNullsAccepted': len(report['declaredNullsAccepted'])}))
 
 
 if __name__ == '__main__':
