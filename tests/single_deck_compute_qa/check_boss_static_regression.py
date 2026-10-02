@@ -3,10 +3,11 @@
 Run own PrecisionProbe arithmetic/team modes against the B-DATA binaries first.
 Neither the implementation's harness nor its answers are used here.
 """
-import json
+import argparse,json
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
-OUT=ROOT/'artifacts/single-deck-qa/bdata1'
+p=argparse.ArgumentParser();p.add_argument('--out',type=Path,default=ROOT/'artifacts/single-deck-qa/bdata1');args=p.parse_args()
+OUT=args.out
 BEFORE=ROOT/'artifacts/single-deck-qa/precision1'
 checks=[]
 for file,count in [('team-new.jsonl',60),('math-new.jsonl',737)]:

@@ -1,4 +1,24 @@
-# B-DATA-1 독립 QA — 차단
+# B-DATA-1 독립 QA — 재QA 통과 (초기 차단 이력 포함)
+
+## 최신 판정: a050853 재QA 통과
+
+대상 Backend `a050853`을 초기 QA `e6295ca` 위에 일반 merge했다. 충돌 없는 병합 커밋은 `7f961fe422b561c4eee33269d6dabfbd86fe190e`다. **1,682/1,682 통과, 차단 0·미판정 0.** 아래 초기 차단 2유형은 모두 해소됐다. 이번 QA는 제품 코드를 수정하지 않았다.
+
+- **BD1-Q-1·2 원래 8개 주입:** element/weakKey 미선언 null 2개, bosses/parts/ladder/steps/diagnostics/fields 요소 null 6개 모두 실제 GET **409 `boss_attributes_invalid`**.
+- **확장 및 기존 API 545/545:** 가용 보스 필드·중첩 객체의 미선언 null/키 누락, 모든 컬렉션 종류의 null 요소(빈 coreMarkers/unconfirmed도 포함), source.entries의 10개 딕셔너리 값 null, 모든 중첩 DTO의 필수 키 검증. 선언된 element/weakKey/modelPrefab/challenge.stats/levelChange/step.stats null은 200과 다른 필드 보존. 미확인 코어 선언, 그룹 0의 levelChange:null, 마지막 구간의 rangeTo:null, 실제 수치 0도 200. **전체 요청 HTTP 500 = 0**.
+- **원천 340/340:** 자체 raw-wire 판독 재실행, 새 `challenge.levelChangeGroupId`까지 preset의 원값과 40개 시즌 전수 일치. ZIP/10표 hash 및 방어율 0, 시즌 41·42 unavailable, 손상 ZIP 거부·기존 출력 보존 유지.
+- **계산 회귀 797/797:** 자체 하네스 산술/런타임 737건과 기존 5인 180초 4시나리오×3정책×5시드 60건, 이전 E-PREC 독립 결과와 버전 포함 전체 JSON 일치. Core/Engine/Compute/Analysis/apps 변경 없음. 실제 API의 기존 보스 목록 바이트·준비 입력/조건·입력/실행 fingerprint·기존 replay/export 및 compute 결과/통계 조회 보존.
+- Release API 및 QA probe 빌드 각각 경고 0·오류 0. 실제 Chromium `/editor/` 모듈 오류 없음. 소유 서버 PID 31524/17644 종료, 격리 포트 **55727**.
+
+**배포 조건 — 재준비 필수:** 이전 준비 파일은 새 필수 `challenge.levelChangeGroupId`가 없어 실제 API가 409로 거부했다. 같은 원천을 현재 `prepare_solo_raid_boss_attributes.py --static-data-zip <고정 ZIP> --presentation-root <배포 dataRoot>/presentation`으로 다시 준비한 파일은 200이다. 따라서 제품 Git/DLL 통합만으로 배포가 완료되지 않는다. Director가 배포할 때 해당 준비 스크립트를 실행해야 한다(기존 파일이 없더라도 준비 필요). QA는 원본 presentation에 실행하지 않았다. 과거 계산 저장 결과는 이 표시용 파일 계약과 무관하게 조회된다.
+
+최종 증거: `artifacts/single-deck-qa/bdata1r2/evidence-index.json`, `source-audit.json`, `regression-audit.json`; 실제 API `artifacts/single-deck-qa/f2-ufix6-f28fe586f93d/`의 `summary.json`, `traffic.json`, `expanded-null-matrix.json`, `valid-wire.json`, `editor.png`와 서버 로그. 자체 새 확장 검사 `tests/single_deck_compute_qa/check_boss_static_readmission.py`는 기존 QA 8개 주입을 그대로 포함하는 실제 API 검사에 확장 행렬을 추가한다. 원천/회귀 검사도 기존 QA 코드만 사용했으며 구현·리뷰 테스트/정답은 재사용하지 않았다.
+
+초기 확장 검사에서 source.entries의 임의 딕셔너리 키 제거를 DTO 필수 멤버 누락과 혼동했던 기대를 수정했다(표 이름 키는 원천에 따라 달라지므로 필수 생성자 키가 아님). 최종 재실행 증거만 위 수치에 포함한다. 딕셔너리 **값 null**과 각 값 객체의 **필수 멤버 누락**은 전부 거부됨을 검증했다.
+
+원천 ZIP 전후 hash, 공개 표 QA 사본 hash, package-lock hash는 초기 보고서의 값 그대로다. 원본 data/local 추가 접근 없이 공개 표 QA 사본을 재사용했다. 원본 계정·세션·캐시·presentation·5180/5181·사용자 EXE 불변. push·배포·새 워커 없음. S-SKILL-1 `27b99ee`의 앞선 병합은 Director 정정대로 `e6295ca`로 되돌렸으며 이번 제품 상태와 결과에는 포함되지 않는다.
+
+## 초기 판정 기록: 2c41185 차단
 
 검수 대상은 Backend 확정 `2c41185`다. E-PREC-1 QA `6bb1be2` 위에 일반 merge한 제품 상태는 `0c26d1c894cd36d252cae42b54a5b1f9cd10b1e2`다. 이번 커밋에는 QA 보고서와 독립 검사만 있으며 제품 코드는 수정하지 않았다. Director 지시서 `skill-precision-assignments-2026-10-03.ko.md`와 `workflow-implement-review.ko.md`를 적용했다.
 

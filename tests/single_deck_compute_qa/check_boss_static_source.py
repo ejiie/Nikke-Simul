@@ -65,7 +65,7 @@ def main():
    check(f'{season} own element joins',boss['element']==dict(id=e[0],key=vocab[e[7].split('_')[-1]],weakId=e[3],weakKey=vocab[elements[e[3]][7].split('_')[-1]]))
    c=boss['challenge'];check(f'{season} challenge raw stats',c['presetId']==cp[0] and c['level']==cp[8] and c['characterLevel']==cp[4] and c['stats']==statmap[m[32],cp[8]])
    check(f'{season} ladder raw stats',boss['ladder']==[statmap[m[32],p[8]] for p in sorted([r for r in presets if r[1]==pg and r[2]==1],key=lambda r:r[8])])
-   rawsteps=sorted([r for r in tables['MonsterStageLvChangeTable'] if r[1]==cp[9]],key=lambda r:r[2]);check(f'{season} level ranges and stats',c['levelChange']['groupId']==cp[9] and c['levelChange']['steps']==[dict(step=r[2],rangeFrom=r[4],rangeTo=r[6] if r[6]!=0 else None,level=r[7],stats=statmap[m[32],r[7]]) for r in rawsteps])
+   rawsteps=sorted([r for r in tables['MonsterStageLvChangeTable'] if r[1]==cp[9]],key=lambda r:r[2]);check(f'{season} level ranges and stats',c['levelChangeGroupId']==cp[9]==c['levelChange']['groupId'] and c['levelChange']['steps']==[dict(step=r[2],rangeFrom=r[4],rangeTo=r[6] if r[6]!=0 else None,level=r[7],stats=statmap[m[32],r[7]]) for r in rawsteps])
    rawparts=[r for r in tables['MonsterPartsTable'] if r[1]==m[2]];expected=[];cores=[]
    for r in rawparts:
     markers=[x for x in (r[11] or [])+(r[14] or [])+([r[19]] if r[19] else []) if 'core' in x.casefold()]

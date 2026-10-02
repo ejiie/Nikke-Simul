@@ -20,8 +20,8 @@ def numbers(x,path=()):
  elif isinstance(x,list):
   if x:yield from numbers(x[0],path+(0,))
  elif type(x)==int:yield path,x
-def main():
- p=argparse.ArgumentParser();p.add_argument('--dotnet',required=True);a=p.parse_args();s=ChargeSession(a.dotnet);s.report.update(product='2c41185',scope='B-DATA-1 independent API')
+def main(product='2c41185',baseline=None,extension=None):
+ p=argparse.ArgumentParser();p.add_argument('--dotnet',required=True);a=p.parse_args();s=ChargeSession(a.dotnet);s.report.update(product=product,scope='B-DATA-1 independent API')
  (OUT/'api-evidence.txt').write_text(str(s.run),encoding='utf-8');catalog=read(OUT/'presentation/solo-raid-boss-attributes.json');file=s.data/'presentation/solo-raid-boss-attributes.json';endpoint='presentation/solo-raid-bosses/attributes'
  # Reuse only our own publicly hashed E-PREC inputs, never original presentation/account files.
  public=ROOT/'artifacts/single-deck-qa/precision1/public-copy';hashes=read(ROOT/'artifacts/single-deck-qa/precision1/public-hashes-before.json')
@@ -42,7 +42,7 @@ def main():
  try:
   with sync_playwright() as pw:
    browser=pw.chromium.launch(headless=True);ctx=browser.new_context(viewport=dict(width=1550,height=1050));api=ctx.request
-   s.start_binary(api,OUT/'baseline-api');r,oldlist=s.call('presentation/solo-raid-bosses');oldlistbytes=r.body();old=s.replay(req,'before-replay');batch,rows,stats=s.batch(req,'before-compute');oldfile=s.data/'skill-replays'/(old['id']+'.json');saved=oldfile.read_bytes();s.stop()
+   s.start_binary(api,baseline or OUT/'baseline-api');r,oldlist=s.call('presentation/solo-raid-bosses');oldlistbytes=r.body();old=s.replay(req,'before-replay');batch,rows,stats=s.batch(req,'before-compute');oldfile=s.data/'skill-replays'/(old['id']+'.json');saved=oldfile.read_bytes();s.stop()
    s.start_binary(api,ROOT/'src/Nikke.Api/bin/Release/net10.0');r,v=s.call(endpoint);s.check('not prepared explicit',r.status==200 and v['bosses']==[] and any(d['code']=='boss_attributes_not_prepared' for d in v['diagnostics']))
    write(catalog);r,v=s.call(endpoint);s.save('valid-wire',v);s.check('production prepared file exact wire',r.status==200 and stripnull(v)==stripnull(catalog));s.check('40 zero defenceRatioRate values preserved',sum(b.get('defenceRatioRate')==0 for b in v['bosses'])==40)
    s.check('existing boss list exact bytes unchanged',s.call('presentation/solo-raid-bosses')[0].body()==oldlistbytes)
@@ -74,6 +74,7 @@ def main():
    c=deepcopy(catalog);c['bosses'][0]['challenge']['stats'].update(hp=0,attack=0,defence=0);c['bosses'][0]['parts'][0].update(hpRatio=0,damageHpRatio=0,defenceRatio=0);write(c);r,v=s.call(endpoint);s.check('actual zero nested values preserved',r.status==200 and v['bosses'][0]['challenge']['stats']==c['bosses'][0]['challenge']['stats'] and v['bosses'][0]['parts']==c['bosses'][0]['parts'])
    for text in ['{','null','[]']:
     file.write_text(text,encoding='utf-8');r,v=s.call(endpoint);s.check('malformed root '+text,r.status==409,dict(status=r.status,response=v))
+   if extension:extension(s,catalog,file,write,endpoint)
    write(catalog);page=ctx.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)));page.goto(s.base+'/editor/');page.wait_for_timeout(1800);page.screenshot(path=str(s.run/'editor.png'),full_page=True);s.save('browser',dict(errors=errors,text=page.locator('body').inner_text()));s.check('actual editor module load',not errors and '솔로' in page.locator('body').inner_text(),errors)
    # Even a corrupt display-only file must not poison independent existing APIs or execution.
    file.write_text('{',encoding='utf-8');r=s.replay(req,'corrupt-display-replay');s.check('corrupt display catalog cannot change prepared calculation inputs',r['result']['conditions']==after['result']['conditions'] and r['inputs']==after['inputs']);s.check('corrupt display catalog cannot change boss list',s.call('presentation/solo-raid-bosses')[0].body()==oldlistbytes);write(catalog)
