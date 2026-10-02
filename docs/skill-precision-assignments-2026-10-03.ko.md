@@ -98,6 +98,8 @@
   - **배포 조건(QA):** 이전 준비 파일은 409 → 배포 때 `prepare_solo_raid_boss_attributes.py --static-data-zip <고정 8/12 ZIP> --presentation-root <배포 dataRoot>/presentation` 실행 필수. Git/DLL 통합만으로 준비되지 않는다.
   - **Director 통합 `1d01ed8`**(`--no-ff`, 제품 트리 = QA `9ee11a7`). Release 빌드 경고 0·오류 0, .NET 553/553(Analysis 41·Compute 46·Sync 231·Core 235), data-pipeline Python OK. **UI 6/7 — `display_labels.test.mjs` `registered_messages_match_server_sources` 실패:** B-DATA-1 새 서버 문구 약 27개(예: "방어율", "보스 속성 준비 필요", "원값(단위 미확인)")가 `apps/desktop-ui/registered-messages.js` 허용 목록에 없음. QA는 이 Node UI 테스트를 돌리지 않았다.
   - **조치:** Backend 구현에 재생성 별도 커밋 + 내부 근거 메모(예: "사용자 R4…", "그룹 904…")가 표시 문구로 나가지 않는지 검토 지시, 리뷰 직접 왕복 → Director. 배포 전 최종 확인에 UI 7/7 포함.
+  - **허용 목록 수정 리뷰 최종 통과:** Backend `e21b774`(`a050853` 바로 위). 필드 메타데이터 9개를 `tools/data-pipeline/manifests/solo-raid-boss-attribute-fields.json`으로 값 그대로 이동, 내부 source/note는 생성기 스캔 제외(회귀 테스트), 허용 목록은 "보스 속성 준비 필요" 1개 추가(총 213). 리뷰어 직접: UI 7/7, ESM 구문, 생성기 --check, Python 19/19. 현재 UI에 보스 속성 API 소비 경로 없음.
+  - **QA:** S-SKILL-1 QA 뒤 착수하도록 검수 대기열에 전달(준비기 산출물 바이트 동일, UI 7/7 포함).
 
 ### S-SKILL-1 진행
 
