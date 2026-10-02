@@ -147,7 +147,7 @@ public class ClientFloatDamageTests
         Assert.All(replay.DamageLog.Entries,e=>Assert.Equal("client_f32",e.Calculation.Policy));
         Parallel.For(0,8,new ParallelOptions { MaxDegreeOfParallelism=2 },_=>
             Assert.Equal(summary.TeamDamage,prepared.Run().TeamDamage));
-        Assert.Equal("p03.skills.6-manual-charge-delay",summary.RulesVersion);
+        Assert.Equal("p03.skills.7-precision-1",summary.RulesVersion);
         var audit=HitCalculator.Compare(member.Weapon.Hit);
         Assert.Equal(4,audit.Candidates.Count);
         Assert.Equal(3,audit.Candidates.Single(r=>r.Policy=="client_f32").Damage);
