@@ -69,9 +69,9 @@ python tools/data-pipeline/prepare_solo_raid_boss_attributes.py --static-data-zi
 
 ## 검증
 
-- Python: `python -m unittest discover -s tools/data-pipeline/tests -p "test_solo_raid_boss*.py"` **16/16 통과**(신규 10: 합성 MemoryPack 인코더로 exact join·속성·레벨 변경·방어율 원값·코어 미확인·시즌 누락 diagnostic·레벨 행 누락 null·다중 속성·멤버 수/버퍼 끝/표 누락/보스 후보 2개 거부·시즌 중복 관계·검토 이미지 불일치·미지 아이콘·원천 hash 변화).
-- .NET(Release): Sync **171**, Core **217**, Compute **46**, Analysis **41** 전부 통과, 실패 0. 신규 Sync 테스트 3개(미준비 explicit, 미사용 시즌 null·방어율 원값, 손상 5종 거부).
-- 격리 API: `python tests/Nikke.Compute.Tests/check_boss_attributes_api.py --data-root artifacts/bdata1/data --source-game artifacts/bfix3/data/game-catalog.json --dotnet <dotnet>` **passed**(동적 포트 58883): 42개 · 40 available · 41/42 unavailable · 시즌별 챌린지 레벨 390/DEF 30925/방어율 0/레벨 변경 DEF `[30925×6, 31784×3]` · 파일과 wire 일치 · 기존 보스 목록 API 불변. 계정을 만들거나 복제하지 않았고 새 dataRoot였다.
+- Python: `python -m unittest discover -s tools/data-pipeline/tests -p "test_solo_raid_boss*.py"` **17/17 통과**(신규 11: 합성 MemoryPack 인코더로 exact join·속성·레벨 변경·방어율 원값·코어 미확인·시즌 누락 diagnostic·레벨 행 누락 null·다중 속성·멤버 수/버퍼 끝/표 누락/보스 후보 2개 거부·시즌 중복 관계·검토 이미지 불일치·미지 아이콘·원천 hash 변화, 챌린지 레벨 행 누락 시 `stats:null`+`challenge_level_stats` 선언, 진단 필드 집합).
+- .NET(Release): Sync **187**, Core **217**, Compute **46**, Analysis **41** 전부 통과, 실패 0. 신규 Sync 테스트 23개(기준 164 → 187; 미준비 explicit, 미사용 시즌 null·방어율 원값, 선언된 미확인 null 허용(챌린지 스탯·레벨 변경 단계), 선언 없는 null 거부, 실제 0 보존, 중첩 수치 누락·null·문자열 거부 6종, 다른 중첩 레코드 수치 누락 5종, 손상 파일 6종 거부).
+- 격리 API: `python tests/Nikke.Compute.Tests/check_boss_attributes_api.py --data-root artifacts/bdata1b/data --source-game artifacts/bfix3/data/game-catalog.json --dotnet <dotnet>` **passed**(동적 포트 59320, 리뷰 반려 수정 후 재실행): 42개 · 40 available · 41/42 unavailable · 시즌별 챌린지 레벨 390/DEF 30925/방어율 0/레벨 변경 DEF `[30925×6, 31784×3]` · 파일과 wire 일치 · 기존 보스 목록 API 불변. 계정을 만들거나 복제하지 않았고 새 dataRoot였다.
 - 교차 검증(1회성, 스크립트 외): 시즌 1~39 보스 monster ID legacy 7월 exact catalog와 39/39 일치, 코어 분류 legacy와 39/39 같은 분류.
 
 ## 보존 확인
@@ -90,4 +90,13 @@ python tools/data-pipeline/prepare_solo_raid_boss_attributes.py --static-data-zi
 
 ## 리뷰 이력
 
-(비어 있음 — 리뷰 담당 인계 전)
+### 1차 리뷰 — 반려 (대상 `cd4caba`, 문서 커밋 `403b37b` 확인)
+
+| # | 위반 | 내용 | 수정 |
+|---|---|---|---|
+| 1 | 항목 3 (`SoloRaidBossCatalog.cs:48`) | 준비기는 챌린지 레벨 스탯 누락을 `stats:null`+`unconfirmed:challenge_level_stats`로 정상 출력하는데 읽기 API는 `boss_attributes_invalid`로 거부해 다른 확인된 속성까지 못 보여 줌 | 읽기 계약을 준비기와 맞춤: `challenge.stats`/레벨 변경 단계 `stats`가 null이면 **`unconfirmed`에 해당 항목이 선언된 경우만 허용**(`challenge_level_stats`, `level_change_step_<n>_stats`), 선언 없는 null은 손상으로 거부. 회귀: 선언된 null 허용 시 속성·파츠·레벨 유지, 선언 없는 null 거부(챌린지·단계 각각) |
+| 2 | 항목 5 (`Contracts/SoloRaid.cs:16`) | `BossLevelStats` 등 비nullable 수치가 `stats:{}`·`defence` 키 누락 시 0으로 조용히 채워짐 | 읽기 전용 strict 옵션(`RespectRequiredConstructorParameters`·`RespectNullableAnnotations`·`NumberHandling.Strict`): 기본값 없는 생성자 인수는 키 필수·null/문자열 거부. `BossAttributes`만 미사용 시즌을 위해 속성에 기본값 null을 두고 `Id/Season/Status`만 필수. 모든 새 중첩 DTO(`BossElement`·`BossLevelChangeStep`·`BossChallenge`·`BossPart`·`BossCore`·`BossAttributeSource*`)에 같은 원칙. 회귀: `stats:{}`·키 하나씩 누락·null·문자열 거부, 파츠 `hpRatio`/`defenceRatio`·속성 `weakId`·단계 `level`/`rangeFrom` 누락 거부, **실제 0(`defence:0`, `defenceRatioRate:0`)은 보존** |
+
+수정 중 얻은 추가 결함: strict로 바꾸자 실제 준비 파일이 409가 됐다 — 준비기 diagnostics에 `displayable` 키가 없었다(느슨한 읽기가 `false`로 조용히 채우고 있었음). 준비기가 `displayable:false`를 쓰도록 고치고 진단 필드 집합 테스트를 추가했다. 격리 API 검사로 실제 파일의 strict 읽기를 확인했다.
+
+재실행: Sync 187/0, Core 217, Compute 46, Analysis 41 통과, Python 17/17, 격리 API passed.

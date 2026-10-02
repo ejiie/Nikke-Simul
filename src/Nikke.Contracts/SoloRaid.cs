@@ -20,10 +20,13 @@ public record BossChallenge(int PresetId,int Level,int CharacterLevel,BossLevelS
 public record BossPart(int Id,int PartsType,bool IsMain,bool Damageable,int HpRatio,int DamageHpRatio,int DefenceRatio,
     int PassiveSkillId,bool VisibleHp,IReadOnlyList<string> CoreMarkers);
 public record BossCore(string Kind,IReadOnlyList<int> PartIds,string? Evidence);
-public record BossAttributes(string Id,int Season,string Status,string? Reason,string? ImageResource,long? MonsterId,int? MonsterModelId,
-    string? ModelPrefab,int? StatEnhanceGroup,BossElement? Element,int? HpRatio,int? DefenceRatio,int? DefenceRatioRate,int? AttackRatio,
-    BossChallenge? Challenge,IReadOnlyList<BossLevelStats>? Ladder,IReadOnlyList<BossPart>? Parts,BossCore? Core,
-    IReadOnlyList<string>? Unconfirmed);
+// Unavailable seasons omit every attribute, so only Id/Season/Status are required. Nested numeric members are
+// required (no defaults): a missing key is a corrupt file, never a silent 0.
+public record BossAttributes(string Id,int Season,string Status,string? Reason=null,string? ImageResource=null,long? MonsterId=null,
+    int? MonsterModelId=null,string? ModelPrefab=null,int? StatEnhanceGroup=null,BossElement? Element=null,int? HpRatio=null,
+    int? DefenceRatio=null,int? DefenceRatioRate=null,int? AttackRatio=null,BossChallenge? Challenge=null,
+    IReadOnlyList<BossLevelStats>? Ladder=null,IReadOnlyList<BossPart>? Parts=null,BossCore? Core=null,
+    IReadOnlyList<string>? Unconfirmed=null);
 public record BossAttributeField(string Key,string Label,string Source,string Unit,string Confidence,string Note);
 public record BossAttributeSourceEntry(string Sha256,long Size,int? Records);
 public record BossAttributeSource(IReadOnlyDictionary<string,BossAttributeSourceEntry> Entries,string SchemaFingerprint,

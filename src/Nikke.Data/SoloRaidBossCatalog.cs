@@ -29,6 +29,10 @@ public sealed class SoloRaidBossCatalogService(string presentationRoot)
 
 public sealed class SoloRaidBossAttributeCatalogService(string presentationRoot)
 {
+    // Strict: every non-defaulted constructor member must be present and non-null, so a missing nested number
+    // (stats:{} / no "defence" key) fails instead of becoming 0. An unconfirmed value is an explicit JSON null
+    // that the preparer also lists in "unconfirmed"; Validate() requires that pairing.
+    private static readonly System.Text.Json.JsonSerializerOptions Strict=new(Wire.Json){RespectRequiredConstructorParameters=true,NumberHandling=System.Text.Json.Serialization.JsonNumberHandling.Strict,RespectNullableAnnotations=true};
     public SoloRaidBossAttributeCatalog Read()
     {
         var path=Path.Combine(presentationRoot,"solo-raid-boss-attributes.json");
@@ -36,21 +40,35 @@ public sealed class SoloRaidBossAttributeCatalogService(string presentationRoot)
             [new("catalog",null,"boss_attributes_not_prepared",false,"보스 속성 준비 필요")],false,null);
         try
         {
-            var catalog=Wire.Read<SoloRaidBossAttributeCatalog>(File.ReadAllText(path));
-            if(catalog.SchemaVersion!=1 || catalog.Kind!="solo_raid_boss_static_attributes" || catalog.Bosses is null || catalog.Diagnostics is null || catalog.Fields is null
-                || catalog.Bosses.Any(b=>b is null || b.Id!="solo-raid-"+b.Season) || catalog.Bosses.Select(b=>b.Id).Distinct().Count()!=catalog.Bosses.Count)
-                throw new InvalidOperationException("boss_attributes_invalid");
-            foreach(var boss in catalog.Bosses)
-            {
-                var available=boss.Status=="available";
-                if(!available && (boss.Status!="unavailable" || boss.Reason is null || boss.Challenge is not null || boss.Element is not null))
-                    throw new InvalidOperationException("boss_attributes_invalid");
-                if(available && (boss.Challenge?.Stats is null || boss.Parts is null || boss.Core is null || boss.Ladder is null || boss.Unconfirmed is null
-                    || boss.DefenceRatio is null || boss.DefenceRatioRate is null || boss.HpRatio is null))
-                    throw new InvalidOperationException("boss_attributes_invalid");
-            }
+            var catalog=System.Text.Json.JsonSerializer.Deserialize<SoloRaidBossAttributeCatalog>(File.ReadAllText(path),Strict)
+                ?? throw new InvalidOperationException("boss_attributes_invalid");
+            Validate(catalog);
             return catalog;
         }
         catch(System.Text.Json.JsonException ex){throw new InvalidOperationException("boss_attributes_invalid",ex);}
+    }
+    private static void Validate(SoloRaidBossAttributeCatalog catalog)
+    {
+        if(catalog.SchemaVersion!=1 || catalog.Kind!="solo_raid_boss_static_attributes"
+            || catalog.Bosses.Any(b=>b.Id!="solo-raid-"+b.Season) || catalog.Bosses.Select(b=>b.Id).Distinct().Count()!=catalog.Bosses.Count)
+            throw new InvalidOperationException("boss_attributes_invalid");
+        foreach(var boss in catalog.Bosses)
+        {
+            if(boss.Status=="unavailable")
+            {
+                if(boss.Reason is null || boss.Challenge is not null || boss.Element is not null || boss.Parts is not null)
+                    throw new InvalidOperationException("boss_attributes_invalid");
+                continue;
+            }
+            if(boss.Status!="available" || boss.Challenge is null || boss.Parts is null || boss.Core is null || boss.Ladder is null
+                || boss.Unconfirmed is null || boss.DefenceRatio is null || boss.DefenceRatioRate is null || boss.HpRatio is null)
+                throw new InvalidOperationException("boss_attributes_invalid");
+            // An explicit null stat is legitimate only when the preparer declared it unconfirmed.
+            if(boss.Challenge.Stats is null && !boss.Unconfirmed.Contains("challenge_level_stats"))
+                throw new InvalidOperationException("boss_attributes_invalid");
+            foreach(var step in boss.Challenge.LevelChange?.Steps??[])
+                if(step.Stats is null && !boss.Unconfirmed.Contains($"level_change_step_{step.Step}_stats"))
+                    throw new InvalidOperationException("boss_attributes_invalid");
+        }
     }
 }

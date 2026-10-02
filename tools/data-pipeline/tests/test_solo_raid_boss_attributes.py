@@ -108,6 +108,8 @@ class BossAttributeTests(unittest.TestCase):
         self.assertEqual({'id': 'solo-raid-3', 'season': 3, 'status': 'unavailable', 'reason': 'static_data_season_missing'}, missing)
         self.assertFalse(catalog['complete'])
         self.assertEqual('static_data_season_missing', catalog['diagnostics'][0]['code'])
+        self.assertEqual({'id', 'season', 'code', 'displayable', 'message'}, set(catalog['diagnostics'][0]))
+        self.assertFalse(catalog['diagnostics'][0]['displayable'])
 
     def test_missing_level_row_is_unconfirmed_not_zero(self):
         entries = archive_entries()
@@ -116,6 +118,16 @@ class BossAttributeTests(unittest.TestCase):
         one = build(entries)['bosses'][0]
         self.assertIsNone(one['challenge']['levelChange']['steps'][1]['stats'])
         self.assertIn('level_change_step_2_stats', one['unconfirmed'])
+
+    def test_missing_challenge_level_row_is_null_and_declared_unconfirmed(self):
+        entries = archive_entries()
+        stats = [fill('MonsterStatEnhanceData', id=230000 + lv, group_id=230000, lv=lv, level_defence=lv) for lv in (45, 85, 400)]
+        entries['MonsterStatEnhanceTable.mpk'] = enc_table('MonsterStatEnhanceData', stats)
+        one = build(entries)['bosses'][0]
+        self.assertIsNone(one['challenge']['stats'])
+        self.assertIn('challenge_level_stats', one['unconfirmed'])
+        self.assertEqual(100001, one['element']['id'])
+        self.assertIn('level_change_step_1_stats', one['unconfirmed'])
 
     def test_defence_ratio_rate_is_a_raw_value_never_defaulted(self):
         entries = archive_entries()

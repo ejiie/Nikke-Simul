@@ -327,7 +327,7 @@ def build_attributes(archive, expected_seasons, expected_images=None):
         if season not in season_waves:
             bosses.append({'id': boss_id, 'season': season, 'status': 'unavailable',
                            'reason': 'static_data_season_missing'})
-            diagnostics.append({'id': boss_id, 'season': season, 'code': 'static_data_season_missing',
+            diagnostics.append({'id': boss_id, 'season': season, 'code': 'static_data_season_missing', 'displayable': False,
                                 'message': '사용한 StaticData 사본에 이 시즌이 없어 속성을 준비하지 못함'})
             continue
         group, challenge, wave_group = season_waves[season]
