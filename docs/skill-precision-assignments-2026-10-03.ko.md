@@ -52,6 +52,20 @@
 - 원본 `data/local`·5180/5181·원본 EXE 불변, `package-lock.json` 커밋 금지, push 금지.
 - 후속: S-SKILL-1 2차 묶음(#5175 포함)은 이 결과로 원천을 고정한 뒤 배정한다.
 
+### 진행 (2026-10-02, Director 직접)
+
+사용자 지시: "blabla에서 정보를 가져오는 코드를 실행하여 data를 최신화. StaticData는 EpinelPS 탐색".
+
+1. **blabla 최신화 완료:** 레거시 `getFromBlaLinkRoledata.py`를 출력 경로만 바꾼 래퍼로 실행(레거시 `Database/raw` 불변). 결과 Git 제외 `artifacts/sources/blabla-20261002/` — `blabla_roledata.json` `2e781192…`, `blabla_roledata_full.json` `5d40ffa5…`. 202/202명 수집, 실패 0.
+   - 추가 10명: #3019 Aigis(SR), #5175 신데렐라 : 크리스탈 웨이브, #5176 Marciana: Marine Study, #5177 Laplace: Ultimate Hero, #5178 Maxwell: Ordinary Mechanic(2버), #5179 Queen (Makoto), #5180 Yukiko, #5181 Drake: Great Villain, #5182 Guilty: Mighty Bunny, #5183 Sin: Swift Bunny. 삭제 0.
+   - 기존 184명 차이는 대부분 설명 문구. **수치·함수 변화:** #5105 홍련 : 흑영 skill1 계수 3개·burst 계수 1개 약 +13%(예: skill1 lv10 250.47 → 283.03, burst lv10 150.12 → 169.63), #5107 엘레그 계수·`skill_value_data`, #5166 `skill_value_data`, #5002·#5121·#5122·#5154 burst 함수 ID 목록, #5096 무기(shot). 
+   - **1차 묶음 영향:** #5105가 구버전 수치. S-SKILL-1 구현에 고정 원천으로 계속하되 보고서에 "원천 7월판, 최신 수치와 다름" 명시·계수는 원천에서 읽는 구조 유지를 전달(대기열 입력, 답장 불필요). 나머지 4명은 문구만 차이.
+2. **StaticData — EpinelPS 탐색:** `EpinelPS/EpinelPS`(C# NIKKE 사설 서버, AGPL-3.0, 최신 커밋 `17eb33f` 2026-09-23 "update to 152.8.13").
+   - `EpinelPS/gameconfig.json`: 현재 StaticData 팩 `data/qa-260917-09c/566822`(2026-09-17 빌드) URL·salt 2개. 레거시 보유분은 `qa-260611-06b/536334`(6/11) → 약 3개월 뒤처짐.
+   - 팩 받기·복호 방식(로비 `get-static-data-pack-info-mpk` → PBKDF2 → AES-CBC → zip `data` → AES-CTR)은 레거시 `DataPipeline/crawler/getFromNikkeStaticData.py`(NikkeTools 출처)와 같다. 레거시 스크립트로 최신 팩을 받을 수 있다.
+   - **가장 큰 가치 = 표 스키마:** `EpinelPS/Data/JsonStaticData.cs`에 MemoryPack 레코드 클래스 874개(필드 순서·타입). 레거시 디코드 필드와 비교하면 Function·CharacterSkill·Character·StateEffect·SkillInfo·MonsterParts·MonsterStatEnhance는 이름 표기만 다르고 순서·개수 같음. **`MonsterRecord`에 `DefenceRatioRatio`(= 방어율 후보)가 `AttackRatio` 뒤에 새로 끼어 있다** — 레거시 위치 기반 디코더로 새 팩을 읽으면 MonsterTable 이후 필드가 밀린다. 새 팩 디코드 시 EpinelPS 스키마로 표 정의를 갱신해야 한다. B-DATA-1의 방어율 필드 근거로도 쓴다.
+   - 상태: **라이브 서버에서 팩 받기는 레거시 정책상 사용자 명시 승인 후에만 실행**(복호 산출물 커밋·재배포 금지, 로컬 전용). 승인 대기.
+
 ## 이후
 
 각 리뷰 최종 통과 → Director → 독립 QA(검수 `term_234e279b…`) → 통합·배포. 통계(크리 편차 실험 등)는 대미지 정책 확정 뒤 배정한다.
