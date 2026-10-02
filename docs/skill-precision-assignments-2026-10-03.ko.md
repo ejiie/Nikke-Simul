@@ -37,6 +37,9 @@
 - **Director 판단(범위 예외 승인, 이번 작업 한정):** WeaponReplay.cs 장탄 조립 호출 2곳·client 정책 분기·버전, PreparedSkillReplay·TeamBurstController 버전 각 1줄, SkillReplay 히트 입력 외 SyncGun/정책 허용·분기·버전, 기존 `hit-damage-client-f32`·`hit-damage-client-formula`·`hit-damage-source-investigation` 문서 동기화. 조건: 연결·버전 외 동작 변경 금지, 문서는 이번 구현 사실만 반영하고 기존 기록은 정정 표시, 소유 밖 변경 목록을 보고서 표로, S-SKILL-1과의 Engine 충돌은 Director 통합 때 merge. (b) 반려는 유지 — 계정 접근 없이 공개 표/합성 스탯으로 리타·블랑·누아르·앨리스·모더니아 5인 비교 보완.
 - **리뷰 최종 통과(2026-10-02):** HEAD `2b16883`(구현 `c7b6c83`), 반려 1회 해소. 5인 180초 4시나리오×기존 정책 2×seed 5 전후 일치, 공개 표 12개 hash 불변, Core 235/235, 버전·fingerprint 확인. 비차단: 보고서 "dprod 차이 0"은 base 시나리오 한정(OL .145 seed1 772,905,797 vs 772,905,689 등 차이 있음).
 - **QA 배정(2026-10-02):** 검수 `term_234e279b…`, B-DATA-1과 순서대로(E-PREC-1 먼저). 착수 확인.
+- **QA 최종: 통과, 1,106/1,106, 제품 차단 0.** 검수 `6bb1be2`(Director `3b19b4c` + 대상 `2b16883` 병합 `ca0e096`), [QA 보고서](C:/Users/user/orca/workspaces/Nikke-Simul/검수/docs/precision-followup-qa.ko.md), 증거 검수 `artifacts/single-deck-qa/precision1/evidence-index.json`. 독립 Fraction binary32/64 산술 1,003검사, 기본 `client_f32` 구 결과 264건 동일, dprod 결과 중 float32 비표현 정수 161건. 방어율 true 예외·96/파츠 분리·96 중복 제거·장탄 raw/10000 사사오입 checked 통과. 기존 5인 180초 40개 결과 전후 동일. 실제 API 27검사(구 결과 조회 보존, 구 resume 409, fingerprint 분리). 공개 표 12개 hash 동일.
+  - 비차단 문서 정정(QA 보고서에 정확한 범위 기록): (1) "dprod 차이 0"은 base·저지 조건 한정 — OL .145 seed1 client 772,905,797 vs dprod 772,905,689(−108) 등 5시드 모두 차이, "2^24 이상에서만 차이"로 일반화 불가. (2) "dprod API 미노출"은 단일 히트 API(400)에만 맞고, replay/compute에 정책을 명시하면 실제 실행된다(승인 범위의 SkillReplay 정책 연결 결과). UI 선택지는 없다.
+- **Director 통합:** `6d83dec`(`--no-ff`, 제품 트리 = QA `6bb1be2`). Release 빌드 경고 0·오류 0, .NET 486/486(Analysis 41·Sync 164·Compute 46·Core 235), UI 7/7. **원본 배포 전**(사용자 확인 후).
 
 ## B-DATA-1 — 보스 StaticData 속성 (Backend worktree)
 
