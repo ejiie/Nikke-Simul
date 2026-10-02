@@ -38,6 +38,20 @@
 - 할 일: 솔로 레이드 시즌 1~42 보스(기존 보스 목록 ID와 연결)의 정적 속성 — 약점 속성, 방어력, **방어율(`DefenceRatioRatio` 후보)**, 파츠·코어 구성, 레벨 — 을 StaticData에서 찾아 버전 고정 카탈로그로 준비하는 스크립트와 읽기 API(표시용). 원천 위치·필드·단위·신뢰도를 보고서에 표로 남긴다. 확인 못 한 필드는 추정하지 않고 "미확인". 보스 선택은 아직 **계산에 반영하지 않는다**(표시·데이터 준비만).
 - 보고서 `docs/boss-static-attributes-backend.ko.md`.
 
+## D-SRC-1 — 니케 원천 갱신 (Backend worktree, B-DATA-1 뒤)
+
+배경: 위 "원천 3종 출처 확인". #5175 이후 니케를 조립하려면 blablalink roledata 로스터를 새로 받아 `skill_chains`·`roledata_clean`을 다시 만들어야 한다. 사용자 지시 "진행"(2026-10-03).
+
+- 구현: `Backend` Sonnet `term_9d9ce9f4…`(high), 리뷰: astra `term_ed5e9c16…`(medium), QA high. **B-DATA-1 리뷰 통과 뒤 착수**(같은 짝 직렬).
+- **레거시 저장소 불변:** `C:/Users/user/Documents/GitHub/Nikke-Dmg-Simulator`에는 사용자의 미커밋 변경이 있고, Nikke-Simul `prepare-legacy.ps1`이 그 파일들의 hash를 고정 검사한다. 레거시 `Database/**`를 덮어쓰거나 그 저장소에서 Git 조작을 하지 않는다. 레거시 스크립트는 읽기/호출만 하고 출력 경로는 Nikke-Simul 쪽 Git 제외 위치(예: `artifacts/sources/<snapshot-id>/`)로 돌린다(필요하면 Nikke-Simul `tools/data-pipeline`에 래퍼 작성).
+- 할 일:
+  1. blablalink 공개 roledata(`sg-tools-cdn.blablalink.com`, 로그인 불필요) 새 스냅샷 수집 → `roledata_clean` 정규화.
+  2. 니케 범위를 새 로스터로 `skill_chains` 재조립. StaticData 입력은 기존 decoded 표(7/8)를 그대로 쓰고, 새 로스터 중 StaticData에 없는 니케는 "StaticData 미수록"으로 목록화(추정 금지) — 이 경우 사용자에게 StaticData 갱신을 요청한다.
+  3. **기존 고정 원천과 새 원천을 나란히 둔다**: 새 snapshot id·hash를 별도 manifest 항목으로 추가하고, 기존 p02/p03 manifest·runtime catalog(`9c98c91c…`) 재현은 그대로 통과해야 한다. 기존 192명 항목이 새 원천에서 달라지면 니케별 diff를 보고(조용히 교체 금지) — 기본 원천 전환은 Director 결정.
+  4. 보고서 `docs/source-refresh-backend.ko.md`: 출처 URL·수집 시각·hash·추가 니케 목록(name_code·이름·버스트 단계)·기존 대비 diff·StaticData 미수록 목록.
+- 원본 `data/local`·5180/5181·원본 EXE 불변, `package-lock.json` 커밋 금지, push 금지.
+- 후속: S-SKILL-1 2차 묶음(#5175 포함)은 이 결과로 원천을 고정한 뒤 배정한다.
+
 ## 이후
 
 각 리뷰 최종 통과 → Director → 독립 QA(검수 `term_234e279b…`) → 통합·배포. 통계(크리 편차 실험 등)는 대미지 정책 확정 뒤 배정한다.
