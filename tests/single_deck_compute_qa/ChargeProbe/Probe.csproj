@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings></PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Nikke.Engine"><HintPath>$(QaBinaries)/Nikke.Engine.dll</HintPath></Reference>
+    <Reference Include="Nikke.Core"><HintPath>$(QaBinaries)/Nikke.Core.dll</HintPath></Reference>
+  </ItemGroup>
+</Project>
