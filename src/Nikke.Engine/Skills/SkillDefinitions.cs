@@ -88,6 +88,8 @@ public record SkillTrace(long Id, long? ParentId, int Frame, string Kind, string
     int? Stacks = null, string Basis = null, int? ExpiresAt = null, HitContext Hit = null)
 {
     public DefenseSwitch DefenseSwitch { get; init; }
+    /// <summary>shot 이벤트 전용: 같은 캐릭터의 직전 shot 프레임과의 간격(프레임). 첫 발·shot 외 이벤트는 null (E-BUG-1 실측 대조용).</summary>
+    public int? ShotIntervalFrames { get; init; }
 }
 public record SkillEffectView(string Source, string Target, int FunctionId, int GroupId, int Type,
     double Value, int Stacks, int? ExpiresAt, string Basis);

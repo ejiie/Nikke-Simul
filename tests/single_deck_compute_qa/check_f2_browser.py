@@ -41,6 +41,7 @@ def browser_checks(s,ctx):
  page.locator('[data-cond-open="element"]').focus();page.keyboard.press('Enter');page.wait_for_selector('[data-cond-element="fire"]')
  text=page.locator('dialog[open]').inner_text();check('R1 warning retained other explanation removed','보스의 약점 속성 — 이 속성 니케가 우월 코드 보너스를 받습니다' in text and not any(x in text for x in ['니케 자신의','보스 자신의']))
  check('R1 five Korean elements only',all(x in text for x in ['작열','수냉','풍압','철갑','전격']) and not re.search(r'Fire|Water|Wind|Iron|Electronic',text))
+ page.wait_for_function('[...document.querySelectorAll(".cond-element img")].length===5&&[...document.querySelectorAll(".cond-element img")].every(e=>e.complete&&e.naturalWidth>0)')
  check('F-COND element images and matching members',page.locator('.cond-element img').evaluate_all('(es)=>es.length===5&&es.every(e=>e.complete&&e.naturalWidth>0)') and '앨리스' in page.locator('[data-cond-element="fire"]').inner_text());layout('weakness-popup')
  page.locator('[data-cond-element="fire"]').focus();page.keyboard.press('Enter');check('R1 selected Korean and focus','작열' in page.locator('[data-cond-value="element"]').inner_text() and 'Fire' not in page.locator('[data-cond-value="element"]').inner_text() and page.locator('[data-cond-open="element"]').evaluate('(e)=>e===document.activeElement'))
  page.locator('[data-boss-open]').focus();page.keyboard.press('Enter');page.wait_for_selector('dialog[open] [data-boss-id="solo-raid-42"]')

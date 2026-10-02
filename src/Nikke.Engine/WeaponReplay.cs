@@ -69,7 +69,7 @@ public record WeaponReplayResult(string RulesVersion, string Status, string Skil
 // A weapon-only reference replay. Prescribed condition windows are never labelled automatic skills or burst cycles.
 public static class WeaponReplay
 {
-    public const string Version = "p03.weapon-reference.3-boss-conditions";
+    public const string Version = "p03.weapon-reference.4-manual-charge-delay";
     private static readonly string[] Policies = [HitCalculator.DefaultPolicy, "legacy_term_floor", "final_round_even", "nested_floor"];
     private static Dictionary<string, double> ZeroDamage() => Policies.ToDictionary(p => p, _ => 0d);
     private sealed class MemberState

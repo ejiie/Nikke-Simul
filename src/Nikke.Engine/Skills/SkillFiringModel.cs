@@ -248,15 +248,13 @@ namespace Nikke.Engine.Skills
                 _spotLastLeft = _spotLastFrames;
                 _spotFirstLeft = _spotFirstFrames;
             }
-            else if (_ctl.Style == FireStyle.Tap)
-            {
-                // 수동 톡톡이: [spotFirst + reclick] 반복 (사용자 실측; 구 0.215s 와 부합)
-                _spotFirstLeft = _spotFirstFrames;
-                _reclickLeft = SampleReclickFrames();
-            }
             else
             {
-                // 수동 풀차지: 조준 유지 — reclick 갭만 (발당 spotFirst 미지불)
+                // 수동 UP형(톡톡이·풀차지 공통): [spotFirst + reclick] 반복.
+                // 톡톡이는 사용자 실측(구 0.215s 와 부합). 풀차지도 UP형(앨리스 등)은 손을 떼야 발사되므로
+                // 발사 = 마우스 뗌 → 재조준(spotFirst) + 재클릭이며 차이는 발사 시점(풀차지 도달 후)뿐이다 (E-BUG-1, 2026-10-02).
+                // 기각 가설: '조준 유지 — 발당 spotFirst 미지불' (자체 버스트로 차지가 1f 가 되면 발사 간격 2F 로 붕괴).
+                _spotFirstLeft = _spotFirstFrames;
                 _reclickLeft = SampleReclickFrames();
             }
             return result;

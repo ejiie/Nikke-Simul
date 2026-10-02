@@ -8,7 +8,7 @@ namespace Nikke.Engine.Skills;
 // Prescribed measurements and the P04 controller share the same effect/weapon execution.
 public static class SkillReplay
 {
-    public const string Version = "p03.skills.5-defense-switch";
+    public const string Version = "p03.skills.6-manual-charge-delay";
     public static SkillReplayResult Run(IReadOnlyList<SkillReplayMember> members, SkillGraph graph,
         SkillReplayConditions conditions, IRandomSource random = null,
         ICombatEventSink events = null, ISkillBattleDriver driver = null)
@@ -139,6 +139,7 @@ public static class SkillReplay
         public bool GunDirty = true;
         public double Hp, CoverRatio = 1, CoverMaxHp = 1;
         public int Shots, Hits, Crits, AmmoConsumed;
+        public int LastShotFrame = -1;
         public Dictionary<string, double> Damage = new();
         public Dictionary<string, long> Ready = new();
     }
@@ -292,13 +293,13 @@ public static class SkillReplay
 
         private long Log(string kind, string source, string target = null, string effect = null, long? parent = null,
             int? fid = null, int? sid = null, double? value = null, int? stacks = null, string basis = null,
-            int? expires = null, HitContext hit = null, DefenseSwitch defenseSwitch = null)
+            int? expires = null, HitContext hit = null, DefenseSwitch defenseSwitch = null, int? shotInterval = null)
         {
             long id = ++eventCount;
             if (input.DamageLog is not null && currentBurstCast is { } origin) burstOrigins[id] = origin;
             if (C.Trace && trace.Count < C.TraceLimit)
                 trace.Add(new(id, parent, frame, kind, source, target, effect, fid, sid, value, stacks, basis, expires, hit)
-                    { DefenseSwitch=defenseSwitch });
+                    { DefenseSwitch=defenseSwitch, ShotIntervalFrames=shotInterval });
             return id;
         }
         private void Guard(int depth)
@@ -700,7 +701,8 @@ public static class SkillReplay
                         continue;
                     }
                     a.Shots++;
-                    long shotId=Log("shot",a.Id,"boss","normal_attack",value:a.Gun.CurrentAmmo,basis:a.Gun.UnlimitedAmmo?"unlimited_ammo":"ammo_after_shot");
+                    int? shotInterval=a.LastShotFrame<0?null:frame-a.LastShotFrame; a.LastShotFrame=frame;
+                    long shotId=Log("shot",a.Id,"boss","normal_attack",value:a.Gun.CurrentAmmo,basis:a.Gun.UnlimitedAmmo?"unlimited_ammo":"ammo_after_shot",shotInterval:shotInterval);
                     modes.TryGetValue(a.Id,out var mode);
                     int pellets=shot.PelletsPerShot*a.Input.Weapon.Weapon.muzzleCount;
                     currentShot=shotId; currentPellet=null;

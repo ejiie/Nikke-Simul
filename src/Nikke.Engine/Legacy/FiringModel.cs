@@ -8,14 +8,14 @@ namespace Nikke.Simulator.Engine
     {
         /// <summary>자동 AI: 풀차지 항상, UP형은 발사 후 강제 엄폐 복귀, 탄0 자동 재장전.</summary>
         Auto,
-        /// <summary>수동: 조준 유지(발당 spotFirst 미지불), re-click 갭, 갭에서 재장전 진행(R1).</summary>
+        /// <summary>수동: UP형은 발사 후 [spotFirst + re-click](E-BUG-1), DOWN_Charge 는 rate gate 만, 갭에서 재장전 진행(R1).</summary>
         Manual,
     }
 
     /// <summary>수동 발사 스타일 (차지 무기 전용 분기; 비차지는 무관).</summary>
     public enum FireStyle
     {
-        /// <summary>풀차지 유지: [charge(1+ε) + reclick]×장탄.</summary>
+        /// <summary>풀차지 유지: UP형 [charge(1+ε) + spotFirst + reclick]×장탄, DOWN_Charge 는 누른 채 자동 풀차지.</summary>
         FullCharge,
         /// <summary>톡톡이(UP형만): [spotFirst + reclick] 반복, 비풀차지 발사. IsOnlyFullCharge 무기는 불가.</summary>
         Tap,
@@ -262,15 +262,13 @@ namespace Nikke.Simulator.Engine
                 _spotLastLeft = _spotLastFrames;
                 _spotFirstLeft = _spotFirstFrames;
             }
-            else if (_ctl.Style == FireStyle.Tap)
-            {
-                // 수동 톡톡이: [spotFirst + reclick] 반복 (사용자 실측; 구 0.215s 와 부합)
-                _spotFirstLeft = _spotFirstFrames;
-                _reclickLeft = SampleReclickFrames();
-            }
             else
             {
-                // 수동 풀차지: 조준 유지 — reclick 갭만 (발당 spotFirst 미지불)
+                // 수동 UP형(톡톡이·풀차지 공통): [spotFirst + reclick] 반복.
+                // 톡톡이는 사용자 실측(구 0.215s 와 부합). 풀차지도 UP형(앨리스 등)은 손을 떼야 발사되므로
+                // 발사 = 마우스 뗌 → 재조준(spotFirst) + 재클릭이며 차이는 발사 시점(풀차지 도달 후)뿐이다 (E-BUG-1, 2026-10-02).
+                // 기각 가설: '조준 유지 — 발당 spotFirst 미지불' (자체 버스트로 차지가 1f 가 되면 발사 간격 2F 로 붕괴).
+                _spotFirstLeft = _spotFirstFrames;
                 _reclickLeft = SampleReclickFrames();
             }
             return result;
