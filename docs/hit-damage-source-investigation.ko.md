@@ -4,6 +4,8 @@
 
 배정 근거: [Director 지시서](C:/Users/user/orca/workspaces/Nikke-Simul/Director/docs/hit-damage-assignments-2026-09-28.ko.md), [사용자 공식·결정 전체](C:/Users/user/orca/workspaces/Nikke-Simul/Director/docs/hit-damage-client-formula.ko.md). 두 문서와 저장소 AGENTS.md·README.md를 UTF-8로 읽었다. Director 파일은 변경하지 않았다.
 
+> **역사 기록 주의(2026-10-03):** 아래 "현 엔진/런타임" 서술은 조사 시점(2026-09-28) 기준이다. 저지(96)·파츠(112) 분리와 96 중복 제거는 E-PREC-1에서 반영됐다([보고서](precision-followup-engine.ko.md)).
+
 ## 핵심 결과
 
 - **`breakRate = 1 + PartsDamage`를 원천 대응으로 확정하면 안 된다.** `BreakDamage(96)`는 누아르의 저지 부위 공격 효과이고 `PartsDamage(112)`와 별개다. 현 엔진도 96을 `InterruptionTarget` 조건에서 `AttackDamage`에 넣는다. `breakRate`의 유력 후보는 저지 부위 보너스다. 현 B3와 수학적으로 같은 분해라는 것과 클라이언트 변수 의미가 같다는 것은 다르다.

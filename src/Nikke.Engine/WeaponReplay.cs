@@ -69,7 +69,7 @@ public record WeaponReplayResult(string RulesVersion, string Status, string Skil
 // A weapon-only reference replay. Prescribed condition windows are never labelled automatic skills or burst cycles.
 public static class WeaponReplay
 {
-    public const string Version = "p03.weapon-reference.4-manual-charge-delay";
+    public const string Version = "p03.weapon-reference.5-precision-1";
     private static readonly string[] Policies = [HitCalculator.DefaultPolicy, "legacy_term_floor", "final_round_even", "nested_floor"];
     private static Dictionary<string, double> ZeroDamage() => Policies.ToDictionary(p => p, _ => 0d);
     private sealed class MemberState
@@ -90,7 +90,7 @@ public static class WeaponReplay
         var bonuses=members.ToDictionary(m=>m.CharacterId,m=>BossConditionResolver.Resolve(m,c,true));
         random ??= SystemRandomSource.Instance;
         var states = members.Select(m => new MemberState { Input = m,
-            Firing = new(new WeaponProfile(m.Weapon), checked((int)StatBuffCalculator.Apply(m.Weapon.maxAmmo, m.Buffs.Ammo)),
+            Firing = new(new WeaponProfile(m.Weapon), checked((int)StatBuffCalculator.ApplyAmmo(m.Weapon.maxAmmo, m.Buffs.Ammo)),
                 new FiringControl { Mode = m.CharacterId == c.ManualCharacterId ? ControlMode.Manual : ControlMode.Auto,
                     Style = c.ManualStyle == "tap" ? FireStyle.Tap : FireStyle.FullCharge }, random,
                 Rates(m.Buffs.ReloadSpeed), Rates(m.Buffs.ChargeSpeed)) }).ToArray();
@@ -174,7 +174,7 @@ public static class WeaponReplay
             throw new ArgumentException("수동 조작 캐릭터가 편성에 없습니다.");
         BossConditionResolver.Validate(c);
         DefenseMode.Validate(c.DefenseMode);
-        if (policy == HitCalculator.DefaultPolicy) StatBuffCalculator.RequireInteger(c.EnemyDefense);
+        if (HitCalculator.IsClientPolicy(policy)) StatBuffCalculator.RequireInteger(c.EnemyDefense);
         foreach (var m in members)
         {
             var w = m.Weapon;
@@ -197,7 +197,7 @@ public static class WeaponReplay
             BossConditionResolver.Resolve(m,c,true);
             foreach (var buffs in new[] { m.Buffs.Ammo, m.Buffs.ChargeSpeed, m.Buffs.ReloadSpeed, m.Buffs.CriticalChance })
                 StatBuffCalculator.Apply(0, buffs); // shared validation before expanding stack terms
-            if (StatBuffCalculator.Apply(w.maxAmmo, m.Buffs.Ammo) is < 1 or > 100000)
+            if (StatBuffCalculator.ApplyAmmo(w.maxAmmo, m.Buffs.Ammo) is < 1 or > 100000)
                 throw new ArgumentException("유효 장탄 수 범위를 확인하세요.");
             if (w.isChargeWeapon && !m.Hit.ChargeApplicable)
                 throw new ArgumentException("차지 무기와 타격 입력이 일치하지 않습니다.");
@@ -210,7 +210,7 @@ public static class WeaponReplay
         if (windows.Zip(windows.Skip(1)).Any(p => p.First.EndFrame > p.Second.StartFrame))
             throw new ArgumentException("풀버스트 조건 구간이 겹칩니다.");
         foreach (var window in c.AttackBuffWindows)
-            if (policy == HitCalculator.DefaultPolicy) StatBuffCalculator.ApplyAttack(0, new StatRateBuff[] { window.Buff });
+            if (HitCalculator.IsClientPolicy(policy)) StatBuffCalculator.ApplyAttack(0, new StatRateBuff[] { window.Buff });
             else StatBuffCalculator.Apply(0, new StatRateBuff[] { window.Buff });
     }
 }
