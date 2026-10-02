@@ -31,6 +31,11 @@
 5. 결과가 바뀌는 항목(2·3·4)은 기존 5인 180초 전후 비교를 보고한다. 1은 기본값 변경이 아니므로 기존 결과가 같아야 한다.
 - API/UI에 새 정책 선택지·저지 입력을 노출하는 것은 이번 범위가 아니다(필요 시 후속 배정). 단일 히트 API 계약에 영향이 있으면 보고만 한다.
 
+### E-PREC-1 진행
+
+- **리뷰 1차 반려(`c7b6c83`, 2026-10-02):** (a) 소유 밖 연결 변경 범위 확인 없음 → Director 판단 요청, (b) 보고서 71행 — 요구 5의 기존 5인 180초 전후 비교가 다른 합성 멤버 fixture로 대체됨. 빌드·테스트 235/235, 버전·fingerprint 연결 확인. legacy 정책의 방어율 비모델링 유지는 비차단.
+- **Director 판단(범위 예외 승인, 이번 작업 한정):** WeaponReplay.cs 장탄 조립 호출 2곳·client 정책 분기·버전, PreparedSkillReplay·TeamBurstController 버전 각 1줄, SkillReplay 히트 입력 외 SyncGun/정책 허용·분기·버전, 기존 `hit-damage-client-f32`·`hit-damage-client-formula`·`hit-damage-source-investigation` 문서 동기화. 조건: 연결·버전 외 동작 변경 금지, 문서는 이번 구현 사실만 반영하고 기존 기록은 정정 표시, 소유 밖 변경 목록을 보고서 표로, S-SKILL-1과의 Engine 충돌은 Director 통합 때 merge. (b) 반려는 유지 — 계정 접근 없이 공개 표/합성 스탯으로 리타·블랑·누아르·앨리스·모더니아 5인 비교 보완.
+
 ## B-DATA-1 — 보스 StaticData 속성 (Backend worktree)
 
 - 구현: `Backend` Sonnet `term_9d9ce9f4…`, 리뷰: astra `term_ed5e9c16…`. 사고 수준: 구현 high / 리뷰 medium / QA high.
