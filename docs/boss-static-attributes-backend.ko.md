@@ -7,7 +7,8 @@ Backend worktree, Director `e96b147`(배포본 `a03c5a9` + 문서)을 자기 브
 ## 핵심 결과 (Director 판단이 필요한 것 먼저)
 
 1. **시즌 41·42는 만들 수 없다.** 로컬에 있는 StaticData 사본 3벌 중 가장 최신(바탕 화면 `StaticData.zip`, 내부 표 시각 2026-08-12)의 `SoloRaidManagerTable`도 시즌 **40까지**다(41행, 시즌 19 중복 1행). 시즌 41·42는 카탈로그에 `status:"unavailable"`, `reason:"static_data_season_missing"`로 남기고 `complete:false`다. 추정하지 않았다. 채우려면 **최신 StaticData를 새로 받아야** 하며, legacy 문서 기준 라이브 서버 fetch는 사용자 명시 go-ahead 없이 실행하지 않는 정책이라 하지 않았다(Director/사용자 결정 요청).
-2. **방어율(`defence_ratio_ratio`)은 시즌 1~40 보스가 전부 0이다.** `MonsterTable`에 이 필드가 있는 사본(8/12판, 33 members)이라 필드·값은 `확인`이지만, 사용자가 말한 "최근 생긴 보스 기믹"은 시즌 41·42(또는 다른 컨텐츠)에서 쓰일 가능성이 크고 로컬 데이터로는 값을 볼 수 없다. 단위(/10000 여부)도 미확인이라 원값만 노출한다. 구 사본 두 벌(7/8, 7/23)에는 이 필드가 없다.
+2. **방어율(`defence_ratio_ratio`)은 레거시 사본(6/11·7/8 팩, 7/23 probe)에 수록되지 않았다.** Director 확인(2026-10-02): 공개 저장소 EpinelPS/EpinelPS 커밋 `17eb33f`(2026-09-23)의 `EpinelPS/Data/JsonStaticData.cs` `MonsterRecord`에 `int DefenceRatioRatio`가 `AttackRatio` 바로 뒤에 있어 최신 팩에서 **필드명은 확인됐다**. 레거시 decoded `MonsterTable`에는 이 필드가 없으므로 그 원천 기준 방어율은 **"현 원천 미수록(최신 팩 필드명 확인됨)"**이며 추정하지 않는다. 단위(/10000 여부)·적용 조건·적용 보스는 미확인이다.
+   - **Director 판단 필요(원천 범위):** 이 구현은 사용자가 바탕 화면에 둔 `StaticData.zip`(내부 표 시각 2026-08-12, `MonsterTable` 33 members, `defence_ratio_ratio` 포함)을 **읽기 전용으로 디코드**해 시즌 1~40 보스의 값이 전부 0임을 확인했다(다운로드·fetch 없음, 로컬 파일 읽기만). Director 메모의 "최신 팩 재디코드는 사용자 승인 뒤 별도 작업"과 범위가 겹친다. 이 값(0)을 카탈로그에 유지할지, `defenceRatioRate`를 null + "현 원천 미수록"으로 되돌릴지는 Director가 결정한다. 되돌리는 변경은 스크립트 한 곳(`defenceRatioRate` 출력)과 테스트·API 검사의 해당 단언만이다. 어느 쪽이든 이 값은 계산에 쓰이지 않는다.
 3. **레벨이 전투 중 바뀐다는 근거를 찾았다(보고 대상).** 챌린지 preset의 `Monster_stage_lv_change_group = 904`(시즌 1~40 전부)가 `MonsterStageLvChangeTable`의 9행을 가리킨다: 구간 [0, 4억]·…·[16억+1, 20억]은 레벨 390, [20억+1 이상]은 레벨 400. `MonsterStatEnhanceTable`(group 230000)의 방어력은 레벨 390 = **30925**, 레벨 400 = **31784**로, 사용자 R4와 엔진 `team_damage_threshold`(20억 초과 시 30925 → 31784)와 **정확히 일치**한다. 열 이름은 미확인이라 신뢰도는 `유력`이다.
 4. 보스 식별은 이름·위치 추정이 아니라 exact join이다. 시즌 1~39는 legacy 7월 카탈로그(`solo_raid_challenge_catalog.json`)의 보스 monster ID와 **39/39 일치**, 시즌 40이 새로 추가됐다. 시즌 1~40의 `Monster_image`가 검토된 한국어 이름 manifest의 `expectedSourceId`와 모두 일치해 기존 `solo-raid-<시즌>` ID와 연결된다.
 
@@ -37,7 +38,7 @@ Backend worktree, Director `e96b147`(배포본 `a03c5a9` + 문서)을 자기 브
 | 레벨 변경 | `MonsterStageLvChangeTable`(group=`Monster_stage_lv_change_group`) | 구간(누적 피해 후보) → 레벨 | 유력 | 위 핵심 결과 3. 마지막 단계 `range_to=0`은 "상한 없음"으로 읽어 `rangeTo:null`(유력). 마지막 열(7000001 등)은 미확인이라 노출하지 않음 |
 | 레벨별 HP·공격·방어 | `MonsterStatEnhanceTable[group=monster.statenhance_id, lv]` | 정수 원값 | 확인 | 전 시즌 group 230000. 예: 390 = HP 5,866,372,929 / ATK 111,269 / DEF 30,925, 400 = 6,083,218,659 / 114,344 / 31,784 |
 | 방어력 | 위 `defence` + `MonsterTable.defence_ratio`(전 시즌 10000) + 파츠별 `defence_ratio` | 표 원값(비율 /10000 후보) | 확인(원값) / **미확인(합성)** | 레벨 방어와 비율의 곱 규칙은 확정하지 않아 곱하지 않는다. 파츠 비율에 0·10000·46000이 있다 |
-| 방어율 | `MonsterTable.defence_ratio_ratio` | 원값(단위 미확인) | 확인(필드·값) / 미확인(단위·적용) | 시즌 1~40 전부 0 |
+| 방어율 | `MonsterTable.defence_ratio_ratio` | 원값(단위 미확인) | 레거시 사본: **현 원천 미수록**(필드명은 EpinelPS `17eb33f`로 확인). 8/12판 바탕 화면 사본: 필드·값 확인, 단위·적용 미확인 | 시즌 1~40 전부 0(8/12판). 사본 원천 범위는 핵심 결과 2 참고 |
 | HP 배율 | `MonsterTable.hp_ratio` | 원값 | 확인 | 시즌 33만 15000, 나머지 10000. HP에 곱하지 않음 |
 | 파츠 구성 | `MonsterPartsTable[monster_model_id]` | 파츠 행 1~23개 | 확인 | `partsType`은 **원값 정수만** 제공한다. legacy의 이름 표(Head/Weapon_01…)는 공개 enum 대조를 하지 않아 노출하지 않음 |
 | 코어 구성 | 파츠의 `weapon_object`/`parts_object`/`parts_skin` collider 이름에 `core` 포함 | 파츠 ID | 유력 | 아래 표 |
