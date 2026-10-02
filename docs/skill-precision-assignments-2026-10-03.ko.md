@@ -88,6 +88,9 @@
 ### S-SKILL-1 진행
 
 - **리뷰 1차 반려 항목 5 → Director 정책 판단(2026-10-02):** 스노우 화이트·맥스웰 버스트 교체 무기 모션 값 미확정. 구현 권장 (a) **잠정 정책 승인** — 시전 즉시 차지 시작(조준 지연 0), 풀차지, 탄창은 설명문 고정값. 조건: trace·limitations에 잠정 라벨, 수동 톡톡이 미지원 거부 유지, 정책 값 한곳 정의, 보고서 가설 2에 영향(1발 발사 시점 ≤0.2초) 명시. 교체 무기 표 고정은 D-SRC-1 뒤 후속. 커밋 `fc36a09`, 보고서 `docs/ssr-skill-batch1-engine.ko.md`.
+- **리뷰 최종 통과(2026-10-02):** 엔진 HEAD `27b99ee`(`dbe9b68` → `fc36a09` → `27b99ee`), 반려 1회 해소. 잠정 정책은 `ReplacementWeaponPolicy`(`SkillDefinitions.cs`) 한 곳 정의·실행부 참조·trace basis·limitations·수동 tap 거부 확인. 관통 파싱 strict(Pierce/None만, 누락·미지 값 오류). 버전 미상향 — 기존 5인 20 seed 동일. 리뷰어 직접 실행 `dbe9b68` Core/Engine 231/231·Python 43/43; 최신 Core 232·Python 44는 구현 보고치.
+  - **실제 범위: 스노우 화이트·맥스웰 조립(버스트는 관통 다중 타격 미모델로 부분 지원)**, 라피 : 레드 후드·홍련 : 흑영·레드 후드는 **미지원 진단**(실행 거부). 미지원 원인: 팀 버스트 단계 규칙(AllStep·편성 의존 단계 변경·IsBurstStepState 1~3), 부착 투사체(182~185), CycleUse·DamageShareInstant, ChargeTimeChangetoDamage(129), TargetGroupid·TimingTriggerValueChange(130·131) 등. → 이 효과 묶음은 후속 엔진 확장 배정 후보(팀 버스트 규칙 우선).
+- **QA:** 검수 세션이 E-PREC-1 → B-DATA-1 진행 중이라 **세 번째로 대기**. 앞선 QA 보고 후 전달(xhigh 권장).
 
 ## 이후
 
