@@ -95,6 +95,11 @@
   - **실제 범위: 스노우 화이트·맥스웰 조립(버스트는 관통 다중 타격 미모델로 부분 지원)**, 라피 : 레드 후드·홍련 : 흑영·레드 후드는 **미지원 진단**(실행 거부). 미지원 원인: 팀 버스트 단계 규칙(AllStep·편성 의존 단계 변경·IsBurstStepState 1~3), 부착 투사체(182~185), CycleUse·DamageShareInstant, ChargeTimeChangetoDamage(129), TargetGroupid·TimingTriggerValueChange(130·131) 등. → 이 효과 묶음은 후속 엔진 확장 배정 후보(팀 버스트 규칙 우선).
 - **QA:** 검수 세션이 E-PREC-1 → B-DATA-1 진행 중이라 **세 번째로 대기**. 앞선 QA 보고 후 전달(xhigh 권장).
 
+### 배포·D-SRC-1 전달
+
+- **배포 결정(사용자, 2026-10-02):** E-PREC-1·B-DATA-1·S-SKILL-1 **세 건을 한 번에** 원본 배포한다. 세 건 QA 통과·Director 통합 후 사용자가 앱을 닫고 진행. E-PREC-1은 통합 `6d83dec`로 대기.
+- **D-SRC-1 전달(2026-10-02):** B-DATA-1 리뷰 통과로 착수 조건 충족. Backend 구현 `term_9d9ce9f4…`·리뷰 `term_ed5e9c16…` 수신 확인. 입력은 Director `artifacts/sources/`의 blabla·StaticData 사본(자기 worktree로 복사 후 hash 대조). B-DATA-1 QA 중이므로 기존 코드 동작 불변, 확장은 새 경로로. 세 건 배포에는 포함하지 않는다.
+
 ## 이후
 
 각 리뷰 최종 통과 → Director → 독립 QA(검수 `term_234e279b…`) → 통합·배포. 통계(크리 편차 실험 등)는 대미지 정책 확정 뒤 배정한다.
