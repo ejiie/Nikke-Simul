@@ -2,14 +2,14 @@
 import argparse,json,re
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
-parser=argparse.ArgumentParser();parser.add_argument('--allowlist',action='store_true');args=parser.parse_args()
-BASE=ROOT/'artifacts/single-deck-qa';OUT=BASE/('ufix7-allowlist' if args.allowlist else 'ufix7-readmission')
+parser=argparse.ArgumentParser();parser.add_argument('--allowlist',action='store_true');parser.add_argument('--readmission4',action='store_true');args=parser.parse_args();args.allowlist=args.allowlist or args.readmission4
+BASE=ROOT/'artifacts/single-deck-qa';OUT=BASE/('ufix7-readmission4' if args.readmission4 else 'ufix7-allowlist' if args.allowlist else 'ufix7-readmission')
 
 def read(p):return json.loads(p.read_text(encoding='utf-8-sig'))
 def save(n,v):(OUT/(n+'.json')).write_text(json.dumps(v,ensure_ascii=False,indent=2),encoding='utf-8')
 
 paths={}
-for name in ['audit','surfaces','missing','families','f2','f32','sources','diagnostics','archive34']+(['allowlist'] if args.allowlist else []):
+for name in ['audit','surfaces','missing','families','f2','f32','sources','diagnostics','archive34']+(['allowlist'] if args.allowlist else [])+(['modules'] if args.readmission4 else []):
     raw=(OUT/(name+'.log')).read_bytes();log=raw.decode('utf-16' if raw.startswith(b'\xff\xfe') else 'utf-8-sig')
     matches=re.findall(r'^EVIDENCE (.+)$',log,re.M);assert len(matches)==1,(name,matches)
     paths[name]=Path(matches[0].strip())/'summary.json'
@@ -18,7 +18,7 @@ reports={k:read(p) for k,p in paths.items()}
 assert all(r['status'] in ['passed','failed'] for r in reports.values())
 rows=[dict(scope=k,path=str(paths[k].relative_to(BASE)),status=r['status'],checks=len(r['checks']),passed=sum(c['passed'] for c in r['checks']),failed=[c for c in r['checks'] if not c['passed']],port=r.get('port'),ownedPids=r.get('ownedPids',[r['ownedPid']] if r.get('ownedPid') else []),ownApiStopped=r.get('ownApiStopped')) for k,r in reports.items()]
 assert all(x['port'] not in [5180,5181] for x in rows)
-save('evidence-index',dict(product='5243062' if args.allowlist else '8da098f',previousQA='f5a8057' if args.allowlist else '706d7fd',merge='e01ec8fca306772799fc750c60bc435171966cff' if args.allowlist else '89e903e3d20cb3112916781c4573650f76b4cbc6',freshRuns=rows,total=sum(x['checks'] for x in rows),passed=sum(x['passed'] for x in rows),failed=sum(len(x['failed']) for x in rows),note='Older QA runner metadata retains b401421/59fe22d/U-FIX-6 labels. All indexed runs are fresh on the product and merge recorded above. No old PASS results or owner test answers reused.'))
+save('evidence-index',dict(product='42f4329' if args.readmission4 else '5243062' if args.allowlist else '8da098f',previousQA='e98577c' if args.readmission4 else 'f5a8057' if args.allowlist else '706d7fd',merge='79fd342539671bb94a43586d38d80971a9d6a4bc' if args.readmission4 else 'e01ec8fca306772799fc750c60bc435171966cff' if args.allowlist else '89e903e3d20cb3112916781c4573650f76b4cbc6',freshRuns=rows,total=sum(x['checks'] for x in rows),passed=sum(x['passed'] for x in rows),failed=sum(len(x['failed']) for x in rows),note='Older QA runner metadata retains earlier product/U-FIX-6 labels. All indexed runs are fresh on the product and merge recorded above. No old PASS results or owner test answers reused.'))
 current={c['name']:(k,c) for k,r in reports.items() for c in r['checks']}
 prior=read(BASE/'ufix7-preparation/regression-coverage.json');coverage={}
 for label,group in prior.items():
@@ -29,7 +29,7 @@ for label,group in prior.items():
         items.append(dict(name=c['name'],status=('passed' if actual['passed'] else 'failed') if actual else 'missing',source=str(paths[scope].relative_to(BASE)) if scope else None))
     coverage[label]=dict(total=len(items),passed=sum(x['status']=='passed' for x in items),excluded=sum(x['status']=='excluded' for x in items),missing=[x for x in items if x['status']=='missing'],failed=[x for x in items if x['status']=='failed'],obligations=items)
 save('regression-coverage',coverage)
-old=read(BASE/('ufix7-readmission' if args.allowlist else 'ufix7-preparation')/'evidence-index.json');oldgroups=[]
+old=read(BASE/('ufix7-allowlist' if args.readmission4 else 'ufix7-readmission' if args.allowlist else 'ufix7-preparation')/'evidence-index.json');oldgroups=[]
 def stable_checks(checks):
     result={};occurrences={}
     for c in checks:
@@ -40,7 +40,7 @@ def stable_checks(checks):
     return result
 for row in old['freshRuns']:
     previous=read(BASE/row['path']);latest=stable_checks(reports[row['scope']]['checks'])
-    checks=[dict(name=c['name'],currentName=latest.get(key,{}).get('name'),previousPassed=c['passed'],currentPassed=latest.get(key,{}).get('passed'),wasBlocker=not c['passed'],mapping='name and occurrence; fresh GET UUID normalized; allowlist policy intentionally changes four unregistered QA sentences and two image status fallbacks' if args.allowlist else 'name and occurrence; fresh GET UUID normalized') for key,c in stable_checks(previous['checks']).items()]
+    checks=[dict(name=c['name'],currentName=latest.get(key,{}).get('name'),previousPassed=c['passed'],currentPassed=latest.get(key,{}).get('passed'),wasBlocker=not c['passed'],mapping='name and occurrence; fresh GET UUID normalized; allowlist policy intentionally changes four unregistered QA sentences and two image status fallbacks' if args.allowlist and not args.readmission4 else 'name and occurrence; fresh GET UUID normalized; unchanged expectations') for key,c in stable_checks(previous['checks']).items()]
     oldgroups.append(dict(scope=row['scope'],checks=checks,passed=sum(c['currentPassed'] is True for c in checks),missing=[c for c in checks if c['currentPassed'] is None]))
 save('previous-qa-coverage',oldgroups)
 save('identifier-inventory',[dict(scope=k,observations=r.get('identifierInventory',[])) for k,r in reports.items()])

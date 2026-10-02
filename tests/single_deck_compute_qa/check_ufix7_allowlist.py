@@ -65,7 +65,7 @@ def connections_errors(s,ctx):
     s.check('mapped error preserves numeric meaning','180초' in text and 'qa.private.path' not in text,text);p.close()
 
 def hardware(s,ctx):
-    for i,reason in enumerate(['gpu_unavailable','검사 필요: terms[0].operation','검수 전용 미등록 사유','constructor','toString','__proto__']):
+    for i,reason in enumerate(['gpu_unavailable','검사 필요: terms[0].operation','검수 전용 미등록 사유','constructor','toString','__proto__']+(['hasOwnProperty','valueOf','__defineGetter__','isPrototypeOf'] if s.expanded else [])):
         def change(h):
             h['probeFailures']=[NORMAL[0],BAD[0],BAD[7]]
             h['gpus']=[dict(deviceId='qa-kept-hash-9ac7',name='검수 장치',vendor='검수',driver='1.25',backend='gpu',runtimeStatus='failed',selfTestStatus='not_run',correctnessStatus='not_run',benchmarkStatus='not_run',eligible=False,reason=reason)]
@@ -75,7 +75,7 @@ def hardware(s,ctx):
         s.check('hardware '+str(i)+' probe allowlist and hash/driver preserved',NORMAL[0] in text and '장치 탐지 중 일부 항목이 실패했습니다.' in text and BAD[0] not in text and 'qa-kept-hash-9ac7' in text and '1.25' in text,text);p.close()
 
 def conditions(s,ctx):
-    for i,weapon in enumerate(['SMG','qa_unknown_weapon','constructor','__proto__']):
+    for i,weapon in enumerate(['SMG','qa_unknown_weapon','constructor','__proto__']+(['toString','hasOwnProperty','valueOf','__defineGetter__','isPrototypeOf'] if s.expanded else [])):
         def change(b):b['weaponRanges'][0]['weaponType']=weapon
         p=page(s,ctx,[('**/api/runtime/combat-conditions',mutate(change))]);p.locator('[data-cond-open="distance"]').click();p.wait_for_selector('dialog[open] tr[data-weapon="'+weapon+'"]')
         row=p.locator('dialog[open] tr[data-weapon="'+weapon+'"]').first.inner_text();text=observe(s,p,'weapon-'+str(i),'dialog[open]',True)
@@ -94,7 +94,7 @@ def conditions(s,ctx):
         s.check('compatibility '+str(i)+' saved bytes unchanged',path.read_bytes()==before==s.call('runtime/skill-replays/'+saved['id'])[0].body());p.close()
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--dotnet',required=True);a=parser.parse_args();s=Session(a.dotnet);s.report.update(product='5243062',scope='independent allowlist screens and positive server-source controls')
+    parser=argparse.ArgumentParser();parser.add_argument('--dotnet',required=True);parser.add_argument('--expanded',action='store_true');a=parser.parse_args();s=Session(a.dotnet);s.expanded=a.expanded;s.report.update(product='42f4329' if a.expanded else '5243062',scope='independent allowlist screens and positive server-source controls')
     try:
         with sync_playwright() as pw:
             b=pw.chromium.launch(headless=True);ctx=b.new_context(viewport=dict(width=1500,height=1000));ctx.tracing.start(screenshots=True,snapshots=True,sources=True)
