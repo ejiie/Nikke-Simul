@@ -45,3 +45,8 @@
 ## 전달 확인
 
 지시서 커밋 `e96b147`. 전달 직전 여섯 터미널 모두 대기 상태 확인. 구현 3명 `input_accepted`·`turn_started`(S-SKILL-1 `term_1fba2b21…`, E-PREC-1 `term_80f56a78…`, B-DATA-1 `term_9d9ce9f4…`), 리뷰 3명 안내 전달(`term_ec372feb…`은 `input_accepted`, 나머지 둘 `turn_started`). 착수 확인이며 구현 완료가 아니다.
+
+## 진행
+
+- **S-SKILL-1 판단 요청(구현, 2026-10-03):** 신데렐라 : 크리스탈 웨이브(#5175)는 고정 원천 3종(`skill_chains.json` 192명·`roledata_clean.json`·`blabla_roledata.json`)에 없어 조립 불가 — 추정 금지 원칙에 따라 "원천 없음"으로 미조립. 나머지 4명은 원천 있음, 파이프라인 재현 확인(현 runtime catalog `9c98c91c…` 정확히 재현).
+- **Director 판단:** 5번째 자리를 전투력 다음 순서 **#5101 레드 후드(791,834, 원천 있음, 버스트 단계 5 = 올버스트)**로 대체한다 — 전투력 순서 원칙 유지, 올버스트라 덱 구성 다양성에도 도움. **#5175는 원천 갱신(사용자 StaticData 재생성) 후 후속 묶음**에서 다룬다. 원천 미수록 사실은 보고서에 남긴다.
