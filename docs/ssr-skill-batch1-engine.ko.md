@@ -84,7 +84,7 @@ Director 추출 목록(`ssr-by-cp.json`, '묑카엘' 계정 전투력 순, 이�
 ## 가설·미확정(실측으로 확인할 것)
 
 1. body 13/2/15는 보스 1체에 1회 피해(다중 대상·범위 위치 없음). 기존 body 1과 같은 가정.
-2. 교체 무기(**잠정 모션 정책, 게임 미확정 — Director 승인 요청 중**): 시전 즉시 차지를 시작(조준 지연 0), 풀차지까지 충전, 탄창은 프로필 값 고정(기본 무기 탄창 버프 비적용), 차지 속도 버프는 교체 무기 차지 시간에도 적용. 발사 간격은 body의 RPM. 추정값이 결과에 조용히 섞이지 않도록 **교체 총을 쓴 모든 실행에 `replacement_weapon` trace(basis `provisional_motion_policy:…`)와 결과 `limitations` 문구가 붙는다.** **수동 톡톡이 조작은 교체 무기와 함께 `미지원 교체 무기 조작`으로 거부**한다(톡톡이의 의미가 미확정). 조준 지연 0과 spotLast 0은 1발 교체(스노우 화이트·맥스웰)에서 발사 시점이 최대 12F(0.2초) 달라질 뿐 풀버스트 창(10초) 안이다. 승인되지 않으면 해당 실행을 미지원으로 돌린다.
+2. 교체 무기 — **실측·교체 무기 표 고정 전 잠정 모션 정책(Director 승인 2026-10-03):** 시전 즉시 차지를 시작(조준 지연 0), 풀차지까지 충전, 탄창은 설명문의 고정값(기본 무기 탄창 버프 비적용), 차지 속도 버프는 교체 무기 차지 시간에도 적용. 발사 간격은 body의 RPM. **영향:** 1발 교체 무기(스노우 화이트·맥스웰)의 발사 시점이 최대 12F(0.2초) 달라질 수 있으며 풀버스트 창(10초) 안이다. 정책 값은 `ReplacementWeaponPolicy`(`SkillDefinitions.cs`) 한 곳에서 정의해 실측·`CharacterShotTable` 고정(D-SRC-1 뒤 후속) 후 교체한다. 추정값이 결과에 조용히 섞이지 않도록 교체 총을 쓴 모든 실행에 `replacement_weapon` trace(basis `provisional_motion_policy:…`)와 결과 `limitations` 문구가 붙고, **수동 톡톡이 조작은 교체 무기와 함께 `미지원 교체 무기 조작`으로 거부**한다(톡톡이의 의미 미확정). Director가 최신 StaticData(9/17판) 해독본을 받았으나 이번에는 쓰지 않았다.
 3. skill2는 쿨다운 15초가 지나면 자동 시전(기존 엔진 정책, 첫 시전은 전투 15초 후).
 4. IsCheckMonster 임계값 5의 의미는 설명문("above N enemy units, excluding Nikkes")에 따른 적 수 임계값으로 해석했다.
 5. **관통 다중 타격 미모델:** 사용자 관측(SW 버스트 한 발 4타: 몸통·파츠·파츠·파츠+코어)과 달리 엔진은 1타만 계산한다 → 버스트 피해가 **과소**. 파츠·코어 구성은 B-DATA-1(보스 정적 속성)·P05 후속이 필요하다.
@@ -115,7 +115,12 @@ Director 추출 목록(`ssr-by-cp.json`, '묑카엘' 계정 전투력 순, 이�
 - `tools/data-pipeline/prepare_runtime.py:127` — 항목 5 — 관통을 `Additional Effect: Pierce` 문자열 포함 여부로 산출해, 효과 항목 누락·미해석도 false(비관통)로 조용히 채운다. 누락 회귀 테스트도 필요.
 - 리뷰어 확인(통과 항목): 소유 범위는 원천 catalog 조립에 필요한 파이프라인 포함으로 해석 가능, #5101 대체(Director 문서) 확인, 공개 표 hash·보관 기록 확인, 버전 미상향은 지시서 조건과 기존 5인 회귀 보고에 부합하고 catalog dataVersion·graph/conditions fingerprint 분리 경로 확인. 지정 SDK로 Release Core 231/231, Python 43/43 통과(실패/skip 0). 비차단: `SsrBatch1SkillTests.cs` 마지막 테스트는 같은 구현을 두 번 비교하므로 전후 회귀 증거는 보고서/별도 결과에 의존(반려 사유 아님).
 - 구현 담당 대응(수정 커밋):
-  - **결함 1:** 확정 원천이 없어(교체 무기 표 미고정, 사용자 실측 없음) 값을 확정으로 가장하지 않고 **정책을 명시적으로 드러내도록** 바꿨다. (a) 교체 총을 쓴 모든 실행에 `replacement_weapon` trace(basis `provisional_motion_policy:no_spot_delay_full_charge_fixed_magazine`)와 결과 `limitations` 문구를 추가. (b) 수동 톡톡이는 교체 무기 보유 캐릭터에서 `Validate`가 `미지원 교체 무기 조작`으로 거부(톡톡이 의미 미확정이므로 FullCharge 강제 제거 근거 확보). (c) 조준 지연 0·풀차지 정책의 **Director 승인**을 요청했다(영향: 1발 교체 무기의 발사 시점 ≤ 0.2초). 승인 전까지 결과 문구가 잠정 정책임을 밝히고, 승인되지 않으면 해당 실행을 미지원으로 돌린다.
+  - **결함 1:** 확정 원천이 없어(교체 무기 표 미고정, 사용자 실측 없음) 값을 확정으로 가장하지 않고 **정책을 명시적으로 드러내도록** 바꿨다. (a) 교체 총을 쓴 모든 실행에 `replacement_weapon` trace(basis `provisional_motion_policy:…`)와 결과 `limitations` 문구 추가. (b) 수동 톡톡이는 교체 무기 보유 캐릭터에서 `Validate`가 `미지원 교체 무기 조작`으로 거부. (c) 조준 지연 0·풀차지·탄창 고정 정책을 Director에 승인 요청했고 **Director가 승인(2026-10-03, 옵션 a)** — 조건: trace·limitations 라벨 유지, 수동 톡톡이 거부 유지, 정책 값을 한 곳에서 정의, 보고서 가설 2에 "실측·교체 무기 표 고정 전 잠정"과 영향(≤0.2초) 명시. 정책 값은 `ReplacementWeaponPolicy`로 모았다.
   - **결함 2:** `Additional Effect:` 줄을 필수로 읽고 `Pierce`(true)/`None`(false)만 인정, 줄 누락·`Explosion`·`Pierce, Explosion` 등 알 수 없는 값은 `ValueError`. 회귀 테스트 `test_pierce_is_explicit_and_a_missing_or_unknown_effect_is_an_error` 추가. 현 고정 원천에서 스노우 화이트·맥스웰은 모두 `Pierce`로 명시돼 catalog id `2e6e8d06…`는 변함없다.
   - **비차단:** 같은 구현을 두 번 비교하던 마지막 테스트는 가짜 증거라 삭제하고, 전후 회귀 증거는 위 '검증'의 기존 5인 20 seed 비트 동일 결과(수정 후 재실행도 동일)에 둔다.
-  - 재검증: Core 232/232, Analysis 41, Compute 46, Sync 164, Python 44/44, 기존 5인 20 seed 동일.
+  - 재판정 대기: 승인 근거 반영 후 항목 3·5 재판정 요청. 재검증: Core 232/232, Analysis 41, Compute 46, Sync 164, Python 44/44, 기존 5인 20 seed 동일.
+
+### 재리뷰 (astra-6, 대상 `fc36a09`) — 반려 유지(Director 정책 승인 대기)
+
+- 결함 2 해소(Additional Effect 필수, Pierce/None만, 누락·미지 값 ValueError, 회귀 테스트 확인), 결함 1 중 수동 tap 강제는 `Validate` 거부로 해소, trace/limitations 표기 확인. 남은 차단은 `SkillReplay.cs:635`(항목 3·5) — 조준 지연 0 잠정 정책이 승인 전에도 실행됨. 리뷰어 직접 실행은 dbe9b68 Core 231/231·Python 43/43, fc36a09 값은 구현자 보고치로 구분. 새 결함 추가 아님.
+- 구현 담당 대응: **Director 승인 수령(2026-10-03, 옵션 a)** 후 조건 반영 — 정책 값을 `ReplacementWeaponPolicy` 한 곳에 모음, 라벨·톡톡이 거부 유지, 보고서 가설 2에 "실측·교체 무기 표 고정 전 잠정"과 영향(≤0.2초) 명시. 코드 동작 변화 없음(상수 이동). Core 232/232 재실행 통과. 이 항목만 재판정 요청.

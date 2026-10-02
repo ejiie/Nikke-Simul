@@ -44,6 +44,19 @@ public sealed record WeaponChangeProfile
     public bool Pierce { get; init; }
     public string Source { get; init; }
 }
+// The one place the provisional replacement-weapon motion policy is defined. Director-approved 2026-10-03 until a pinned
+// replacement shot table or a measurement exists; replace these values (and bump the rules version) when that lands.
+public static class ReplacementWeaponPolicy
+{
+    public const string Id = "provisional_no_spot_delay_full_charge_fixed_magazine";
+    public const string TraceBasis = "provisional_motion_policy:" + Id;
+    public const double SpotFirstSec = 0;        // already in firing stance: charge starts at the cast
+    public const double SpotLastSec = 0;
+    // Always charged to the full-charge time (FireStyle.FullCharge in ReplacementGun); a tap-style user is rejected in Validate.
+    public const bool IgnoreBaseAmmoBuffs = true; // magazine is the profile's documented fixed size
+    public const string Limitation =
+        "Replacement-weapon motion (no spot delay, full charge, fixed magazine, charge/pierce facts parsed from the public description) is a provisional policy, not game-confirmed; pierce multi-hit on parts is not modelled.";
+}
 public sealed record SkillBody
 {
     public WeaponChangeProfile WeaponChange { get; init; }

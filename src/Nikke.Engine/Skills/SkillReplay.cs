@@ -605,7 +605,7 @@ public static class SkillReplay
                 a.ModeGun=ReplacementGun(a,mode,wc);
                 replacementUsed=true;
                 Log("replacement_weapon",a.Id,a.Id,$"skill:{mode.SkillId}",mode.EventId,value:wc.ChargeTimeSec,
-                    basis:"provisional_motion_policy:no_spot_delay_full_charge_fixed_magazine");
+                    basis:ReplacementWeaponPolicy.TraceBasis);
             }
             else if (mode?.Profile is null && a.ModeGun is not null) a.ModeGun=null;
             var w=a.Input.Weapon.Weapon; var b=a.Input.Weapon.Buffs;
@@ -613,7 +613,7 @@ public static class SkillReplay
             int maxAmmo=checked((int)StatBuffCalculator.Apply(w.maxAmmo,b.Ammo,ammoRates)
                 + (int)On(a,14).Where(e=>e.Function.FunctionValueType==1).Sum(e=>e.Value*e.Stacks));
             // The replacement magazine is the documented fixed size; the base weapon's ammo buffs are not applied to it.
-            if (a.ModeGun is not null) maxAmmo=mode.Profile.MaxAmmo;
+            if (a.ModeGun is not null && ReplacementWeaponPolicy.IgnoreBaseAmmoBuffs) maxAmmo=mode.Profile.MaxAmmo;
             var charge=On(a,61).Where(e=>e.Basis!="caster_charge_centiseconds").Select(e=>new StatRateBuff(Key(e),e.Value,e.Stacks));
             double chargeSec=a.ModeGun is not null ? mode.Profile.ChargeTimeSec : w.chargeTimeSec;
             int chargeCs=OverloadProcessor.ReduceTimeCs(SkillUnits.Cs(chargeSec),Terms(b.ChargeSpeed.Concat(charge)))
@@ -623,18 +623,18 @@ public static class SkillReplay
             a.GunDirty=false;
         }
         // Charge-then-release replacement weapon (e.g. Snow White / Maxwell burst). Fire rate comes from the official body value.
-        // Provisional motion policy (not game-confirmed, no replacement shot table pinned): the weapon is already in firing
-        // stance (no spot delay) and is charged fully. Every run that uses it logs `replacement_weapon` and lists this in
-        // the result limitations; a tap-style manual user is rejected in Validate instead of guessed.
+        // Motion values come from ReplacementWeaponPolicy (provisional, Director-approved; no replacement shot table pinned).
+        // Every run that uses it logs `replacement_weapon` and lists the policy in the result limitations; a tap-style manual
+        // user is rejected in Validate instead of guessed.
         private SkillFiringModel ReplacementGun(Actor a, WeaponMode mode, WeaponChangeProfile wc)
         {
             var dto=System.Text.Json.JsonSerializer.Deserialize<Nikke.Simulator.Core.Data.Dto.WeaponDto>(
                 System.Text.Json.JsonSerializer.Serialize(a.Input.Weapon.Weapon))!;
             dto.isChargeWeapon=true; dto.inputType="UP"; dto.chargeTimeSec=wc.ChargeTimeSec; dto.fullChargeDamage=wc.FullChargeRate;
             dto.maxAmmo=wc.MaxAmmo; dto.fireRate=dto.endFireRate=mode.Rate; dto.maintainFireStanceSec=0;
-            dto.spotFirstDelaySec=0; dto.spotLastDelaySec=0; dto.fireRateRampPerShot=0; dto.fireRateResetTimeSec=0;
+            dto.spotFirstDelaySec=ReplacementWeaponPolicy.SpotFirstSec; dto.spotLastDelaySec=ReplacementWeaponPolicy.SpotLastSec; dto.fireRateRampPerShot=0; dto.fireRateResetTimeSec=0;
             return new(new WeaponProfile(dto),wc.MaxAmmo,
-                new FiringControl { Mode=C.ManualCharacterId==a.Id ? ControlMode.Manual : ControlMode.Auto, Style=FireStyle.FullCharge },random);
+                new FiringControl { Mode=C.ManualCharacterId==a.Id ? ControlMode.Manual : ControlMode.Auto, Style=FireStyle.FullCharge /* policy: always charged fully */ },random);
         }
         private static double[] Terms(IEnumerable<StatRateBuff> buffs) => buffs.SelectMany(b=>Enumerable.Repeat(b.Rate,b.Stacks)).ToArray();
 
@@ -702,7 +702,7 @@ public static class SkillReplay
         }
 
         private IReadOnlyList<string> Limits(string[] common) => !replacementUsed ? common : common.Append(
-            "Replacement-weapon motion (no spot delay, full charge, fixed magazine, charge/pierce facts parsed from the public description) is a provisional policy, not game-confirmed; pierce multi-hit on parts is not modelled.").ToArray();
+            ReplacementWeaponPolicy.Limitation).ToArray();
 
         public SkillReplayResult Run()
         {
