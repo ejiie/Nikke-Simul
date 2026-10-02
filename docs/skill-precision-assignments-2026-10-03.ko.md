@@ -92,6 +92,8 @@
   - **BD1-Q-2:** 컬렉션 요소 null 주입 → `bosses[0]`·`challenge.levelChange.steps[0]` 500 NullReferenceException, `parts[0]`·`ladder[0]`·`diagnostics[0]`·`fields[0]` 200으로 null 반환(손상 입력 409 계약 위반). `SoloRaidBossCatalog.cs:35,53,69`.
   - 통과: raw-wire 판독 340/340, strict 중첩 수치 243/243, 실제 0·선언된 null 보존, 방어율 0·시즌 41/42 unavailable, 기존 보스 목록 바이트·계산 입력·fingerprint 불변, 기존 5인 60건 동일.
   - **Director 조치:** Backend 구현에 D-SRC-1보다 먼저 별도 커밋으로 수정 지시(객체·컬렉션 요소 검사 공통화, 8개 주입 + 같은 유형 회귀), 리뷰 직접 왕복 → Director → QA 재배정. 세 건 동시 배포는 이 수정 QA 통과 후.
+  - **수정 리뷰 최종 통과:** Backend `a050853`(부모 `b8951ca`). element·weakKey 미선언 null 거부, `StrictGraph`가 도메인 검증 전에 전체 그래프의 non-nullable 멤버·컬렉션/딕셔너리 null 요소를 공통 거부(500 경로 제거). 회귀: 컬렉션/객체 null 12경로, 미선언 null·키 누락 29경로, 선언 null 7경로. Sync 231/231, Python 18/18. **계약 변경:** `challenge.levelChangeGroupId` 필수 — 이전 준비 파일은 409, 재준비 필요(배포 시 준비 스크립트 실행 여부 확인). D-SRC-1 미추적 파일과 분리됨.
+  - **재QA 전달(2026-10-02):** 검수 착수 확인.
 
 ### S-SKILL-1 진행
 
@@ -101,6 +103,8 @@
 - **QA:** 검수 세션이 E-PREC-1 → B-DATA-1 진행 중이라 **세 번째로 대기**. 앞선 QA 보고 후 전달(xhigh 권장).
 - **QA 1차 전달 후 중단(2026-10-02):** QA가 E-PREC 통합본 위에 merge하자 `SkillReplay.cs` 장탄 조립 충돌(E-PREC 정수 장탄 vs 교체 무기 탄창 정책). QA가 직접 해소하려 해 **Director가 중단**시켰다 — 제품 코드 수정은 QA 독립성 위반. 검수 브랜치는 `e6295ca`로 복구 확인.
   - **조치:** 엔진 구현이 Director 최신 HEAD를 엔진 브랜치에 merge해 충돌 해소(기본 무기는 E-PREC 정수 장탄 경로, 교체 무기는 `ReplacementWeaponPolicy` 고정 탄창), 두 기능 회귀·기존 5인 결과 Director `6d83dec`와 동일 확인 → 리뷰(merge 해소 부분) → Director → QA 재전달.
+  - **merge 해소 리뷰 최종 통과:** 엔진 `20a0609`(= `27b99ee` + Director `d1bd49d`). E-PREC `FromRaw`/`ApplyAmmo`/checked 합산 그대로 유지, 교체 무기만 고정 탄창으로 덮어씀. Release Core/Engine 251/251. 기존 5인 20 seed 저장 결과(Director 대 merge) 차이 0. 버전 6종·fingerprint 유지, 추가 상향 불필요.
+  - **QA 재전달:** B-DATA-1 재QA 뒤 착수하도록 검수 대기열에 전달.
 
 ### 배포·D-SRC-1 전달
 
