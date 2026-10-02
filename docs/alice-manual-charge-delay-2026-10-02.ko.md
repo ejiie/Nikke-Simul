@@ -35,4 +35,5 @@
 ## 진행
 
 - 작업 구조: [구현·리뷰·QA](workflow-implement-review.ko.md). 엔진 규칙·수치 변경이므로 **구현 xhigh / 리뷰 medium / QA xhigh**.
-- 구현 담당 세션: 엔진 worktree(`시뮬레이션-엔진-담당`)에 sonnet-5.5 세션이 필요하다(사용자 실행 대기).
+- 세션(2026-10-02 사용자 실행): 엔진 worktree 구현 Sonnet 5.5 `term_1fba2b21…`(**high** — 계획 xhigh보다 한 단계 낮게 실행됨, 사용자 세션 설정 존중), 리뷰 astra-6 `term_ec372feb…`(medium, Full access). 구현 ⇄ 리뷰 직접 왕복, 리뷰 통과 시 Director → QA.
+- 기준: Director `2487bbd`(현재 Director HEAD, 엔진 `1a86ec9` 포함)를 엔진 브랜치에 일반 merge한 뒤 작업. 소유: `src/Nikke.Core/**`, `src/Nikke.Engine/**`, 엔진 tests, 보고서 `docs/manual-charge-delay-engine.ko.md`.
