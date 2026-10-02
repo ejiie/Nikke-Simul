@@ -87,6 +87,18 @@ class WeaponChangeProfileTests(unittest.TestCase):
         role['skills']['burst']['description_value_list'][1]['description_value'][9] = '2'
         with self.assertRaises(ValueError): weapon_change_profile(role, 'burst', {})
 
+    def test_pierce_is_explicit_and_a_missing_or_unknown_effect_is_an_error(self):
+        from prepare_runtime import weapon_change_profile
+        base = self.ROLE['skills']['burst']['description']
+        def role_with(description):
+            role = copy.deepcopy(self.ROLE); role['skills']['burst']['description'] = description; return role
+        self.assertTrue(weapon_change_profile(role_with(base), 'burst', {})['pierce'])
+        self.assertFalse(weapon_change_profile(role_with(base.replace('Pierce', 'None')), 'burst', {})['pierce'])
+        # Effect line absent entirely, or an effect the pipeline has not reviewed: never silently "no pierce".
+        with self.assertRaises(ValueError): weapon_change_profile(role_with(base.replace('Additional Effect: Pierce', '')), 'burst', {})
+        with self.assertRaises(ValueError): weapon_change_profile(role_with(base.replace('Pierce', 'Explosion')), 'burst', {})
+        with self.assertRaises(ValueError): weapon_change_profile(role_with(base.replace('Pierce', 'Pierce, Explosion')), 'burst', {})
+
     def test_all_step_numerals_are_taken_from_both_sources_not_invented(self):
         character = dict(use_burst_skill=5, change_burst_step=6, burst_apply_delay=1, burst_duration=1000, shot_id=10,
                          skills={'burst': {'levels': {'1': {'skill': {'skill_type': 8}}}}})

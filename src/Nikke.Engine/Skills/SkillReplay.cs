@@ -128,6 +128,10 @@ public static class SkillReplay
                 throw new ArgumentException("Invalid or conflicting burst source metadata.");
             if (!double.IsFinite(m.Weapon.Buffs.NormalAttackMultiplier) || m.Weapon.Buffs.NormalAttackMultiplier is <= -1 or > 1e6)
                 throw new ArgumentException("일반 공격 계수 증가량을 확인하세요.");
+            // A replacement weapon is charge-then-release; the tap-style manual loop has no confirmed meaning for it.
+            if (c.Combat.ManualCharacterId==m.Weapon.CharacterId && c.Combat.ManualStyle=="tap"
+                && m.Skills.Slots.Values.Any(s=>s.Skill?.WeaponChange is not null))
+                throw new ArgumentException($"미지원 교체 무기 조작: {m.Weapon.CharacterId}의 교체 무기는 수동 톡톡이 조작을 지원하지 않습니다.");
             StatBuffCalculator.Apply(0,m.Weapon.Buffs.Accuracy);
             if (m.Skills.Slots.Count != 3 || new[] { "skill1", "skill2", "burst" }.Any(s => !m.Skills.Slots.ContainsKey(s)
                 || !m.Skills.Levels.TryGetValue(s, out int lv) || lv is < 1 or > 10))
@@ -194,6 +198,7 @@ public static class SkillReplay
         private ShotEventData currentShotData;
         private long eventCount;
         private int frame, operations;
+        private bool replacementUsed;
         private bool fullBurst;
         private readonly ICombatEventSink eventSink;
         private readonly ISkillBattleDriver driver;
@@ -595,7 +600,13 @@ public static class SkillReplay
             modes.TryGetValue(a.Id,out var mode);
             // A weapon change with a documented replacement profile runs on its own gun; the base gun is frozen and
             // resumes with its ammo/charge/spot state when the mode ends.
-            if (mode?.Profile is { } wc && a.ModeGun is null) a.ModeGun=ReplacementGun(a,mode,wc);
+            if (mode?.Profile is { } wc && a.ModeGun is null)
+            {
+                a.ModeGun=ReplacementGun(a,mode,wc);
+                replacementUsed=true;
+                Log("replacement_weapon",a.Id,a.Id,$"skill:{mode.SkillId}",mode.EventId,value:wc.ChargeTimeSec,
+                    basis:"provisional_motion_policy:no_spot_delay_full_charge_fixed_magazine");
+            }
             else if (mode?.Profile is null && a.ModeGun is not null) a.ModeGun=null;
             var w=a.Input.Weapon.Weapon; var b=a.Input.Weapon.Buffs;
             var ammoRates=On(a,14).Where(e=>e.Function.FunctionValueType==2).Select(e=>new StatRateBuff(Key(e),e.Value,e.Stacks)).ToArray();
@@ -612,7 +623,9 @@ public static class SkillReplay
             a.GunDirty=false;
         }
         // Charge-then-release replacement weapon (e.g. Snow White / Maxwell burst). Fire rate comes from the official body value.
-        // Hypotheses: the weapon is already in firing stance (no spot delay) and is always fully charged, also for a tap-style manual user.
+        // Provisional motion policy (not game-confirmed, no replacement shot table pinned): the weapon is already in firing
+        // stance (no spot delay) and is charged fully. Every run that uses it logs `replacement_weapon` and lists this in
+        // the result limitations; a tap-style manual user is rejected in Validate instead of guessed.
         private SkillFiringModel ReplacementGun(Actor a, WeaponMode mode, WeaponChangeProfile wc)
         {
             var dto=System.Text.Json.JsonSerializer.Deserialize<Nikke.Simulator.Core.Data.Dto.WeaponDto>(
@@ -687,6 +700,9 @@ public static class SkillReplay
             double before=target.Hp; target.Hp=Math.Min(MaxHp(target),target.Hp+amount);
             Log("heal",source.Id,target.Id,$"function:{fid}",parent,fid,value:target.Hp-before,basis:"hp");
         }
+
+        private IReadOnlyList<string> Limits(string[] common) => !replacementUsed ? common : common.Append(
+            "Replacement-weapon motion (no spot delay, full charge, fixed magazine, charge/pierce facts parsed from the public description) is a provisional policy, not game-confirmed; pierce multi-hit on parts is not modelled.").ToArray();
 
         public SkillReplayResult Run()
         {
@@ -783,7 +799,7 @@ public static class SkillReplay
                 trace,eventCount,C.Trace && eventCount>trace.Count,
                 effects.Select(e=>new SkillEffectView(e.Source.Id,e.Target?.Id ?? "boss",e.Function.Id,e.Function.GroupId,e.Function.FunctionType,
                     e.Value,e.Stacks,e.Expires,e.Basis)).ToArray(),shields.Values.ToArray(),
-                ["Burst casts and full-burst windows are prescribed; team gauge and step validation are P04 work.",
+                Limits(["Burst casts and full-burst windows are prescribed; team gauge and step validation are P04 work.",
                  "Fixed surviving target and prescribed HP observations; enemy attacks, shield consumption, death and boss geometry are not simulated.",
                  "Pierce, accuracy and interruption bonuses are tracked; automatic aim, extra pierce targets and interruption mechanics remain P05 work.",
                  "Modernia mode consumes official coefficient/RPM/shot ID and unlimited-ammo duration; unextracted replacement-shot geometry uses the base weapon.",
@@ -791,7 +807,7 @@ public static class SkillReplay
                  "Caster ATK grants use native caster ATK; healing snapshots final caster max HP at application. Snapshot timing remains a measurement target.",
                  "Cover HP must be supplied for real cover targeting; absent cover inputs mean equal undamaged unit-size cover fixtures.",
                  "Lowest HP/cover target basis is an explicit comparison policy; verify the actual skill recipient before selecting a game rule.",
-                 "Conditional cube/favorite effects are not connected. These runs are not validated raid recommendation samples."])
+                 "Conditional cube/favorite effects are not connected. These runs are not validated raid recommendation samples."]))
             { Defense=defense.Summary(),
               DamageLog=input.DamageLog is null ? null : new(input.DamageLog.CharacterId,damageLog.Count,loggedDamage,damageLog.ToArray()),
               Connection=new("p03.connection.1",true,false,connectionSequence,new Dictionary<CombatEventKind,long>(connectionCounts),

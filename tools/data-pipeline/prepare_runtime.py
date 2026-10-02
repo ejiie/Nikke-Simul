@@ -118,13 +118,18 @@ def weapon_change_profile(role, slot_name, level):
     charge = re.search(r'Charge Time:\s*([0-9.]+)\s*sec', text)
     full = re.search(r'Full Charge Damage:\s*([0-9.]+)%', text)
     ammo = re.search(r'Max Ammunition Capacity:\s*\{description_value_(\d+)\}', text)
-    if not (charge and full and ammo):
-        raise ValueError('Weapon-change description is missing charge/full-charge/ammo: ' + role['name'])
+    effect = re.search(r'Additional Effect:\s*([^\n]+)', text)
+    if not (charge and full and ammo and effect):
+        raise ValueError('Weapon-change description is missing charge/full-charge/ammo/additional effect: ' + role['name'])
+    # Only the two explicit forms are understood; a missing or unknown effect must not become "no pierce".
+    pierce = {'Pierce': True, 'None': False}.get(effect.group(1).strip())
+    if pierce is None:
+        raise ValueError('Unknown weapon-change additional effect %r: %s' % (effect.group(1).strip(), role['name']))
     values = skill['description_value_list'][int(ammo.group(1)) - 1]['description_value']
     if len(values) != 10 or any(v != values[0] for v in values):
         raise ValueError('Magazine is not level-invariant: ' + role['name'])
     return {'charge_time_sec': float(charge.group(1)), 'full_charge_rate': float(full.group(1)) / 100,
-            'max_ammo': int(values[0]), 'pierce': 'Additional Effect: Pierce' in text,
+            'max_ammo': int(values[0]), 'pierce': pierce,
             'source': 'blabla_roledata.json roster/%s/skills/%s/description' % (role['name_code'] if 'name_code' in role else role['name'], slot_name)}
 
 

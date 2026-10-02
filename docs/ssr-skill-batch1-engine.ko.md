@@ -84,16 +84,16 @@ Director 추출 목록(`ssr-by-cp.json`, '묑카엘' 계정 전투력 순, 이�
 ## 가설·미확정(실측으로 확인할 것)
 
 1. body 13/2/15는 보스 1체에 1회 피해(다중 대상·범위 위치 없음). 기존 body 1과 같은 가정.
-2. 교체 무기: 시전 즉시 차지를 시작(조준 지연 0), 항상 풀차지까지 충전(톡톡이 수동 조작자도), 탄창은 프로필 값 고정(기본 무기 탄창 버프 비적용), 차지 속도 버프는 교체 무기 차지 시간에도 적용. 발사 간격은 body의 RPM.
+2. 교체 무기(**잠정 모션 정책, 게임 미확정 — Director 승인 요청 중**): 시전 즉시 차지를 시작(조준 지연 0), 풀차지까지 충전, 탄창은 프로필 값 고정(기본 무기 탄창 버프 비적용), 차지 속도 버프는 교체 무기 차지 시간에도 적용. 발사 간격은 body의 RPM. 추정값이 결과에 조용히 섞이지 않도록 **교체 총을 쓴 모든 실행에 `replacement_weapon` trace(basis `provisional_motion_policy:…`)와 결과 `limitations` 문구가 붙는다.** **수동 톡톡이 조작은 교체 무기와 함께 `미지원 교체 무기 조작`으로 거부**한다(톡톡이의 의미가 미확정). 조준 지연 0과 spotLast 0은 1발 교체(스노우 화이트·맥스웰)에서 발사 시점이 최대 12F(0.2초) 달라질 뿐 풀버스트 창(10초) 안이다. 승인되지 않으면 해당 실행을 미지원으로 돌린다.
 3. skill2는 쿨다운 15초가 지나면 자동 시전(기존 엔진 정책, 첫 시전은 전투 15초 후).
 4. IsCheckMonster 임계값 5의 의미는 설명문("above N enemy units, excluding Nikkes")에 따른 적 수 임계값으로 해석했다.
 5. **관통 다중 타격 미모델:** 사용자 관측(SW 버스트 한 발 4타: 몸통·파츠·파츠·파츠+코어)과 달리 엔진은 1타만 계산한다 → 버스트 피해가 **과소**. 파츠·코어 구성은 B-DATA-1(보스 정적 속성)·P05 후속이 필요하다.
-6. 교체 무기의 charge 속도·탄·관통은 설명문 파싱 값이며 `CharacterShotTable` 대조 전이다.
+6. 교체 무기의 charge 속도·탄·관통은 설명문 파싱 값이며 `CharacterShotTable` 대조 전이다. 관통은 `Additional Effect:` 줄이 명시적으로 `Pierce`일 때만 true, `None`일 때만 false이고, 줄이 없거나 다른 값이면 파이프라인이 오류로 멈춘다.
 
 ## 검증
 
-- **새 단위 테스트 14개**(`tests/Nikke.Core.Tests/SsrBatch1SkillTests.cs`): body 2·13·15가 body 1과 같은 피해, StatCritical이 샘플 크리 확률을 올림(0.20 난수: 15% 미크리 → +10% 크리), 풀버스트 창 안/밖의 조건 효과, 상태 21·28의 미지원 값 진단, 몬스터 임계값/소환 timing 비활성, 교체 무기 1발(차지 60F 뒤 `cast + 59`F, ChargeBase 10, 풀차지·관통, 이후 `weapon_restored basis=shots_spent`), 기본 총 상태 동결·탄 연속, 차지 속도 버프로 30F, 2발 교체, 프로필 없는 ChangeWeapon의 기존 경로, 프로필 검증 거부. Python 3개(`weapon_change_profile` 파싱·누락/레벨 가변 거부·AllStep 숫자 두 원천 대조).
-- **Release 전체:** `Nikke.Core.Tests` **231/231**(기존 217 + 14), `Nikke.Analysis.Tests` 41/41, `Nikke.Compute.Tests` 46/46, `Nikke.Sync.Tests` 164/164. Python 데이터 파이프라인 43/43. 실패 0·skip 0.
+- **새 단위 테스트 15개**(`tests/Nikke.Core.Tests/SsrBatch1SkillTests.cs`): body 2·13·15가 body 1과 같은 피해, StatCritical이 샘플 크리 확률을 올림(0.20 난수: 15% 미크리 → +10% 크리), 풀버스트 창 안/밖의 조건 효과, 상태 21·28의 미지원 값 진단, 몬스터 임계값/소환 timing 비활성, 교체 총 정책 라벨(trace·limitations)과 수동 톡톡이 거부, 교체 무기 1발(차지 60F 뒤 `cast + 59`F, ChargeBase 10, 풀차지·관통, 이후 `weapon_restored basis=shots_spent`), 기본 총 상태 동결·탄 연속, 차지 속도 버프로 30F, 2발 교체, 프로필 없는 ChangeWeapon의 기존 경로, 프로필 검증 거부. Python 4개(`weapon_change_profile` 파싱·누락/레벨 가변 거부·**Additional Effect 명시 Pierce/None 구분과 누락·미지의 효과 거부**·AllStep 숫자 두 원천 대조).
+- **Release 전체:** `Nikke.Core.Tests` **232/232**(기존 217 + 15), `Nikke.Analysis.Tests` 41/41, `Nikke.Compute.Tests` 46/46, `Nikke.Sync.Tests` 164/164. Python 데이터 파이프라인 44/44. 실패 0·skip 0.
 - **기존 5인 회귀(합성 Lv400 계정, 리타·블랑·앨리스·누아르·모더니아, 180초, seed 1~20):** 수정 전(`d932716` 엔진)과 이후를 같은 persisted 입력으로 돌려 팀 피해·멤버별 발수·타수·피해·풀버스트 횟수·첫 풀버스트 시점이 **20개 seed 모두 완전히 동일**(평균 팀 피해 6.621e8, 풀버스트 12회). 새 효과 타입이 기존 5명에게 휴면 상태임을 확인한 것이다.
 - **새 캐릭터 실데이터 실행(실제 runtime catalog, 합성 계정, 리타·블랑·스노우 화이트·맥스웰·앨리스, 자동 버스트):** 실행 성공, 풀버스트 4회(블랑 쿨다운 40초가 사이클을 제한 — 원 덱은 팀원의 쿨다운 감소 효과가 있어 12회), 평균 팀 피해 2.876e8. seed 1에서 스노우 화이트는 버스트마다 1발의 풀차지 관통 샷(WeaponShotId 1022002, FullBurst, 코어 가정)을 쏘고 맥스웰은 교체 샷(1010202)과 기본 풀차지 사격을 한다. 이 수치는 장비·OL 없는 합성 계정이라 사용자 관측(2.3B급)과 직접 비교하지 않는다.
 
@@ -109,4 +109,13 @@ Director 추출 목록(`ssr-by-cp.json`, '묑카엘' 계정 전투력 순, 이�
 
 ## 리뷰 이력
 
-(아직 없음. 1차 커밋 후 리뷰 담당에게 인계한다.)
+### 1차 — 반려 (astra-6, 대상 `dbe9b68`)
+
+- `src/Nikke.Engine/Skills/SkillReplay.cs:622` — 항목 3·5 — `ReplacementGun`이 원천/확정 규칙 없이 spotFirst/spotLast를 0으로 채우고, 624행에서 수동 톡톡이도 FullCharge로 강제한다. `CheckSupport`는 실행을 허용하므로 결과에 추정값이 들어간다.
+- `tools/data-pipeline/prepare_runtime.py:127` — 항목 5 — 관통을 `Additional Effect: Pierce` 문자열 포함 여부로 산출해, 효과 항목 누락·미해석도 false(비관통)로 조용히 채운다. 누락 회귀 테스트도 필요.
+- 리뷰어 확인(통과 항목): 소유 범위는 원천 catalog 조립에 필요한 파이프라인 포함으로 해석 가능, #5101 대체(Director 문서) 확인, 공개 표 hash·보관 기록 확인, 버전 미상향은 지시서 조건과 기존 5인 회귀 보고에 부합하고 catalog dataVersion·graph/conditions fingerprint 분리 경로 확인. 지정 SDK로 Release Core 231/231, Python 43/43 통과(실패/skip 0). 비차단: `SsrBatch1SkillTests.cs` 마지막 테스트는 같은 구현을 두 번 비교하므로 전후 회귀 증거는 보고서/별도 결과에 의존(반려 사유 아님).
+- 구현 담당 대응(수정 커밋):
+  - **결함 1:** 확정 원천이 없어(교체 무기 표 미고정, 사용자 실측 없음) 값을 확정으로 가장하지 않고 **정책을 명시적으로 드러내도록** 바꿨다. (a) 교체 총을 쓴 모든 실행에 `replacement_weapon` trace(basis `provisional_motion_policy:no_spot_delay_full_charge_fixed_magazine`)와 결과 `limitations` 문구를 추가. (b) 수동 톡톡이는 교체 무기 보유 캐릭터에서 `Validate`가 `미지원 교체 무기 조작`으로 거부(톡톡이 의미 미확정이므로 FullCharge 강제 제거 근거 확보). (c) 조준 지연 0·풀차지 정책의 **Director 승인**을 요청했다(영향: 1발 교체 무기의 발사 시점 ≤ 0.2초). 승인 전까지 결과 문구가 잠정 정책임을 밝히고, 승인되지 않으면 해당 실행을 미지원으로 돌린다.
+  - **결함 2:** `Additional Effect:` 줄을 필수로 읽고 `Pierce`(true)/`None`(false)만 인정, 줄 누락·`Explosion`·`Pierce, Explosion` 등 알 수 없는 값은 `ValueError`. 회귀 테스트 `test_pierce_is_explicit_and_a_missing_or_unknown_effect_is_an_error` 추가. 현 고정 원천에서 스노우 화이트·맥스웰은 모두 `Pierce`로 명시돼 catalog id `2e6e8d06…`는 변함없다.
+  - **비차단:** 같은 구현을 두 번 비교하던 마지막 테스트는 가짜 증거라 삭제하고, 전후 회귀 증거는 위 '검증'의 기존 5인 20 seed 비트 동일 결과(수정 후 재실행도 동일)에 둔다.
+  - 재검증: Core 232/232, Analysis 41, Compute 46, Sync 164, Python 44/44, 기존 5인 20 seed 동일.

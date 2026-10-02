@@ -179,11 +179,27 @@ public class SsrBatch1SkillTests
     }
 
     [Fact]
-    public void Existing_characters_without_the_new_effects_are_unchanged_by_the_dormant_paths()
+    public void Replacement_weapon_runs_are_labelled_as_a_provisional_policy_in_the_trace_and_limitations()
     {
-        var a = SkillReplay.Run([Member("a", [1])], Graph(F(1, value: 1000)), Conditions(600), new FixedRandom(.5));
-        var b = SkillReplay.Run([Member("a", [1])], Graph(F(1, value: 1000)), Conditions(600), new FixedRandom(.5));
-        Assert.Equal(a.TotalDamage, b.TotalDamage);
-        Assert.DoesNotContain(a.Events, e => e.Kind == "weapon_restored");
+        var used = RunBurst(Ar(ChargeBurst()));
+        var policy = Assert.Single(used.Events, e => e.Kind == "replacement_weapon");
+        Assert.StartsWith("provisional_motion_policy", policy.Basis);
+        Assert.Contains(used.Limitations, l => l.StartsWith("Replacement-weapon motion"));
+        var plain = SkillReplay.Run([Member()], Graph(), Conditions(100), new FixedRandom(.99));
+        Assert.DoesNotContain(plain.Events, e => e.Kind == "replacement_weapon");
+        Assert.DoesNotContain(plain.Limitations, l => l.StartsWith("Replacement-weapon motion"));
+    }
+
+    [Fact]
+    public void Manual_tap_with_a_replacement_weapon_is_rejected_not_guessed()
+    {
+        var m = Ar(ChargeBurst());
+        SkillReplayConditions Cond(string style) => Conditions(200) with
+        { Combat = Conditions(200).Combat with { ManualCharacterId = "5012", ManualStyle = style } };
+        var ex = Assert.Throws<ArgumentException>(() => SkillReplay.Run([m], Graph(), Cond("tap"), new FixedRandom(.99)));
+        Assert.Contains("미지원 교체 무기 조작", ex.Message);
+        // Full-charge manual and auto control stay executable; a tap user without a replacement weapon is unaffected.
+        Assert.True(SkillReplay.Run([m], Graph(), Cond("full_charge"), new FixedRandom(.99)).Members[0].Shots > 0);
+        Assert.True(SkillReplay.Run([Member("5012")], Graph(), Cond("tap"), new FixedRandom(.99)).Members[0].Shots > 0);
     }
 }
