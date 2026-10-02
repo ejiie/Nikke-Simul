@@ -61,7 +61,7 @@ await check('gpu_usable_only_when_eligible', () => {
   assert.ok(!pendingMarkup.includes('<option value="gpu-synthetic-0">'));
   assert.ok(!pendingMarkup.includes('<option value="gpu-synthetic-1">'));
   assert.ok(pendingMarkup.includes('사용 불가'));
-  assert.ok(pendingMarkup.includes('full battle GPU provider가 아직 구현되지 않았습니다.'));
+  assert.ok(!pendingMarkup.includes('full battle GPU provider') && pendingMarkup.includes('기타 사유')) // U-FIX-7: unregistered device reason text is not shown;
   assert.ok(html({ hardware: hardware.gpuEligible }).includes('<option value="gpu-synthetic-verified">'));
 });
 
@@ -77,7 +77,7 @@ await check('hardware_cpu_only_and_probe_failures', () => {
   assert.equal(failed.remoteSession, true);
   assert.equal(adapter.describeHardwareProfile(null).statusLabel, '하드웨어 정보 없음');
   const markup = html({ hardware: hardware.probeFailed });
-  assert.ok(markup.includes('probe timeout') && markup.includes('탐지된 GPU가 없습니다'));
+  assert.ok(!markup.includes('probe timeout') && markup.includes('장치 탐지 중 일부 항목이 실패했습니다') && markup.includes('탐지된 GPU가 없습니다'));
 });
 
 await check('cpu_run_never_reported_as_gpu', () => {
@@ -113,7 +113,7 @@ await check('batch_lifecycle_counts_and_controls', () => {
   assert.equal(resumed.attempt, 2);
   const failed = adapter.describeBatch(batches.failed);
   assert.equal(failed.canResume, true);
-  assert.equal(failed.errorLabel, '오류 코드 engine_run_failed');
+  assert.equal(failed.errorLabel, '알 수 없는 오류로 실패했습니다.');
   const unknown = adapter.describeBatch(batches.unknownState);
   assert.equal(unknown.stateLabel, adapter.UNKNOWN);
   assert.equal(unknown.progress, null);
@@ -123,12 +123,12 @@ await check('batch_lifecycle_counts_and_controls', () => {
 });
 
 await check('contract_error_codes', () => {
-  assert.match(adapter.describeComputeError('analysis_not_integrated'), /Analysis\) 미연결/);
+  assert.match(adapter.describeComputeError('analysis_not_integrated'), /통계 모듈 미연결/);
   assert.match(adapter.describeComputeError('gpu_unavailable'), /강제 GPU 요청은 실행 전에 거부/);
-  assert.equal(adapter.describeComputeError('unknown_code'), '오류 코드 unknown_code');
+  assert.equal(adapter.describeComputeError('unknown_code'), '알 수 없는 오류로 실패했습니다.');
   assert.equal(adapter.describeComputeError(null), null);
   const markup = html({ analysisStatus: 'not_integrated', batch: batches.completed });
-  assert.ok(markup.includes('통계 모듈(Analysis) 미연결'));
+  assert.ok(markup.includes('통계 모듈 미연결'));
   assert.ok(!markup.includes('평균 CI는 평균의 불확실성'), 'statistics panel must not claim numbers while unintegrated');
 });
 
@@ -312,7 +312,7 @@ await check('controller_reports_analysis_and_gpu_rejection', async () => {
   assert.equal(model.analysisStatus, 'not_integrated');
   assert.equal(model.batch.stateLabel, '완료');
   const markup = view.renderSingleDeckStats(model);
-  assert.ok(markup.includes('통계 모듈(Analysis) 미연결'));
+  assert.ok(markup.includes('통계 모듈 미연결'));
   controller.dispose();
 });
 

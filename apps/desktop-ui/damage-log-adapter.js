@@ -12,7 +12,8 @@
  */
 
 import { CLIENT_F32, CLIENT_F32_WIRE, policyInfo, readWireLong } from './hit-policy.js';
-import { basisLabel, describeSourceKey } from './display-labels.js';
+import { basisLabel, describeSourceKey, errorText } from './display-labels.js';
+import { own } from './own-lookup.js';
 
 export const DAMAGE_LOG_SCHEMA_VERSION = 1;
 export const DAMAGE_LOG_PROVISIONAL_NOTICE = '잠정 정확도 · 실게임 관측 대조 전 합성 시뮬레이션';
@@ -264,7 +265,7 @@ export async function saveBurstTacticToServer(api, accountId, snapshotId, format
     const res = await api(`/accounts/${accountId}/burst-tactic`, 'PUT', payload);
     return { ok: true, data: res };
   } catch (err) {
-    return { ok: false, error: err.message || '서버 전술 저장 실패' };
+    return { ok: false, error: errorText(err) };
   }
 }
 
@@ -289,7 +290,7 @@ export async function loadBurstTacticFromServer(api, accountId, membersWithMeta)
       return { ok: true, tactics: null, stale: false, executionStatus: res?.executionStatus || 'legacy' };
     }
   } catch (err) {
-    return { ok: false, error: err.message || '서버 전술 조회 실패' };
+    return { ok: false, error: errorText(err) };
   }
 }
 
@@ -346,7 +347,71 @@ const CLIENT_AXIS_NAMES = [
   [/^가산 묶음 · 크리티컬 보너스$/, 'B · criticalDamageRate'], [/^차지 배율 · 가산항$/, 'chargeDamageRate · 가산항'], [/^차지 배율$/, 'chargeDamageRate']
 ];
 export function termLabel(name, policy) {
-  return (policy === CLIENT_F32 ? CLIENT_TERM_LABELS[name] : AUDIT_TERM_LABELS[name]) ?? `기록 항목 ${name}`;
+  return (policy === CLIENT_F32 ? own(CLIENT_TERM_LABELS, name) : own(AUDIT_TERM_LABELS, name)) ?? '기록된 계산 항목'; // the stored key is never shown
+}
+
+// U-FIX-7: the stored `operation` is an English engine note; the screen shows a Korean per-step description.
+// The stored text stays in the data (steps[].operation) and is only parsed here for its factor/branch.
+const STEP_DESCRIPTIONS = {
+  effectiveAttack: '기초 공격력에 비율 버프를 더하고 고정 가산을 합산',
+  charge: '풀차지일 때만 기본 × (1 + 배율 증가) + 가산 적용',
+  P: '(최종 공격력 − 방어력) × 스킬 계수 × 차지 배율',
+  minimum: '방어력이 공격력 이상이라 최소 피해 1 적용',
+  B2: '기본 피해와 적용된 보너스를 합산',
+  difference: '최종 공격력 − 방어력 (정수 계산 후 float32 변환)',
+  base: '공방차 × 스킬 계수 × statDamageRatio × 차지 배율 (float32)',
+  B: '크리 → 코어 → 풀버스트 → 적정 거리 순으로 (배율 − 1)을 누적 (float32)',
+  extra: 'breakRate + addDamageRate − 1 (float32, 잠정 대응)',
+  reduction: '1 − damageReductionRate (float32, 잠정 대응)',
+  defenceRatio: '1 − defenceRatioRate (float32)',
+  product: '기본 × B × extra × 감소 × 방어비율 × 우월 코드 배율 (float32, 좌→우 곱)'
+};
+const UNKNOWN_OPERATION = '저장된 연산 미확인';
+// Registered multiplication forms only (HitCalculator): `multiply <factor>` or `multiply <factor>; floor`, where <factor> is
+// a strict decimal as .NET "R" writes it. Hex/binary, whitespace, trailing newline or any other suffix is not registered.
+const STRICT_DECIMAL = String.raw`-?(?:0|[1-9]\d*)(?:\.\d+)?(?:E[+-]?\d+)?`;
+const MULTIPLY_OPERATION = new RegExp(`^multiply (${STRICT_DECIMAL})(; floor)?$`);
+export function parseMultiplyOperation(operation) {
+  const m = typeof operation === 'string' ? MULTIPLY_OPERATION.exec(operation) : null;
+  const factor = m ? Number(m[1]) : NaN;
+  return Number.isFinite(factor) ? { factor, floored: m[2] !== undefined } : null;
+}
+// Stored operations the engine writes (HitCalculator); a step is described only when its stored operation is one of these.
+const KNOWN_OPERATIONS = {
+  effectiveAttack: ['native + grouped rounded native * (OL + passive + active skill rates) + caster-based flat grants', 'checked int64 grouped rate/10000, then flat grants'],
+  charge: ['base * (1 + multiplierBonus) + add; gated by fullCharge'],
+  P: ['attackDefenseDifference * coefficient * charge'],
+  minimum: ['defense >= attack'],
+  B2: ['P * (1 + active bonuses)', 'sum of floored base and active bonus terms'],
+  difference: ['checked int64 attack - defence; then cast float32'],
+  base: ['floor', 'float32 left-to-right damageRatio * statDamageRatio * chargeDamageRate'],
+  B: ['float32 critical -> core -> burst -> range, each rate - 1 then add'],
+  extra: ['float32 breakRate + addDamageRate - 1; provisional mapping'],
+  reduction: ['float32 1 - damageReductionRate; provisional mapping'],
+  defenceRatio: ['float32 1 - defenceRatioRate'],
+  product: ['float32 left-to-right base * B * extra * reduction * defenceRatio * element']
+};
+export function describeStepOperation(name, operation, policy) {
+  const op = typeof operation === 'string' ? operation : '';
+  // Only registered stored operations are described; anything else stays unconfirmed (never inferred from the policy).
+  if (name === 'effectiveDefense') {
+    if (op === 'ignore' || op === 'true damage: 0; otherwise integer defence') return op === 'ignore' ? '방어 무시 타격이라 방어력 0으로 계산' : '일반 타격은 정수 방어력, 방어 무시 타격은 0';
+    if (op === 'identity') return '적 방어력을 그대로 사용';
+    return UNKNOWN_OPERATION;
+  }
+  if (name === 'final') {
+    if (op === 'MathF.Round AwayFromZero; max(1); checked int64') return '사사오입(0.5는 0에서 먼 쪽) 후 최소 1';
+    if (op === 'round ties-to-even; min 1') return '반올림(동률은 짝수) 후 최소 1';
+    return op === 'floor' ? '내림' : UNKNOWN_OPERATION;
+  }
+  if (name === 'B3' || name === 'B4' || name === 'B5') {
+    const multiply = parseMultiplyOperation(op);
+    if (!multiply) return UNKNOWN_OPERATION;
+    return `× ${formatAuditNumber(multiply.factor)} 곱함${multiply.floored ? ' (곱한 뒤 내림)' : ''}`;
+  }
+  if (op === 'floor') return name === 'base' ? '내림' : name === 'distance' || name === 'fullBurst' || name === 'critical' || name === 'core' ? '기본 피해 × 보너스 비율 (내림)' : UNKNOWN_OPERATION;
+  if (name === 'distance' || name === 'fullBurst' || name === 'critical' || name === 'core') return UNKNOWN_OPERATION;
+  return own(KNOWN_OPERATIONS, name)?.includes(op) ? own(STEP_DESCRIPTIONS, name) ?? UNKNOWN_OPERATION : UNKNOWN_OPERATION;
 }
 const NATIVE_BASES = new Set(['native_recipient', 'native_caster']);
 const isFiniteNumber = v => typeof v === 'number' && Number.isFinite(v);
@@ -421,7 +486,7 @@ function auditOriginText(sourceId, functionId, burstCastId, ctx) {
   if (functionId == null) parts.push('스킬 정보 미기록');
   else {
     const slot = ctx?.slots?.get(`${sourceId}:${functionId}`);
-    parts.push(slot ? AUDIT_SLOT_LABELS[slot] ?? '스킬 효과' : '스킬 효과');
+    parts.push(slot ? own(AUDIT_SLOT_LABELS, slot) ?? '스킬 효과' : '스킬 효과');
   }
   if (burstCastId != null) parts.push(`버스트 시전 이벤트 #${burstCastId}`);
   return parts.join(' · ');
@@ -431,7 +496,7 @@ function auditOriginText(sourceId, functionId, burstCastId, ctx) {
 export function describeBuffSnapshot(snapshot, frame, ctx = null) {
   const effect = snapshot?.effect ?? {};
   const typeId = Number.isInteger(effect.type) ? effect.type : null;
-  const def = typeId === null ? null : AUDIT_FUNCTION_TYPES[typeId] ?? null;
+  const def = typeId === null ? null : own(AUDIT_FUNCTION_TYPES, typeId) ?? null;
   const value = isFiniteNumber(effect.value) ? effect.value : null;
   const stacks = Number.isInteger(effect.stacks) && effect.stacks > 0 ? effect.stacks : null;
   const basis = typeof effect.basis === 'string' && effect.basis ? effect.basis : null;
@@ -518,7 +583,7 @@ export function classifyBuffForHit(desc, hit, ctx = null) {
   const hitMissing = !hit || typeof hit !== 'object';
   const ownTarget = desc.typeId === 42 && desc.targetId != null && desc.targetId !== 'boss';
   if (hitMissing && !HIT_INDEPENDENT_TYPES.has(desc.typeId) && !ownTarget) {
-    return { group: 'unverified', axis: null, reason: '타격 계산 입력(hit) 미제공' };
+    return { group: 'unverified', axis: null, reason: '타격 계산 입력 미제공' };
   }
   hit = hitMissing ? {} : hit;
   const indirect = reason => ({ group: 'indirect', axis: null, reason });
@@ -610,10 +675,10 @@ export function buildDamageBreakdown(entry) {
     ? bonuses.reduce((sum, b) => sum + (b.active ? b.bonus : 0), 0) : null;
   const factors = ['B3', 'B4', 'B5'].map(name => {
     const t = term(name);
-    const match = /^multiply\s+([^;\s]+)/.exec(t?.operation ?? '');
-    const factor = match ? Number(match[1]) : NaN;
-    return { name, label: AUDIT_TERM_LABELS[name], present: Boolean(t), factor: isFiniteNumber(factor) ? factor : null,
-      before: val(t?.before), after: val(t?.after), floored: /floor/.test(t?.operation ?? '') };
+    // The factor is read only from a registered operation string; anything else leaves it unconfirmed (null).
+    const multiply = parseMultiplyOperation(t?.operation);
+    return { name, label: own(AUDIT_TERM_LABELS, name), present: Boolean(t), factor: multiply ? multiply.factor : null,
+      before: val(t?.before), after: val(t?.after), floored: multiply ? multiply.floored : false };
   });
   const finalValue = val(finalTerm?.after) ?? val(minimumTerm?.after);
   const storedDamage = val(entry?.damage);
@@ -646,9 +711,12 @@ export function buildDamageBreakdown(entry) {
     calculationDamage: val(calc?.damage),
     finalMatchesStored: finalValue !== null && storedDamage !== null ? finalValue === storedDamage : null,
     steps: (list ?? []).map(t => ({ name: t.name, label: termLabel(t.name, policy),
-      before: val(t.before), after: val(t.after), operation: typeof t.operation === 'string' ? t.operation : '' })),
+      before: val(t.before), after: val(t.after), operation: typeof t.operation === 'string' ? t.operation : '',
+      description: describeStepOperation(t.name, t.operation, policy) })),
     missing: !list ? ['terms'] : policy === CLIENT_F32 ? CLIENT_REQUIRED_TERMS.filter(n => !term(n))
       : required.filter(n => !term(n)).concat(finalTerm || minimumTerm ? [] : ['final']),
+    missingLabels: (!list ? [] : (policy === CLIENT_F32 ? CLIENT_REQUIRED_TERMS.filter(n => !term(n))
+      : required.filter(n => !term(n)).concat(finalTerm || minimumTerm ? [] : ['final']))).map(n => termLabel(n, policy)),
     client: policy === CLIENT_F32 ? buildClientBreakdown(term, hit, val) : null
   };
 }
@@ -720,7 +788,7 @@ export function buildHitAudit(entry, ctx = null) {
   const resolveFunction = fid => {
     for (const [key, slot] of ctx?.slots ?? []) {
       const [owner, id] = key.split(':');
-      if (id === String(fid)) return `${auditNikkeText(owner, ctx)} · ${AUDIT_SLOT_LABELS[slot] ?? '스킬 효과'}`;
+      if (id === String(fid)) return `${auditNikkeText(owner, ctx)} · ${own(AUDIT_SLOT_LABELS, slot) ?? '스킬 효과'}`;
     }
     return null;
   };
@@ -989,11 +1057,11 @@ export async function fetchDamageLog(api, replayId, characterId, replayData, mem
         return {
           isMock: false,
           status: 'api_error',
-          error: err.message,
+          error: errorText(err),
           schemaVersion: null,
           truncated: false,
           log: null,
-          message: `서버 통신 실패: ${err.message}`
+          message: `서버 통신 실패: ${errorText(err)}`
         };
       }
     }

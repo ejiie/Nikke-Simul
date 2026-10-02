@@ -285,12 +285,87 @@ await check('non_full_charge_minimum_and_missing_terms', () => {
   partial.calculation = { ...partial.calculation, terms: partial.calculation.terms.filter(t => t.name !== 'charge') };
   const pb = adapter.buildDamageBreakdown(partial);
   assert.deepEqual(pb.missing, ['charge']); assert.equal(pb.charge.value, null);
-  assert.ok(html(partial).includes('누락된 계산 항목: charge'));
+  assert.ok(html(partial).includes('누락된 계산 항목: 차지 배율'));
   const mapped = adapter.mapServerEntryToHit(bare);
   assert.equal(mapped.audit.baseAtk, null); assert.equal(mapped.audit.chargeMultiplier, null); assert.equal(mapped.audit.statDiff, null);
   const wrong = { ...caseEntry('non_full_charge_core', 'legacy_term_floor'), damage: 1 };
   assert.equal(adapter.buildDamageBreakdown(wrong).finalMatchesStored, false);
   assert.ok(html(wrong).includes('불일치'));
+});
+
+await check('u_fix_7_audit_table_has_no_stored_keys_or_english_operations', () => {
+  const banned = /calculation\.terms|effectiveAttack|effectiveDefense|multiply|identity|native \+|floor|checked int64|float32 left|hit|terms/;
+  for (const policy of ['legacy_term_floor', 'nested_floor', 'final_round_even']) {
+    for (const name of Object.keys(fixture.cases)) {
+      const entry = caseEntry(name, policy);
+      const text = html(entry).replace(/data-term="[^"]*"/g, '');
+      const rows = text.split('<tr').filter(r => r.includes('audit-op'));
+      for (const row of rows) {
+        const plain = row.replace(/<[^>]+>/g, ' ');
+        assert.ok(!banned.test(plain), `${policy}/${name}: ${plain.slice(0, 160)}`);
+        assert.ok(!/<small class="audit-sub">[A-Za-z0-9]+<\/small>/.test(row), 'stored name subtitle');
+      }
+      assert.ok(!/calculation\.terms|\(hit 기록\)|저장된 연산/.test(text), `${policy}/${name}`);
+    }
+  }
+  const entry = caseEntry('crit_core_fullburst_distance', 'legacy_term_floor');
+  const steps = adapter.buildDamageBreakdown(entry).steps;
+  assert.ok(steps.every(s => s.description && s.operation !== undefined)); // stored operation stays in data
+  const unknown = { ...entry, calculation: { ...entry.calculation, terms: [{ name: 'weirdKey', before: 1, after: 2, operation: 'xyzzy' }] } };
+  const t = html(unknown);
+  assert.ok(!t.includes('weirdKey</') && !t.includes('xyzzy') && t.includes('기록된 계산 항목') && t.includes('저장된 연산 미확인'));
+  const bare = html({ hitId: 9, frame: 10, damage: 500, calculation: { policy: 'legacy_term_floor' }, buffs: [] });
+  assert.ok(!bare.includes('calculation.terms'));
+});
+
+await check('u_fix_7_missing_operation_is_unknown_not_guessed', () => {
+  const D = adapter.describeStepOperation;
+  assert.equal(D('final', undefined, 'final_round_even'), '저장된 연산 미확인');
+  assert.equal(D('final', '', 'legacy_term_floor'), '저장된 연산 미확인');
+  assert.equal(D('final', 'weird', 'nested_floor'), '저장된 연산 미확인');
+  assert.equal(D('final', 'floor', 'legacy_term_floor'), '내림');
+  assert.match(D('final', 'round ties-to-even; min 1', 'final_round_even'), /반올림/);
+  assert.equal(D('final', '', 'client_f32'), '저장된 연산 미확인');
+  assert.equal(D('effectiveDefense', '', 'legacy_term_floor'), '저장된 연산 미확인');
+  assert.equal(D('critical', '', 'legacy_term_floor'), '저장된 연산 미확인');
+  for (const bad of ['multiply 1.25; qa_unknown_transform', 'multiply 1.25; floor_if_qa_condition', 'multiply 1.25;floor', 'multiply 1.25; floor; x', 'multiply  1.25', 'multiply abc', 'x multiply 1.25']) {
+    for (const n of ['B3', 'B4', 'B5']) assert.equal(D(n, bad, 'nested_floor'), '저장된 연산 미확인', `${n}: ${bad}`);
+  }
+  assert.equal(D('B3', 'multiply 1.25', 'legacy_term_floor'), '× 1.25 곱함');
+  assert.equal(D('B4', 'multiply 1.25; floor', 'nested_floor'), '× 1.25 곱함 (곱한 뒤 내림)');
+  for (const n of ['effectiveAttack', 'charge', 'P', 'minimum', 'B2', 'difference', 'base', 'B', 'extra', 'reduction', 'defenceRatio', 'product', 'zzz']) {
+    assert.equal(D(n, 'weird', 'client_f32'), '저장된 연산 미확인', n); assert.equal(D(n, undefined, 'legacy_term_floor'), '저장된 연산 미확인', n);
+  }
+  assert.match(D('P', 'attackDefenseDifference * coefficient * charge', 'legacy_term_floor'), /스킬 계수/);
+  assert.equal(D('final', 'weird', 'client_f32'), '저장된 연산 미확인');
+  assert.equal(D('effectiveDefense', 'weird', 'client_f32'), '저장된 연산 미확인');
+  assert.equal(D('effectiveDefense', 'weird', 'legacy_term_floor'), '저장된 연산 미확인');
+  assert.match(D('final', 'MathF.Round AwayFromZero; max(1); checked int64', 'client_f32'), /사사오입/);
+  assert.match(D('effectiveDefense', 'true damage: 0; otherwise integer defence', 'client_f32'), /방어 무시/);
+  assert.match(D('effectiveDefense', 'ignore', 'legacy_term_floor'), /방어 무시/);
+  assert.match(D('effectiveDefense', 'identity', 'legacy_term_floor'), /그대로/);
+  assert.equal(D('B3', 'noop', 'legacy_term_floor'), '저장된 연산 미확인');
+  assert.equal(D('critical', 'floor', 'legacy_term_floor'), '기본 피해 × 보너스 비율 (내림)');
+});
+
+await check('u_fix_7_card_and_table_read_only_registered_multiply_operations', () => {
+  const variants = ['multiply 1.25; qa_unknown_transform', 'multiply 1.25; floor_if_qa_condition', 'multiply 1.25\n', 'multiply 1.25; floor\n',
+    'multiply 0x10', 'multiply 0b11', 'multiply 1e2', 'multiply  1.25', 'Multiply 1.25', 'multiply'];
+  for (const policy of ['legacy_term_floor', 'nested_floor']) {
+    for (const op of variants) {
+      const entry = caseEntry('crit_core_fullburst_distance', policy);
+      entry.calculation = { ...entry.calculation, terms: entry.calculation.terms.map(t => ['B3', 'B4', 'B5'].includes(t.name) ? { ...t, operation: op } : t) };
+      const b = adapter.buildDamageBreakdown(entry);
+      assert.ok(b.factors.every(f => f.present && f.factor === null), `${policy}: ${JSON.stringify(op)}`);
+      const text = html(entry);
+      assert.ok(text.includes('B3 × B4 × B5') && /B3 × B4 × B5<\/span>\s*<strong[^>]*>미제공</.test(text), `${policy}: ${JSON.stringify(op)} card`);
+      assert.ok(!/× 1\.25|× 16|× 3 /.test(text), `${policy}: ${JSON.stringify(op)} number leaked`);
+    }
+  }
+  const ok = caseEntry('crit_core_fullburst_distance', 'legacy_term_floor');
+  assert.ok(adapter.buildDamageBreakdown(ok).factors.every(f => f.factor !== null));
+  assert.equal(adapter.parseMultiplyOperation('multiply 1E-05').factor, 0.00001);
+  assert.equal(adapter.parseMultiplyOperation('multiply -2.5; floor').floored, true);
 });
 
 await check('html_escape', () => {

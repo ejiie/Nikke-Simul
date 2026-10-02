@@ -286,7 +286,7 @@ async def run():
                 # 5. Resume -> attempt 2.
                 await page.locator('#compute-resume').click()
                 await page.wait_for_function(
-                    "() => document.querySelector('#stats-content')?.textContent.includes('attempt 2')", timeout=20000)
+                    "() => document.querySelector('#stats-content')?.textContent.includes('시도 2회')", timeout=20000)
                 summary['states']['resumedAttempt'] = True
 
                 # 6. Restart recovery from the stored experiment id.
@@ -308,7 +308,7 @@ async def run():
                 await page.evaluate("() => document.querySelector('#compute-remeasure').click()")
                 await page.locator('#compute-start').click()
                 await page.wait_for_function(
-                    "() => document.querySelector('#stats-content')?.textContent.includes('Analysis) 미연결')", timeout=25000)
+                    "() => document.querySelector('#stats-content')?.textContent.includes('통계 모듈 미연결')", timeout=25000)
                 analysis_text = await panel_text(page)
                 if '평균 CI는 평균의 불확실성' in analysis_text:
                     problems.append('statistics claimed while analysis is not integrated')

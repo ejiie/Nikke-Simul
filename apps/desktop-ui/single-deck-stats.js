@@ -9,6 +9,7 @@
  */
 import { COND_WIRE, createConditionState, describeCombatProfileError, describeCompatibility, describePlannedConditions } from './combat-conditions.js';
 import { DEF_WIRE, describeDefensePolicy, describeSavedCombat } from './raid-conditions.js';
+import { own } from './own-lookup.js';
 import { optionLabel, reasonLabel, slotLabel } from './display-labels.js';
 
 // Character codes are never shown; names come from the deck (Korean display names).
@@ -34,7 +35,7 @@ export const DEFAULT_DURATION_FRAMES = 10800;
 export const DEFAULT_RUNS = 1000;
 export const PHASES = [['pilot', '파일럿'], ['final', '최종'], ['exploration', '탐색']];
 // Phase keys are shown by name (U-FIX-4); unknown values get a generic label, not the raw key.
-const phaseLabel = phase => ({ ...Object.fromEntries(PHASES), warmup: '예열' })[phase] ?? '기타 단계';
+const phaseLabel = phase => own({ ...Object.fromEntries(PHASES), warmup: '예열' }, phase) ?? '기타 단계';
 
 function bytes(value) {
   if (typeof value !== 'number' || !Number.isFinite(value)) return UNKNOWN;
@@ -92,7 +93,7 @@ function controlSection(model) {
         <button id="compute-resume" type="button"${batch.canResume ? '' : ' disabled'}>재개</button>
         <span class="status-pill ${batch.state === 'completed' ? 'green' : batch.state === 'failed' ? 'red' : 'neutral'}" id="compute-batch-state">${esc(batch.stateLabel)}</span>
         ${batch.partial ? '<span class="status-pill warning">부분 결과</span>' : ''}
-        ${batch.attempt !== null && batch.attempt > 1 ? `<span class="status-pill cyan">attempt ${esc(String(batch.attempt))}</span>` : ''}
+        ${batch.attempt !== null && batch.attempt > 1 ? `<span class="status-pill cyan">시도 ${esc(String(batch.attempt))}회</span>` : ''}
         ${model.recovered ? '<span class="status-pill cyan">재시작 복구</span>' : ''}
       </div>
       <progress id="compute-progress" max="1" ${batch.progress === null ? '' : `value="${batch.progress}"`}></progress>
@@ -115,7 +116,7 @@ function deviceSection(model) {
     ? hardware.devices.map(device => `
       <tr>
         <td>${esc(device.name ?? UNKNOWN)}<br><small class="compute-sub">${esc(device.vendor ?? UNKNOWN)} · ${esc(device.id ?? 'ID 미확인')}</small></td>
-        <td>${esc(device.backend ?? UNKNOWN)}<br><small class="compute-sub">driver ${esc(device.driver ?? UNKNOWN)}</small></td>
+        <td>${esc(device.backend === 'gpu' ? 'GPU' : device.backend === 'cpu' ? 'CPU' : device.backend ? '기타 장치' : UNKNOWN)}<br><small class="compute-sub">드라이버 ${esc(device.driver ?? UNKNOWN)}</small></td>
         <td>${device.stages.map(s => `${esc(s.label)} ${esc(s.statusLabel)}`).join('<br>')}</td>
         <td>${device.usable ? '<span class="pill-badge green">사용 가능</span>' : '<span class="pill-badge gray">사용 불가</span>'}
           ${device.reason ? `<br><small class="compute-sub">${esc(reasonLabel(device.reason))}</small>` : ''}</td>
@@ -234,7 +235,7 @@ function olSection(model) {
         ${metricCard('판정', ol.verdictLabel, ol.verdict === 'undetermined' ? 'CI가 0을 포함' : '')}
         ${metricCard('기준 실험', ol.baselineExperimentId ?? UNKNOWN, ol.candidateExperimentId ? `후보 ${ol.candidateExperimentId}` : '')}
       </div>
-      ${ol.verdictConflict ? `<p class="compute-warning">응답 판정(${esc(ol.reportedVerdict ?? UNKNOWN)})이 신뢰구간과 맞지 않아 우열 미확정으로 표시합니다.</p>` : ''}
+      ${ol.verdictConflict ? `<p class="compute-warning">응답 판정(${esc(ol.reportedVerdict === 'improve' ? '개선' : ol.reportedVerdict === 'regress' ? '악화' : UNKNOWN)})이 신뢰구간과 맞지 않아 우열 미확정으로 표시합니다.</p>` : ''}
       <div class="table-scroll">
         <table class="compute-ol-table">
           <thead><tr><th>니케</th><th>부위·줄</th><th>옵션·수치</th></tr></thead>

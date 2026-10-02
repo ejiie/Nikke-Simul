@@ -10,6 +10,9 @@
  * truth, so a CPU run is never presented as a GPU success.
  */
 
+import { errorText, koreanText } from './display-labels.js';
+import { own } from './own-lookup.js';
+
 export const COMPUTE_CONTRACT_VERSION = 'backend-v1-f2327e5';
 
 export const COMPUTE_ROUTES = {
@@ -75,7 +78,7 @@ const STAGE_LABELS = {
 const stageLabel = value => {
   const key = text(value);
   if (!key) return UNKNOWN;
-  return STAGE_LABELS[key] ?? `상태 ${key}`;
+  return own(STAGE_LABELS, key) ?? '상태 미확인';
 };
 
 /**
@@ -114,7 +117,7 @@ export function describeHardwareProfile(profile) {
     };
   });
   const probeFailures = (Array.isArray(profile.probeFailures) ? profile.probeFailures : [])
-    .map(f => text(f)).filter(Boolean);
+    .map(f => text(f)).filter(Boolean).map(f => koreanText(f, '장치 탐지 중 일부 항목이 실패했습니다.'));
   const statusLabel = probeFailures.length ? '탐지 일부 실패'
     : devices.length === 0 ? 'GPU 없음 · CPU만 탐지'
     : devices.some(d => d.usable) ? '탐지 완료' : '탐지 완료 · 사용 가능 GPU 없음';
@@ -143,7 +146,7 @@ export function describeExecutionSelection(selection) {
   }
   const requested = text(selection.requested);
   const backend = text(selection.backend);
-  const label = value => value === 'cpu' ? 'CPU' : value === 'gpu' ? 'GPU' : value ? `기타 (${value})` : UNKNOWN;
+  const label = value => value === 'cpu' ? 'CPU' : value === 'gpu' ? 'GPU' : value ? '기타 장치' : UNKNOWN;
   const fallbackReason = text(selection.fallbackReason);
   return {
     present: true,
@@ -225,7 +228,7 @@ export function describeBatch(batch) {
     present: true,
     id: text(batch.id),
     state,
-    stateLabel: BATCH_STATES[state] ?? (state ? `상태 ${state}` : UNKNOWN),
+    stateLabel: own(BATCH_STATES, state) ?? (state ? '상태 미확인' : UNKNOWN),
     counts,
     progress: counts.requested && counts.requested > 0 && isFiniteNumber(counts.valid)
       ? Math.min(1, counts.valid / counts.requested) : null,
@@ -246,16 +249,16 @@ export function describeComputeError(code) {
   const key = text(code);
   if (!key) return null;
   const known = {
-    analysis_not_integrated: '통계 모듈(Analysis) 미연결 · 집계를 제공할 수 없습니다.',
+    analysis_not_integrated: '통계 모듈 미연결 · 집계를 제공할 수 없습니다.',
     gpu_unavailable: 'GPU 사용 불가 · 강제 GPU 요청은 실행 전에 거부됩니다.',
     stale_tactic: '저장된 버스트 전술이 현재 스냅샷·편성과 달라 거부되었습니다.',
     engine_or_rules_version_changed: '엔진·규칙 버전이 바뀐 이전 실험은 재개할 수 없습니다 · 결과 조회만 가능',
     prepared_input_fingerprint_mismatch: '저장된 준비 입력의 fingerprint가 일치하지 않아 재개를 거부했습니다.',
-    baseline_input_mismatch: '기준 실험과 snapshot·5인 순서·조건·phase·정책·hitOverrides가 달라 비교할 수 없습니다.',
-    warmup_excluded_from_statistics: 'warmup 실험은 통계 표본에서 제외됩니다.',
-    baseline_required: '비교 기준 없음 · 이 실험은 baselineExperimentId 없이 실행되어 OL 비교 대상이 아닙니다.'
+    baseline_input_mismatch: '기준 실험과 스냅샷·5인 순서·조건·단계·정책·타격 보정이 달라 비교할 수 없습니다.',
+    warmup_excluded_from_statistics: '예열 실험은 통계 표본에서 제외됩니다.',
+    baseline_required: '비교 기준 없음 · 이 실험은 기준 실험 없이 실행되어 OL 비교 대상이 아닙니다.'
   };
-  return known[key] ?? `오류 코드 ${key}`;
+  return own(known, key) ?? '알 수 없는 오류로 실패했습니다.';
 }
 
 const CONTRACT_ERROR_CODES = ['analysis_not_integrated', 'gpu_unavailable', 'saved_tactic_stale', 'engine_or_rules_version_changed',
@@ -267,8 +270,8 @@ const CONTRACT_ERROR_CODES = ['analysis_not_integrated', 'gpu_unavailable', 'sav
  */
 export function classifyApiFailure(error) {
   const status = Number.isInteger(error?.status) ? error.status : null;
-  const message = error?.message ?? String(error);  // screen text (Korean)
-  const code = text(error?.code) ?? contractErrorCode(error?.serverMessage ?? message);
+  const message = errorText(error);  // screen text (Korean); transport/English texts become generic
+  const code = text(error?.code) ?? contractErrorCode(error?.serverMessage ?? error?.message ?? String(error));
   const reachable = status !== null && status >= 400 && status < 500;
   return { status, message, code, reachable, outage: !reachable };
 }
@@ -298,7 +301,7 @@ export function describeMetricStatistics(metrics, { label = null } = {}) {
   const sampleNote = n === 0 ? '표본 없음' : n === 1 ? '표본 1건 · 산포/신뢰구간 없음' : null;
   // Contract: "n=0/1의 불명값은 null" — support is per field. A reason never hides a value the API supplied;
   // it explains only null fields, and only the fields its scope names (unknown reasons: every null field).
-  const scope = unsupportedReason ? REASON_SCOPE[unsupportedReason] ?? null : null;
+  const scope = unsupportedReason ? own(REASON_SCOPE, unsupportedReason) ?? null : null;
   const covered = field => Boolean(unsupportedReason) && (scope === null || scope.includes(field));
   const value = (field, options = {}) => isFiniteNumber(metrics?.[field]) ? metricValue(metrics[field], options)
     : metricValue(null, { ...options, unsupported: covered(field) });
@@ -336,7 +339,7 @@ const REASON_TEXT = { mean_ci_requires_n_at_least_2: '평균 CI·표본 표준�
 export function describeUnsupportedReason(reason) {
   const key = text(reason);
   // U-FIX-6: Korean only; unknown reason codes are not shown raw.
-  return key ? REASON_TEXT[key] ?? '일부 통계 지표를 제공하지 않습니다' : null;
+  return key ? own(REASON_TEXT, key) ?? '일부 통계 지표를 제공하지 않습니다' : null;
 }
 
 /**

@@ -8,8 +8,9 @@ import { toServerTacticDto } from './damage-log-adapter.js';
 import { createSingleDeckStatsView } from './single-deck-stats.js';
 import { defaultPolicy, policyOptions } from './hit-policy.js';
 import { COND_WIRE, conditionWire, describeCombatProfileError, describeCompatibility, mountConditionControls } from './combat-conditions.js';
-import { friendlyServerMessage, slotLabel } from './display-labels.js';
+import { describeChange, errorText, friendlyServerMessage, koreanText, slotLabel } from './display-labels.js';
 import { BOSS_WIRE, DEF_WIRE, DEFAULT_CRIT_MODE, DURATION_FRAMES, PELLET_POLICY, conditionsNote, critOptionsHtml, defenseFields, describeDefenseResult, describeSavedCombat, mountBossSelector } from './raid-conditions.js';
+import { own } from './own-lookup.js';
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -96,7 +97,7 @@ async function api(path,method='GET',body){
   // status marks an HTTP answer; a rejected fetch (transport failure) carries none.
   // U-FIX-6: the Error message is Korean screen text; the server text stays in serverMessage/details for logic only.
   if(!response.ok)throw Object.assign(new Error(data.message?friendlyServerMessage(data.message,response.status):`요청 실패 (${response.status})`),
-    {status:response.status,code:data.code??null,details:data,serverMessage:data.message??null});
+    {display:true,status:response.status,code:data.code??null,details:data,serverMessage:data.message??null});
   return data;
 }
 Object.defineProperty(api,'token',{get:()=>boot.token,configurable:true});
@@ -104,7 +105,7 @@ api.getToken=()=>boot.token;
 function status(message){$('status').textContent=message;}
 async function act(action){
   if(busy)return;busy=true;renderSync();
-  try{await action();}catch(error){status(error.message);}
+  try{await action();}catch(error){status(errorText(error));}
   finally{busy=false;await refresh(true);}
 }
 function setPage(tab){
@@ -153,40 +154,40 @@ async function refresh(force=false){
       if(accountChanged){detailSequence++;state.selectedNikkeUid=null;$('nikke-detail').hidden=true;$('nikke-browser').hidden=false;}
       state.currentProfile={values:(snapshot?.characters??[]).map(c=>({fieldCode:'character_level',subjectUid:c.characterId}))};
       includeSavedCharacters();renderNikkeCards();renderAccount();renderDiagnostics();
-      try{await formation.load();}catch(error){status(`편성을 불러오지 못했습니다. ${error.message}`);}
+      try{await formation.load();}catch(error){status(`편성을 불러오지 못했습니다. ${errorText(error)}`);}
       formation.render();
       if(state.selectedNikkeUid&&!$('nikke-detail').hidden&&!detailDirty())await openNikkeDetail(state.selectedNikkeUid,false);
       try{await tacticsManager.syncFromServer();}catch(error){}
       if(selectedPage==='raid'){tacticsManager.render('burst-tactics-container');}
     }else{
-      try{await formation.load();}catch(error){status(`편성을 불러오지 못했습니다. ${error.message}`);}
+      try{await formation.load();}catch(error){status(`편성을 불러오지 못했습니다. ${errorText(error)}`);}
     }
     renderAccounts();renderSync();
     const update=await api('/presentation/status');
     if(update.status!==imageStatus||update.revision!==imageRevision){
       imageStatus=update.status;imageRevision=update.revision;
-      if(imageStatus!=='idle')status(update.message);
+      if(imageStatus!=='idle')status(imageMessage(update));
       if(['succeeded','partial'].includes(imageStatus)){await loadPresentation();renderNikkeCards();formation.render();renderDiagnostics();}
     }
     document.body.dataset.ready='true';
-  }catch(error){status(error.message);}finally{refreshing=false;}
+  }catch(error){status(errorText(error));}finally{refreshing=false;}
 }
 function renderAccounts(){
   const current=connection();
   $('top-account-name').textContent=current?(current.nickname?.trim()||'닉네임 미수집'):'계정을 연결하세요';
   $('top-account-detail').textContent=current?.choices.find(c=>c.area===current.area)?.label??'로컬 전용';
-  $('account-list').innerHTML=boot.connections.length?boot.connections.map(c=>`<li><button type="button" class="account-card ${c.id===current?.id?'selected':''}" data-connection="${esc(c.id)}">${accountAvatar(c)}<span><strong>${esc(c.nickname?.trim()||'닉네임 미수집')} · ${esc(c.choices.find(a=>a.area===c.area)?.label??'연결 중')}</strong><small>${c.id===current?.id&&snapshot?`보유 ${snapshot.characters.length}명 · 싱크로 Lv. ${num(snapshot.synchroLevel)}`:esc(c.message??'저장된 스펙 열기')}</small></span><span class="status-pill neutral">${c.id===current?.id?'선택됨':'선택'}</span></button></li>`).join(''):'<li class="surface empty-state">아직 연결된 계정이 없습니다. 계정 가져오기에서 블라블라에 로그인하세요.</li>';
+  $('account-list').innerHTML=boot.connections.length?boot.connections.map(c=>`<li><button type="button" class="account-card ${c.id===current?.id?'selected':''}" data-connection="${esc(c.id)}">${accountAvatar(c)}<span><strong>${esc(c.nickname?.trim()||'닉네임 미수집')} · ${esc(c.choices.find(a=>a.area===c.area)?.label??'연결 중')}</strong><small>${c.id===current?.id&&snapshot?`보유 ${snapshot.characters.length}명 · 싱크로 Lv. ${num(snapshot.synchroLevel)}`:esc(koreanText(c.message,'저장된 스펙 열기'))}</small></span><span class="status-pill neutral">${c.id===current?.id?'선택됨':'선택'}</span></button></li>`).join(''):'<li class="surface empty-state">아직 연결된 계정이 없습니다. 계정 가져오기에서 블라블라에 로그인하세요.</li>';
   $('account-list').querySelectorAll('[data-connection]').forEach(b=>b.onclick=()=>act(async()=>{connectionId=b.dataset.connection;localStorage.setItem('nikke-sync-connection',connectionId);}));
 }
 function renderSync(){
   const c=connection(),j=job();
-  const failure=boot.connectionFailure?`<p role="alert">${esc(boot.connectionFailure.message)}</p>`:'';
+  const failure=boot.connectionFailure?`<p role="alert">${esc(koreanText(boot.connectionFailure.message,'계정 연결에 실패했습니다.'))}</p>`:'';
   let content='<p>처음 한 번 로그인하면 수집 → 정제 → 저장이 자동으로 진행됩니다.</p>';
-  if(c?.status==='awaiting_login')content=`<p role="status">${esc(c.message??'열린 브라우저에서 로그인하세요.')}</p>`;
+  if(c?.status==='awaiting_login')content=`<p role="status">${esc(koreanText(c.message,'열린 브라우저에서 로그인하세요.'))}</p>`;
   else if(c?.status==='select_account')content=`<p>사용할 서버를 선택하세요.</p><div class="action-row">${c.choices.map(a=>`<button data-area="${a.area}">${esc(a.label)} · ${a.characterCount}명</button>`).join('')}</div>`;
-  else if(c?.status==='reauth_required')content=`<p>${esc(c.message)}</p><button id="reauth" class="primary">다시 로그인</button>`;
+  else if(c?.status==='reauth_required')content=`<p>${esc(koreanText(c.message,'다시 로그인해야 합니다.'))}</p><button id="reauth" class="primary">다시 로그인</button>`;
   else if(active(j))content=`<p>${j.stage==='validating'?'정제·검증 중':'스펙 수집 중'} · ${j.collected} / ${j.expected||'확인 중'}명</p><progress value="${j.collected}" max="${j.expected||1}"></progress><button id="cancel-sync">수집 취소</button>`;
-  else if(j&&j.status!=='succeeded')content=`<p>${esc(j.message??'수집이 중단되었습니다. 다시 시도하세요.')}</p>`;
+  else if(j&&j.status!=='succeeded')content=`<p>${esc(koreanText(j.message,'수집이 중단되었습니다. 다시 시도하세요.'))}</p>`;
   else if(snapshot)content=`<p>마지막 수집 ${time(snapshot.observedAt)} · 저장 이력 ${snapshot.revision}회 · ${snapshot.characters.length}명</p>`;
   $('import-content').innerHTML=`<div class="section-heading"><div><p class="eyebrow">ACCOUNT SYNC</p><h2>계정 가져오기</h2><p>블라블라 계정의 육성 현황을 이 PC에 저장합니다.</p></div></div><article class="surface"><div class="action-row"><button id="connect" class="primary" ${busy||c?.status==='awaiting_login'?'disabled':''}>${c?'다른 계정 연결':'블라블라 계정 연결'}</button><button id="sync" ${busy||c?.status!=='ready'||active(j)?'disabled':''}>내 스펙 동기화</button></div>${failure}${content}</article><article class="surface"><h3>캐릭터·분류 이미지</h3><p>출처: 블라블라 · 저장된 이미지는 오프라인에서도 표시됩니다.</p><button id="refresh-images" ${imageStatus==='running'?'disabled':''}>${imageStatus==='running'?'이미지 수집 중…':'블라블라 이미지 갱신'}</button></article>`;
   $('connect').onclick=()=>act(async()=>{const c=await api('/connections','POST');connectionId=c.id;});
@@ -194,7 +195,7 @@ function renderSync(){
   if($('reauth'))$('reauth').onclick=()=>act(()=>api(`/connections/${c.id}/reauth`,'POST'));
   if($('cancel-sync'))$('cancel-sync').onclick=()=>act(()=>api(`/sync-jobs/${j.id}/cancel`,'POST'));
   document.querySelectorAll('[data-area]').forEach(b=>b.onclick=()=>act(()=>api(`/connections/${c.id}`,'PATCH',{area:Number(b.dataset.area)})));
-  $('refresh-images').onclick=()=>act(async()=>{const result=await api('/presentation/refresh','POST');imageStatus=result.status;status(result.message);});
+  $('refresh-images').onclick=()=>act(async()=>{const result=await api('/presentation/refresh','POST');imageStatus=result.status;status(imageMessage(result));});
 }
 function renderAccount(){
   const target=$('account-content');
@@ -223,7 +224,7 @@ async function openNikkeDetail(id,scroll=true){
       previewTimer=setTimeout(async()=>{
         try{const report=await api(`/accounts/${account}/characters/${id}/preview`,'POST',{expectedSnapshotId:expected,build:draft});
           if(sequence===detailSequence)updateDetailReport(report,revision);
-        }catch(error){if(sequence===detailSequence){detailPreviewFailed(error.message,revision);status(error.message);}}
+        }catch(error){if(sequence===detailSequence){detailPreviewFailed(errorText(error),revision);status(errorText(error));}}
       },200);
     },
     onSave:async draft=>{
@@ -236,7 +237,7 @@ async function openNikkeDetail(id,scroll=true){
     try{
       const report=await api(`/snapshots/${snapshot.id}/characters/${id}/stats`);
       if(sequence===detailSequence)renderLocalLabDetail(c,item,state.combatPowerByCharacter.get(id),report,state.presentation,handlers);
-    }catch(error){if(sequence===detailSequence){renderLocalLabDetail(c,item,state.combatPowerByCharacter.get(id),null,state.presentation,handlers);detailPreviewFailed(error.message,0);status(error.message);}}
+    }catch(error){if(sequence===detailSequence){renderLocalLabDetail(c,item,state.combatPowerByCharacter.get(id),null,state.presentation,handlers);detailPreviewFailed(errorText(error),0);status(errorText(error));}}
   }else renderLocalLabDetail(null,item);
 
 }
@@ -246,9 +247,12 @@ formation.render=()=>{
   tacticsManager.render('burst-tactics-container');
 };
 
+const IMAGE_STATUS_TEXT={running:'이미지 및 카탈로그 준비 중',succeeded:'이미지 및 카탈로그 준비 완료',partial:'이미지 갱신 중 일부 항목을 처리하지 못했습니다.',failed:'이미지 갱신에 실패했습니다.',stopped:'백엔드가 종료 중입니다.'};
+const imageMessage=update=>koreanText(update?.message,own(IMAGE_STATUS_TEXT, update?.status)??'이미지 갱신 상태가 바뀌었습니다.');
 function renderDiagnostics(){
+  const knownNames=new Set([...state.presentationByCharacter.values()].map(p=>p?.displayName).filter(Boolean));
   const issues=(snapshot?.issues??[]).filter(i=>i.code!=='duplicate_identical');
-  $('advanced-content').innerHTML=`<div class="section-heading"><div><h2>고급 진단</h2><p>누락된 스펙과 저장 출처를 확인합니다.</p></div></div><article class="surface"><h3>수집 확인</h3>${issues.length?`<ul>${issues.map(i=>`<li data-issue-path="${esc(i.path)}">${esc(i.message)}</li>`).join('')}</ul>`:'<p>검토할 항목이 없습니다.</p>'}</article><article class="surface"><h3>최근 변경</h3><ul>${(snapshot?.changes??[]).slice(0,30).map(v=>`<li>${esc(String(v).replace(/: (head|torso|arms?|legs?) 장비/,(_,k)=>`: ${slotLabel(k)} 장비`))}</li>`).join('')}</ul></article><article class="surface"><h3>이미지 출처</h3><p>이미지: 블라블라 및 사용자 제공 ZIP</p><p>캐릭터 ${state.presentation.characters.length}명 · ZIP 연결 ${state.presentation.importedPortraits??0}명 · 미수집 ${state.presentation.unresolved?.length??0}개</p></article>`;
+  $('advanced-content').innerHTML=`<div class="section-heading"><div><h2>고급 진단</h2><p>누락된 스펙과 저장 출처를 확인합니다.</p></div></div><article class="surface"><h3>수집 확인</h3>${issues.length?`<ul>${issues.map(i=>`<li data-issue-path="${esc(i.path)}">${esc(koreanText(i.message,'수집 값을 확인해야 합니다.'))}</li>`).join('')}</ul>`:'<p>검토할 항목이 없습니다.</p>'}</article><article class="surface"><h3>최근 변경</h3><ul>${(snapshot?.changes??[]).slice(0,30).map(v=>`<li>${esc(describeChange(v,knownNames))}</li>`).join('')}</ul></article><article class="surface"><h3>이미지 출처</h3><p>이미지: 블라블라 및 사용자 제공 ZIP</p><p>캐릭터 ${state.presentation.characters.length}명 · ZIP 연결 ${state.presentation.importedPortraits??0}명 · 미수집 ${state.presentation.unresolved?.length??0}개</p></article>`;
 }
 // R4: the fixed-DEF select stays only until the automatic switch wire is confirmed.
 const DEF_SELECT=()=>DEF_WIRE.confirmed?'':'<label>적 방어력<select name="defense"><option value="30925">30,925 · 누적 20억 전</option><option value="31784">31,784 · 누적 20억 후</option></select></label>';
@@ -318,7 +322,7 @@ function renderRaid(){
       // Server data problems (combat profiles) get a Korean diagnostic; other errors keep the server message.
       const profile=typeof describeCombatProfileError==='function'?describeCombatProfileError(error,new Map(getMembersWithMeta().map(m=>[m.id,m.displayName]))):null;
       if(profile)$('replay-result').innerHTML=`<p class="compute-warning" data-profile-error="${esc(profile.code)}">${esc(profile.text)}</p>`;
-      else $('replay-result').textContent=error.message;
+      else $('replay-result').textContent=errorText(error);
     }
     finally{$('run-replay').disabled=false;}
   };
@@ -353,8 +357,9 @@ function renderBurstSummary(team){
   const name=id=>esc(state.presentationByCharacter.get(id)?.displayName??build(id)?.name??(id?'이름 미확인':'—'));
   const seconds=frame=>num(frame/60);
   const reasons={missing_stage_1:'버스트 I 니케 없음',missing_stage_2:'버스트 II 니케 없음',missing_stage_3:'버스트 III 니케 없음',cooldown_stage_1:'버스트 I 쿨다운 대기',cooldown_stage_2:'버스트 II 쿨다운 대기',cooldown_stage_3:'버스트 III 쿨다운 대기'};
+  const reasonText=key=>own(reasons, key)??'대기 사유 미확인';
   const events=team.timeline.filter(e=>['burst_cast','waiting','stage_expired'].includes(e.kind));
-  return `<section class="surface"><h3>자동 버스트 사이클</h3><p>풀버스트 ${num(team.fullBursts.length)}회 · 유지 ${seconds(team.fullBurstFrames)}초${team.waitingReason?' · '+esc(reasons[team.waitingReason]??team.waitingReason):''}</p><div class="table-scroll"><table><thead><tr><th>회차</th><th>버스트 III</th><th>풀버스트 진입</th><th>종료</th><th>구간 대미지</th></tr></thead><tbody>${team.fullBursts.map(w=>`<tr><td>${w.cycle}</td><td>${name(w.caster)}</td><td>${seconds(w.startFrame)}초</td><td>${w.endFrame===null?'진행 중 (예정 '+seconds(w.plannedEndFrame)+'초)':seconds(w.endFrame)+'초'}</td><td>${num(Object.values(w.memberDamage).reduce((sum,v)=>sum+v,0))}</td></tr>`).join('')}</tbody></table></div><details><summary>충전 기여·시전·대기 기록</summary><p>${Object.entries(team.acceptedGaugeByMember).map(([id,value])=>name(id)+' '+num(value/team.sourceConstants.capacityRaw*100)+'%').join(' · ')}</p><p class="microcopy">충전 기여는 전투 전체에서 실제 게이지에 반영된 누적량입니다.</p><div class="table-scroll"><table><thead><tr><th>시각</th><th>단계</th><th>동작</th><th>니케</th><th>쿨다운 종료</th></tr></thead><tbody>${events.map(e=>`<tr><td>${seconds(e.frame)}초</td><td>${['충전','I','II','III','풀버스트'][e.step]}</td><td>${e.kind==='burst_cast'?'시전':e.kind==='stage_expired'?'단계 대기 만료':esc(reasons[e.reason]??e.reason)}</td><td>${name(e.characterId)}</td><td>${e.readyAtFrame===null?'—':seconds(e.readyAtFrame)+'초'}</td></tr>`).join('')}</tbody></table></div>${team.timelineTruncated?'<p>상세 기록 상한 도달 · 사이클 합계는 전체 전투 기준입니다.</p>':''}</details></section>`;
+  return `<section class="surface"><h3>자동 버스트 사이클</h3><p>풀버스트 ${num(team.fullBursts.length)}회 · 유지 ${seconds(team.fullBurstFrames)}초${team.waitingReason?' · '+esc(reasonText(team.waitingReason)):''}</p><div class="table-scroll"><table><thead><tr><th>회차</th><th>버스트 III</th><th>풀버스트 진입</th><th>종료</th><th>구간 대미지</th></tr></thead><tbody>${team.fullBursts.map(w=>`<tr><td>${w.cycle}</td><td>${name(w.caster)}</td><td>${seconds(w.startFrame)}초</td><td>${w.endFrame===null?'진행 중 (예정 '+seconds(w.plannedEndFrame)+'초)':seconds(w.endFrame)+'초'}</td><td>${num(Object.values(w.memberDamage).reduce((sum,v)=>sum+v,0))}</td></tr>`).join('')}</tbody></table></div><details><summary>충전 기여·시전·대기 기록</summary><p>${Object.entries(team.acceptedGaugeByMember).map(([id,value])=>name(id)+' '+num(value/team.sourceConstants.capacityRaw*100)+'%').join(' · ')}</p><p class="microcopy">충전 기여는 전투 전체에서 실제 게이지에 반영된 누적량입니다.</p><div class="table-scroll"><table><thead><tr><th>시각</th><th>단계</th><th>동작</th><th>니케</th><th>쿨다운 종료</th></tr></thead><tbody>${events.map(e=>`<tr><td>${seconds(e.frame)}초</td><td>${['충전','I','II','III','풀버스트'][e.step]}</td><td>${e.kind==='burst_cast'?'시전':e.kind==='stage_expired'?'단계 대기 만료':esc(reasonText(e.reason))}</td><td>${name(e.characterId)}</td><td>${e.readyAtFrame===null?'—':seconds(e.readyAtFrame)+'초'}</td></tr>`).join('')}</tbody></table></div>${team.timelineTruncated?'<p>상세 기록 상한 도달 · 사이클 합계는 전체 전투 기준입니다.</p>':''}</details></section>`;
 }
 function effectLabel(saved,id,effect,index){
   if(effect==='normal_attack')return '평타';
@@ -362,7 +367,7 @@ function effectLabel(saved,id,effect,index){
   const slots=saved.inputs?.find(input=>input?.weapon?.characterId===id)?.skills?.slots??{};
   for(const [slot,definition] of Object.entries(slots)){
     if(kind==='skill'&&definition.skillId===effectId||kind==='function'&&definition.functionIds.includes(effectId))
-      return ({skill1:'스킬 1',skill2:'스킬 2',burst:'버스트'}[slot]??'스킬')+(mode==='weapon'?' 중 평타':' 대미지');
+      return (own({skill1:'스킬 1',skill2:'스킬 2',burst:'버스트'},slot)??'스킬')+(mode==='weapon'?' 중 평타':' 대미지');
   }
   return `추가 효과 ${index+1}`;
 }
@@ -375,5 +380,5 @@ document.querySelectorAll('[id^="nikke-filter-"]').forEach(s=>s.onchange=()=>ren
 document.querySelectorAll('[data-filter-select]').forEach(b=>b.onclick=()=>{const id=b.dataset.filterSelect;$(id).value=b.dataset.filterValue;document.querySelectorAll(`[data-filter-select="${id}"]`).forEach(x=>x.setAttribute('aria-pressed',String(x===b)));renderNikkeCards();});
 $('nikke-detail-back').onclick=()=>{setPage(detailOrigin.page);formation.render();window.scrollTo({top:detailOrigin.scroll,behavior:'instant'});};
 document.querySelectorAll('[data-detail-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-detail-tab]').forEach(x=>x.setAttribute('aria-selected',String(x===b)));document.querySelectorAll('[data-detail-pane]').forEach(p=>p.hidden=p.dataset.detailPane!==b.dataset.detailTab);});
-try{await loadPresentation();renderRaid();await refresh(true);if(!boot.connections.length)setPage('import');}catch(error){status(error.message);}
+try{await loadPresentation();renderRaid();await refresh(true);if(!boot.connections.length)setPage('import');}catch(error){status(errorText(error));}
 setInterval(()=>refresh(),2000);

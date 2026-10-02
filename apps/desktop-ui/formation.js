@@ -1,4 +1,6 @@
+import { errorText } from './display-labels.js';
 import { appendPortrait } from './cards.js';
+import { own } from './own-lookup.js';
 
 const $ = id => document.getElementById(id);
 const empty = () => Array(5).fill(null);
@@ -39,10 +41,10 @@ export function createFormation({ api, getSnapshot, getItem, getBuild, status, s
             img.className = `formation-icon formation-${kind}`; button.append(img);
           }
         };
-        icon('weapon', weapons[item?.weaponCode] && `weapon-${item.weaponCode}`, weapons[item?.weaponCode], true);
-        const burst = { 1: '1', 2: '2', 3: '3', 5: 'p' }[item?.burstStep];
+        icon('weapon', own(weapons, item?.weaponCode) && `weapon-${item.weaponCode}`, own(weapons, item?.weaponCode), true);
+        const burst = own({ 1: '1', 2: '2', 3: '3', 5: 'p' }, item?.burstStep);
         icon('burst', burst && `burst-${burst}`, `버스트 ${burst?.toUpperCase()}`, true);
-        icon('element', elements[item?.elementCode] && `code-${item.elementCode}`, elements[item?.elementCode]);
+        icon('element', own(elements, item?.elementCode) && `code-${item.elementCode}`, own(elements, item?.elementCode));
         const growth = document.createElement('span'); growth.className = 'formation-growth';
         const limit = build?.core > 0 ? 3 : build?.limitBreak ?? 0;
         growth.setAttribute('aria-label', `돌파 ${limit} · 코어 강화 ${build?.core ?? 0}`);
@@ -82,7 +84,7 @@ export function createFormation({ api, getSnapshot, getItem, getBuild, status, s
       const result = await api(`/accounts/${account}/formation`, 'PUT', { slots: [...draft] });
       if (expected !== generation) return;
       saved = [...result.slots]; draft = [...saved]; showRaid(); status('편성을 저장했습니다.');
-    } catch (error) { if (expected === generation) status(error.message); }
+    } catch (error) { if (expected === generation) status(errorText(error)); }
     finally { if (expected === generation) { saving = false; render(); renderCards(); } }
   };
   $('formation-cancel').onclick = () => { draft = [...saved]; showRaid(); render(); };

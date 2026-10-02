@@ -19,6 +19,8 @@
  * `confirmed: false` reproduces the pre-wire form (old checkboxes) for comparison tests only.
  */
 
+import { errorText as friendlyError, isRegisteredMessage } from './display-labels.js';
+import { own } from './own-lookup.js';
 export const COND_WIRE = Object.freeze({
   confirmed: true,
   catalogRoute: '/runtime/combat-conditions',
@@ -96,14 +98,14 @@ export function normalizeCatalog(payload) {
   const weaponRanges = rows.filter(r => r && typeof r.weaponType === 'string').map(r => {
     const ranges = (Array.isArray(r.ranges) ? r.ranges : []).filter(x => x && isInt(x.min) && isInt(x.max))
       .map(x => ({ min: x.min, max: x.max, count: isInt(x.count) ? x.count : null, isTypical: x.isTypical === true }));
-    return { weaponType: r.weaponType, label: WEAPON_LABELS[r.weaponType] ?? r.weaponType,
+    return { weaponType: r.weaponType, label: own(WEAPON_LABELS, r.weaponType) ?? '무기군 미확인',
       characterCount: isInt(r.characterCount) ? r.characterCount : null,
       typical: ranges.find(x => x.isTypical) ?? null, ranges,
       exceptions: (Array.isArray(r.exceptions) ? r.exceptions : []).map(normalizeProfile).filter(Boolean),
       rangeBonusAvailable: typeof r.rangeBonusAvailable === 'boolean' ? r.rangeBonusAvailable : null,
       diagnostics: (Array.isArray(r.diagnostics) ? r.diagnostics : []).map(String) };
   }).sort((a, b) => (WEAPON_ORDER.indexOf(a.weaponType) + 1 || 99) - (WEAPON_ORDER.indexOf(b.weaponType) + 1 || 99));
-  const icons = {};
+  const icons = Object.create(null); // data keys can never reach Object.prototype
   for (const e of Array.isArray(payload?.elements) ? payload.elements : []) {
     const element = elementByCode(e?.value);
     if (element && text(e.iconUrl)) icons[element.code] = e.iconUrl;
@@ -128,7 +130,7 @@ export function memberPreview(members, profiles, state) {
     const element = profile?.element ?? elementByCode(m.elementCode)?.code ?? null;
     return {
       id: m.id, name: m.displayName ?? '이름 미확인',
-      weaponType: profile?.weaponType ?? PRESENTATION_WEAPONS[m.weaponCode] ?? null,
+      weaponType: profile?.weaponType ?? own(PRESENTATION_WEAPONS, m.weaponCode) ?? null,
       distance: rangeStatus(profile, state.bossDistance),
       element,
       elementMatch: element === null ? null : state.bossWeakElement !== null && element === state.bossWeakElement
@@ -148,7 +150,8 @@ export function conditionWire(state, confirmed = COND_WIRE.confirmed) {
  */
 export function describeCompatibility(compat) {
   if (!compat || typeof compat !== 'object' || !text(compat.mode)) return { mode: 'unknown', text: '전투 조건 모드 기록 없음' };
-  const label = text(compat.label);
+  // Stored label text is shown only when it is a registered server text.
+  const label = isRegisteredMessage(text(compat.label)) ? text(compat.label) : null;
   if (compat.mode === 'per_member') {
     const state = createConditionState(compat);
     return { mode: 'per_member', label, text: `${label ?? '보스 거리·약점(멤버별)'} · 보스 거리 ${distanceSummary(state)} · 약점 ${elementSummary(state)}` };
@@ -157,7 +160,7 @@ export function describeCompatibility(compat) {
     const on = v => v === true ? '적용' : v === false ? '미적용' : '기록 없음';
     return { mode: 'legacy', label, text: `${label ?? '이전 방식(전원 적용)'} · 적정 거리 ${on(compat.legacyProperDistance)} · 우월 코드 ${on(compat.legacyElementAdvantage)}` };
   }
-  return { mode: 'unknown', label, text: `${label ?? '알 수 없는 조건 모드'} (${compat.mode})` };
+  return { mode: 'unknown', label, text: label ?? '알 수 없는 조건 모드' };
 }
 
 /** Summary of the conditions the form will send (statistics screen, before a batch exists). */
@@ -166,7 +169,7 @@ export function describePlannedConditions(state) {
 }
 
 const defaultIcon = code => `/editor/assets/ui/code-${code}.png`;
-const iconFor = (catalog, code) => catalog?.icons?.[code] ?? defaultIcon(code);
+const iconFor = (catalog, code) => own(catalog?.icons, code) ?? defaultIcon(code);
 
 export function renderConditionControls(state, { legacy = null, catalog = null } = {}) {
   const element = elementByCode(state.bossWeakElement);
@@ -185,12 +188,12 @@ export function renderDistanceDialog(state, catalog, preview, { error = null, me
     ? '0–0 · 보너스 없음' : r.typical ? `${r.typical.min}–${r.typical.max}` : '미확인';
   // Character codes are not shown; the Korean display name comes from the app's character data.
   const exceptionText = x => `${esc(nameOf(x))}: ${x.min ?? '?'}–${x.max ?? '?'}`;
-  const weaponCell = r => `<span class="cond-weapon">${WEAPON_ICONS[r.weaponType] ? `<img src="/editor/assets/ui/weapon-${WEAPON_ICONS[r.weaponType]}.png" alt="">` : ''}<span>${esc(r.label)}</span></span>`;
+  const weaponCell = r => `<span class="cond-weapon">${own(WEAPON_ICONS, r.weaponType) ? `<img src="/editor/assets/ui/weapon-${own(WEAPON_ICONS, r.weaponType)}.png" alt="">` : ''}<span>${esc(r.label)}</span></span>`;
   const table = catalog?.weaponRanges?.length ? `<div class="table-scroll"><table class="cond-range-table">
       <thead><tr><th>무기군</th><th>적정 사거리</th><th>인원</th><th>예외</th></tr></thead><tbody>${catalog.weaponRanges.map(r => `<tr data-weapon="${esc(r.weaponType)}"><td>${weaponCell(r)}</td><td>${esc(rangeText(r))}</td><td>${r.characterCount ?? '—'}</td><td>${r.exceptions.length ? r.exceptions.map(exceptionText).join(', ') : '—'}</td></tr>`).join('')}</tbody></table></div>`
     : `<p class="cond-load-error" data-cond-error="catalog" role="alert">무기군별 적정 사거리를 불러오지 못했습니다.${error ? ` ${esc(error)}` : ''}</p>`;
   const members = preview.length ? `<ul class="cond-member-list">${preview.map(m =>
-    `<li data-member="${esc(m.id)}" data-distance-kind="${m.distance.kind}"><strong>${esc(m.name)}</strong> <span>${esc(WEAPON_LABELS[m.weaponType] ?? '무기 미확인')}</span> <em>${esc(m.distance.text)}</em></li>`).join('')}</ul>` : '';
+    `<li data-member="${esc(m.id)}" data-distance-kind="${m.distance.kind}"><strong>${esc(m.name)}</strong> <span>${esc(own(WEAPON_LABELS, m.weaponType) ?? '무기 미확인')}</span> <em>${esc(m.distance.text)}</em></li>`).join('')}</ul>` : '';
   const value = state.bossDistance ?? '';
   return `<form method="dialog" class="cond-dialog-body" data-cond-form="distance">
     <h3 id="cond-distance-title">보스 거리</h3>
@@ -239,7 +242,7 @@ export function mountConditionControls(container, { getMembers = () => [], loadC
   const preview = (s = state) => memberPreview(getMembers(), profiles, s);
   const paint = () => { container.innerHTML = renderConditionControls(state, { legacy, catalog }); };
   const names = () => new Map(getMembers().map(m => [String(m.id), m.displayName ?? null]));
-  const errorText = error => describeCombatProfileError(error, names())?.text ?? error?.message ?? String(error);
+  const errorText = error => describeCombatProfileError(error, names())?.text ?? friendlyError(error);
   const ensureCatalog = () => catalogPromise ??= Promise.resolve(loadCatalog())
     .then(payload => { catalog = payload ? normalizeCatalog(payload) : null; catalogError = null; return catalog; })
     .catch(error => { catalog = null; catalogError = errorText(error); catalogPromise = null; return null; });
@@ -371,9 +374,9 @@ export function describeCombatProfileError(error, names = null) {
     const reason = text(body.reason);
     const subject = body.characterId != null ? who(body.characterId) : '카탈로그·출처';
     // U-FIX-6: field meaning in Korean only; the raw path stays in the structured error.
-    const fieldText = key && PROFILE_FIELDS[key] ? PROFILE_FIELDS[key] : /\.source\./.test(field ?? '') ? '출처 정보' : field ? '데이터 항목' : '항목 미기록';
+    const fieldText = key && own(PROFILE_FIELDS, key) ? own(PROFILE_FIELDS, key) : /\.source\./.test(field ?? '') ? '출처 정보' : field ? '데이터 항목' : '항목 미기록';
     return { code, characterId: body.characterId ?? null, field, reason,
-      text: `사거리·속성 데이터 오류 · ${subject} · ${fieldText} · ${PROFILE_REASONS[reason] ?? reason ?? '사유 미기록'}. ${PREPARE_HINT}`,
+      text: `사거리·속성 데이터 오류 · ${subject} · ${fieldText} · ${own(PROFILE_REASONS, reason) ?? '사유 미확인'}. ${PREPARE_HINT}`,
       raw: field ? `${code}: ${field}: ${reason ?? '?'}` : message };
   }
   if (code === 'combat_profile_catalog_missing') {

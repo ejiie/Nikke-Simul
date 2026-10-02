@@ -14,6 +14,9 @@
  * stores the selection. `confirmed: false` reproduces the pre-wire form for comparison tests only.
  */
 
+import { errorText, koreanText } from './display-labels.js';
+import { own } from './own-lookup.js';
+
 export const DURATION_SECONDS = 180;
 export const DURATION_FRAMES = DURATION_SECONDS * 60;
 export const PELLET_POLICY = 'per_trigger';
@@ -42,6 +45,7 @@ export const CRIT_OPTIONS = Object.freeze([
   { value: 'sample', label: '확률 적용' }, { value: 'off', label: '끔' }, { value: 'on', label: '항상 크리' }
 ]);
 
+const registeredLabel = (label, fallback) => koreanText(text(label), fallback);
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const num = v => Number(v).toLocaleString('ko-KR');
 const text = v => typeof v === 'string' && v.trim() ? v.trim() : null;
@@ -82,11 +86,13 @@ export function describeSavedCombat(combat, { battleConditions = null, boss = nu
   const parts = [];
   const frames = Number.isFinite(bc?.durationFrames) ? bc.durationFrames : combat.durationFrames;
   if (Number.isFinite(frames)) parts.push(`${num(frames / 60)}초`);
+  // The stored label is shown only when it is a registered server text; otherwise a generic Korean label.
+  const bcLabel = bc ? registeredLabel(bc.label, '전투 조건') : null;
   if (bc && text(bc.label)) {
     parts.push(bc.defenseMode === 'fixed' && Number.isFinite(bc.initialDefense)
-      ? `${bc.label} · 방어력 ${num(bc.initialDefense)}`
+      ? `${bcLabel} · 방어력 ${num(bc.initialDefense)}`
       : Number.isFinite(bc.initialDefense) && Number.isFinite(bc.switchedDefense)
-        ? `${bc.label} (${num(bc.initialDefense)} → ${num(bc.switchedDefense)})` : bc.label);
+        ? `${bcLabel} (${num(bc.initialDefense)} → ${num(bc.switchedDefense)})` : bcLabel);
   } else if (Number.isFinite(combat.enemyDefense)) parts.push(`방어력 ${num(combat.enemyDefense)} 고정`);
   const crit = CRIT_OPTIONS.find(o => o.value === combat.critMode);
   if (crit) parts.push(`크리티컬 ${crit.label}`);
@@ -131,7 +137,7 @@ export function normalizeBosses(payload) {
 }
 
 function bossCard(boss, selected, { compact = false } = {}) {
-  const element = boss.weakElement && ELEMENT_LABELS[boss.weakElement];
+  const element = boss.weakElement && own(ELEMENT_LABELS, boss.weakElement);
   const art = boss.imageUrl
     ? `<img class="boss-pick-image" src="${esc(boss.imageUrl)}" alt="" loading="lazy">`
     : `<span class="boss-pick-placeholder" aria-hidden="true">${boss.dummy ? '' : '보스'}</span>`;
@@ -139,7 +145,7 @@ function bossCard(boss, selected, { compact = false } = {}) {
     <span class="boss-pick-art">${boss.season !== null ? `<span class="boss-pick-season">SEASON ${boss.season}</span>` : ''}${art}</span>
     <span class="boss-pick-content"><strong>${esc(boss.name)}</strong>
       <small>${boss.dummy ? '현재 동작 · 보스별 조건 없음' : element ? `기본 약점 ${esc(element)}` : '솔로 레이드'}</small></span>
-    ${element ? `<img class="boss-pick-element" src="/editor/assets/ui/code-${ELEMENT_ICONS[boss.weakElement]}.png" alt="">` : ''}
+    ${element ? `<img class="boss-pick-element" src="/editor/assets/ui/code-${own(ELEMENT_ICONS, boss.weakElement)}.png" alt="">` : ''}
   </button>`;
 }
 
@@ -180,7 +186,7 @@ export function mountBossSelector(container, { loadBosses = async () => null, on
     notice = list.notice;
     if (!bosses.some(b => b.id === selectedId)) selectedId = bosses.some(b => b.id === list.defaultId) ? list.defaultId : bosses[0].id;
     error = null; paint();
-  }).catch(e => { error = e?.message ?? String(e); paint(); });
+  }).catch(e => { error = errorText(e); paint(); });
   function open() {
     dialog.innerHTML = renderBossDialog(bosses, selectedId, { notice });
     dialog.querySelectorAll('[data-boss-id]').forEach(button => button.onclick = () => {
@@ -227,7 +233,7 @@ export function describeDefensePolicy({ defPolicy = null, battleConditions = nul
   if (fixed) {
     const value = Number.isFinite(bc?.initialDefense) ? bc.initialDefense : Number(policy?.split(':')[1]);
     return { value: `이전 방식 · 방어력 ${Number.isFinite(value) ? num(value) : '기록 없음'} 고정`,
-      sub: `${bc?.label ?? '이전 방식(고정 방어력)'} · 누적 대미지에 따른 전환 없음(당시 조건)` };
+      sub: `${registeredLabel(bc?.label, '이전 방식(고정 방어력)')} · 누적 대미지에 따른 전환 없음(당시 조건)` };
   }
   return { value: policy ?? '기록 없음', sub: '저장된 정책 그대로 표시' };
 }
