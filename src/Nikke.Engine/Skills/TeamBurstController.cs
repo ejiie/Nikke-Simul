@@ -29,7 +29,7 @@ public sealed record TeamBurstSummary(string RulesVersion, string GaugeFormulaSt
 // It consumes execution events, never saved damage logs. No fixed charging-time shortcut.
 public sealed class TeamBurstController : ICombatEventSink, ISkillBattleDriver
 {
-    public const string Version = "p04.team.5-defense-switch";
+    public const string Version = "p04.team.6-manual-charge-delay";
     private readonly IReadOnlyList<SkillReplayMember> members;
     private readonly Dictionary<string, SkillReplayMember> byId;
     private readonly TeamBurstOptions options;

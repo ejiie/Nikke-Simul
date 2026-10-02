@@ -39,7 +39,7 @@ public class BurstTacticTests
         var legacy=SkillReplay.Run(Members(),G(),C(null));
         Assert.Null(legacy.TeamBurst.Options.Tactic);
         Assert.All(legacy.TeamBurst.FullBursts,w=>Assert.Equal("c",w.Caster));
-        Assert.Equal("p04.team.5-defense-switch",legacy.RulesVersion);
+        Assert.Equal("p04.team.6-manual-charge-delay",legacy.RulesVersion);
     }
     [Fact]
     public void Each_stage_priority_is_obeyed_without_changing_stage_order()
