@@ -35,6 +35,11 @@ public sealed record HitContext
     public double CoreBonus { get; init; } = 1;
     public bool Pierce { get; init; }
     public bool Parts { get; init; }
+    // Interruption (BreakDamage 96) is a separate hit judgement from Parts (PartsDamage 112):
+    // client formula breakRate = 1 + InterruptionDamage on an interruption target, otherwise 1.
+    // Neutral defaults keep earlier inputs reproducing. No API/UI control is added for these fields.
+    public bool InterruptionTarget { get; init; }
+    public double InterruptionDamage { get; init; }
     public double AttackDamage { get; init; }
     public double PierceDamage { get; init; }
     public double PartsDamage { get; init; }
@@ -55,21 +60,26 @@ public record HitComparison(string RulesVersion, string Status, HitContext Input
 
 public static class HitCalculator
 {
-    public const string Version = "p02.4-client-f32";
+    public const string Version = "p02.5-client-f32-prec1";
     public const int InputSchemaVersion = 3;
     public const string DefaultPolicy = "client_f32";
+    // Comparison candidate (not the default): float32 B and rate operands, binary64 multiplication chain.
+    public const string DoubleProductPolicy = "client_f32_dprod";
+    // Policies that assemble attack/defence as exact signed longs and use the client rate model.
+    public static bool IsClientPolicy(string policy) => policy is DefaultPolicy or DoubleProductPolicy;
     // Single selected policy, without reflection, candidate arrays or audit term allocation.
     // Compare remains the independent audit path for parity tests and detailed damage logs.
     public static double Calculate(HitContext c, string policy = DefaultPolicy)
     {
         if (policy == DefaultPolicy) return CalculateClient(c).Damage;
+        if (policy == DoubleProductPolicy) return CalculateClientDoubleProduct(c).Damage;
         ArgumentNullException.ThrowIfNull(c);
         if (policy is not ("legacy_term_floor" or "final_round_even" or "nested_floor"))
             throw new ArgumentException("Unknown rounding policy.", nameof(policy));
         ReadOnlySpan<double> values = [c.StatAttack,c.Defense,c.Coefficient,c.ChargeBase,c.ChargeMultiplierBonus,c.ChargeAdd,
             c.DistanceBonus,c.BurstBonus,c.CritBonus,c.CoreBonus,c.AttackDamage,c.PierceDamage,c.PartsDamage,c.DotDamage,
             c.SequentialDamage,c.TrueDamage,c.DamageTaken,c.DistributionDamage,c.ElementBase,c.ElementBonus,
-            c.StatDamageRatio,c.DefenceRatioRate];
+            c.StatDamageRatio,c.DefenceRatioRate,c.InterruptionDamage];
         foreach (var value in values)
             if (!double.IsFinite(value) || Math.Abs(value)>1e12) throw new ArgumentException("Invalid hit numeric input.");
         if (c.StatAttack<0 || c.Defense<0 || c.Coefficient<=0
@@ -77,7 +87,8 @@ public static class HitCalculator
             || c.Crit && !c.CanCrit || c.Core && !c.CanCore || c.FullCharge && !c.ChargeApplicable)
             throw new ArgumentException("Invalid hit context.");
         double charge=c.FullCharge ? c.ChargeBase*(1+c.ChargeMultiplierBonus)+c.ChargeAdd : 1;
-        double b3=1+c.AttackDamage+(c.Pierce?c.PierceDamage:0)+(c.Parts?c.PartsDamage:0)
+        // Legacy policies keep the interruption increase inside the attack-damage term (as the runtime did before the split).
+        double b3=1+(c.AttackDamage+(c.InterruptionTarget?c.InterruptionDamage:0))+(c.Pierce?c.PierceDamage:0)+(c.Parts?c.PartsDamage:0)
             +(c.DamageType=="dot"?c.DotDamage:0)+(c.DamageType=="sequential"?c.SequentialDamage:0)
             +(c.DamageType=="true"?c.TrueDamage:0);
         double b4=1+c.DamageTaken+(c.DamageType=="distribution"?c.DistributionDamage:0);
@@ -112,7 +123,7 @@ public static class HitCalculator
         if (c.Crit && !c.CanCrit || c.Core && !c.CanCore || c.FullCharge && !c.ChargeApplicable)
             throw new ArgumentException("이 타격에서 허용하지 않은 크리·코어·차지 조건입니다.");
         var charge = c.FullCharge ? c.ChargeBase * (1 + c.ChargeMultiplierBonus) + c.ChargeAdd : 1;
-        var b3 = 1 + c.AttackDamage + (c.Pierce ? c.PierceDamage : 0) + (c.Parts ? c.PartsDamage : 0)
+        var b3 = 1 + (c.AttackDamage + (c.InterruptionTarget ? c.InterruptionDamage : 0)) + (c.Pierce ? c.PierceDamage : 0) + (c.Parts ? c.PartsDamage : 0)
             + (c.DamageType == "dot" ? c.DotDamage : 0) + (c.DamageType == "sequential" ? c.SequentialDamage : 0)
             + (c.DamageType == "true" ? c.TrueDamage : 0);
         var b4 = 1 + c.DamageTaken + (c.DamageType == "distribution" ? c.DistributionDamage : 0);
@@ -162,13 +173,14 @@ public static class HitCalculator
         return new(Version, "provisional_rounding", c, includeClient?CalculateClient(c).Attack:attack, observed, results);
     }
 
-    public static ClientFloatResult CalculateClient(HitContext c)
+    // Shared operand assembly: both client policies use identical long attack/defence and float32 rate operands.
+    private static (long Attack, long Defence, ClientDamageRates Rates) PrepareClient(HitContext c)
     {
         ArgumentNullException.ThrowIfNull(c);
         ReadOnlySpan<double> values = [c.StatAttack,c.Defense,c.Coefficient,c.ChargeBase,c.ChargeMultiplierBonus,c.ChargeAdd,
             c.DistanceBonus,c.BurstBonus,c.CritBonus,c.CoreBonus,c.AttackDamage,c.PierceDamage,c.PartsDamage,c.DotDamage,
             c.SequentialDamage,c.TrueDamage,c.DamageTaken,c.DistributionDamage,c.ElementBase,c.ElementBonus,
-            c.StatDamageRatio,c.DefenceRatioRate];
+            c.StatDamageRatio,c.DefenceRatioRate,c.InterruptionDamage];
         foreach (double value in values)
             if (!double.IsFinite(value) || Math.Abs(value)>1e12) throw new ArgumentException("Invalid hit numeric input.");
         if (c.StatAttack<0 || c.Defense<0 || c.DamageType is not ("normal" or "skill" or "dot" or "sequential" or "distribution" or "true")
@@ -185,35 +197,67 @@ public static class HitCalculator
             charge=ClientFloatDamage.Finite((float)(F(c.ChargeBase)*Add(1f,F(c.ChargeMultiplierBonus))));
             charge=Add(charge,F(c.ChargeAdd));
         }
+        // addDamageRate carries the parts (PartsDamage 112) increase; interruption (96) goes to breakRate.
         float add=Add(1f,F(c.AttackDamage));
         add=Add(add,c.Pierce?F(c.PierceDamage):0f);
+        add=Add(add,c.Parts?F(c.PartsDamage):0f);
         add=Add(add,c.DamageType=="dot"?F(c.DotDamage):0f);
         add=Add(add,c.DamageType=="sequential"?F(c.SequentialDamage):0f);
         add=Add(add,c.DamageType=="true"?F(c.TrueDamage):0f);
+        // True damage ignores the boss defence ratio (user-confirmed 2026-10-03): factor (1 - rate) is 1.
+        float defenceRatioRate=c.DamageType=="true"?0f:F(c.DefenceRatioRate);
         var rates=new ClientDamageRates(F(c.Coefficient),F(c.StatDamageRatio),charge,
             c.Crit?Add(1f,F(c.CritBonus)):1f,c.Core?Add(1f,F(c.CoreBonus)):1f,
             c.FullBurst?Add(1f,F(c.BurstBonus)):1f,c.ProperDistance?Add(1f,F(c.DistanceBonus)):1f,
-            c.Parts?Add(1f,F(c.PartsDamage)):1f,add,
+            c.InterruptionTarget?Add(1f,F(c.InterruptionDamage)):1f,add,
             (float)-Add(F(c.DamageTaken),c.DamageType=="distribution"?F(c.DistributionDamage):0f),
-            F(c.DefenceRatioRate),c.ElementAdvantage?Add(Add(1f,F(c.ElementBase)),F(c.ElementBonus)):1f);
+            defenceRatioRate,c.ElementAdvantage?Add(Add(1f,F(c.ElementBase)),F(c.ElementBonus)):1f);
+        return (attack,defence,rates);
+    }
+
+    public static ClientFloatResult CalculateClient(HitContext c)
+    {
+        var (attack,defence,rates)=PrepareClient(c);
         return ClientFloatDamage.Calculate(attack,defence,rates);
+    }
+
+    public static ClientDoubleProductResult CalculateClientDoubleProduct(HitContext c)
+    {
+        var (attack,defence,rates)=PrepareClient(c);
+        return ClientFloatDamage.CalculateDoubleProduct(attack,defence,rates);
     }
 
     // Selected-policy audit avoids evaluating incompatible legacy precision limits on the client path.
     public static DamageBreakdown Evaluate(HitContext c, string policy = DefaultPolicy, double? observed = null)
     {
-        if(policy!=DefaultPolicy) return Compare(c,observed,includeClient:false).Candidates.Single(p=>p.Policy==policy);
+        if(!IsClientPolicy(policy)) return Compare(c,observed,includeClient:false).Candidates.Single(p=>p.Policy==policy);
         if(observed is { } o && (!double.IsFinite(o) || o<1 || o!=Math.Truncate(o) || o>=9223372036854775808d))
             throw new ArgumentException("Invalid observed damage.");
+        if(policy==DoubleProductPolicy)
+        {
+            var d=CalculateClientDoubleProduct(c);
+            CalculationTerm[] dterms=[new("effectiveAttack",c.StatAttack,d.Attack,"checked int64 grouped rate/10000, then flat grants"),
+                new("effectiveDefense",c.Defense,d.Defence,"true damage: 0; otherwise integer defence"),
+                new("difference",d.Attack,d.Difference,"checked int64 attack - defence; then exact binary64 (no float32 cast)"),
+                new("base",d.Difference,d.Base,"binary64 left-to-right difference * damageRatio * statDamageRatio * chargeDamageRate (float32 rate operands widened)"),
+                new("B",1,d.Bonus,"float32 critical -> core -> burst -> range, each rate - 1 then add (same as client_f32)"),
+                new("extra",0,d.Extra,"float32 breakRate + addDamageRate - 1 (same as client_f32); breakRate = interruption, addDamageRate includes parts"),
+                new("reduction",0,d.ReductionFactor,"float32 1 - damageReductionRate (same as client_f32)"),
+                new("defenceRatio",c.DefenceRatioRate,d.DefenceFactor,"float32 1 - defenceRatioRate; true damage: 1"),
+                new("product",d.Base,d.BeforeRound,"binary64 left-to-right base * B * extra * reduction * defenceRatio * element (float32 operands widened)"),
+                new("final",d.BeforeRound,d.Damage,"Math.Round AwayFromZero; max(1); checked int64")];
+            return new(DoubleProductPolicy,d.Damage,observed is { } dv?d.Damage-dv:null,
+                observed is { } dd?(d.Damage-dd)/dd:null,dterms);
+        }
         var r=CalculateClient(c);
         CalculationTerm[] terms=[new("effectiveAttack",c.StatAttack,r.Attack,"checked int64 grouped rate/10000, then flat grants"),
             new("effectiveDefense",c.Defense,r.Defence,"true damage: 0; otherwise integer defence"),
             new("difference",r.Attack,r.Difference,"checked int64 attack - defence; then cast float32"),
             new("base",r.Difference,r.Base,"float32 left-to-right damageRatio * statDamageRatio * chargeDamageRate"),
             new("B",1,r.Bonus,"float32 critical -> core -> burst -> range, each rate - 1 then add"),
-            new("extra",0,r.Extra,"float32 breakRate + addDamageRate - 1; provisional mapping"),
+            new("extra",0,r.Extra,"float32 breakRate + addDamageRate - 1; breakRate = interruption (96), addDamageRate includes parts (112)"),
             new("reduction",0,r.ReductionFactor,"float32 1 - damageReductionRate; provisional mapping"),
-            new("defenceRatio",c.DefenceRatioRate,r.DefenceFactor,"float32 1 - defenceRatioRate"),
+            new("defenceRatio",c.DefenceRatioRate,r.DefenceFactor,"float32 1 - defenceRatioRate; true damage: 1"),
             new("product",r.Base,r.BeforeRound,"float32 left-to-right base * B * extra * reduction * defenceRatio * element"),
             new("final",r.BeforeRound,r.Damage,"MathF.Round AwayFromZero; max(1); checked int64")];
         return new(DefaultPolicy,r.Damage,observed is { } value?r.Damage-value:null,

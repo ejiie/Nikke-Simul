@@ -32,7 +32,7 @@ public sealed record StatBuffSet
 
 public static class StatBuffCalculator
 {
-    public const string Version = "native-stat-shared-buffs-v3-attack-i64";
+    public const string Version = "native-stat-shared-buffs-v4-ammo-i64";
 
     // Binary64 transport compatibility only. No inferred rounding/truncation of fractional native/flat stats.
     public static long RequireInteger(double value)
@@ -42,7 +42,15 @@ public static class StatBuffCalculator
         return checked((long)value);
     }
 
-    public static long ApplyAttack(long nativeStat, params IReadOnlyList<StatRateBuff>[] groups)
+    public static long ApplyAttack(long nativeStat, params IReadOnlyList<StatRateBuff>[] groups) =>
+        ApplyInteger(nativeStat, groups);
+
+    // Maximum ammo uses the same exact integer path as attack: native + sum over identical-rate groups of
+    // round(native * rate10000 * count / 10000) (ties away from zero), 1/10000 source units preserved, checked.
+    public static long ApplyAmmo(long nativeAmmo, params IReadOnlyList<StatRateBuff>[] groups) =>
+        ApplyInteger(nativeAmmo, groups);
+
+    private static long ApplyInteger(long nativeStat, IReadOnlyList<StatRateBuff>[] groups)
     {
         if (nativeStat < 0 || groups is null) throw new ArgumentException("Invalid native attack.");
         var rates = new Dictionary<long, long>();
