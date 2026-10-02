@@ -44,11 +44,16 @@ public static class SkillReplay
         {
             if (id == 0 || !seen.Add(id)) return;
             if (!graph.Functions.TryGetValue(id, out var f)) { issues.Add($"missing_function:{id}"); return; }
-            if (f.FunctionType is not (0 or 1 or 2 or 3 or 5 or 8 or 11 or 14 or 27 or 40 or 42 or 51 or 54 or 61 or 62 or 72 or 75 or 83 or 94 or 96))
+            if (f.FunctionType is not (0 or 1 or 2 or 3 or 5 or 8 or 9 or 11 or 14 or 27 or 40 or 42 or 51 or 54 or 61 or 62 or 72 or 75 or 83 or 94 or 96))
                 issues.Add($"function:{id}:type:{f.FunctionType}");
-            if (f.TimingTriggerType is not (0 or 1 or 3 or 15 or 16 or 22 or 30 or 31 or 43)) issues.Add($"function:{id}:timing:{f.TimingTriggerType}");
+            if (f.TimingTriggerType is not (0 or 1 or 3 or 15 or 16 or 22 or 26 or 30 or 31 or 43)) issues.Add($"function:{id}:timing:{f.TimingTriggerType}");
             foreach (var st in new[] { f.StatusTriggerType, f.StatusTrigger2Type })
-                if (st is not (0 or 9 or 11 or 12 or 13 or 15 or 18 or 31)) issues.Add($"function:{id}:status:{st}");
+                if (st is not (0 or 9 or 11 or 12 or 13 or 15 or 18 or 21 or 28 or 31)) issues.Add($"function:{id}:status:{st}");
+            // IsBurstStepState is only modelled for step 4 (full burst); IsCheckMonster only for thresholds a single boss never reaches.
+            if (f.StatusTriggerType == 21 && f.StatusTriggerValue != 4 || f.StatusTrigger2Type == 21 && f.StatusTrigger2Value != 4)
+                issues.Add($"function:{id}:status21_value");
+            if (f.StatusTriggerType == 28 && f.StatusTriggerValue < 2 || f.StatusTrigger2Type == 28 && f.StatusTrigger2Value < 2)
+                issues.Add($"function:{id}:status28_value");
             if (f.FunctionTarget is < 1 or > 4 || f.FunctionStandard is < 0 or > 2
                 || f.StatusTriggerStandard is < 0 or > 2 || f.StatusTrigger2Standard is < 0 or > 2
                 || f.DurationType is not (0 or 1 or 3) || f.KeepingType is not (2 or 3)
@@ -73,8 +78,10 @@ public static class SkillReplay
             }
             if (sk.Skill is { } body)
             {
-                if (body.SkillType is not (1 or 6 or 7 or 8) || body.SkillValueData.Count != 5
-                    || body.DurationType is not (0 or 1) || body.DurationValue < 0 || body.SkillCooltime < 0
+                if (body.SkillType is not (1 or 2 or 6 or 7 or 8 or 13 or 15) || body.SkillValueData.Count != 5
+                    || body.DurationType is not (0 or 1) && !(body.SkillType == 7 && body.DurationType == 2 && body.WeaponChange is not null && body.DurationValue >= 1)
+                    || body.WeaponChange is not null && (body.SkillType != 7 || body.WeaponChange.ChargeTimeSec <= 0 || body.WeaponChange.FullChargeRate <= 0 || body.WeaponChange.MaxAmmo < 1)
+                    || body.DurationValue < 0 || body.SkillCooltime < 0
                     || body.PreferTarget is not (11 or 15 or 17 or 47) || body.PreferTargetCondition is < 0 or > 1)
                     issues.Add($"skill:{sk.SkillId}:unreviewed_body");
             }
@@ -121,6 +128,10 @@ public static class SkillReplay
                 throw new ArgumentException("Invalid or conflicting burst source metadata.");
             if (!double.IsFinite(m.Weapon.Buffs.NormalAttackMultiplier) || m.Weapon.Buffs.NormalAttackMultiplier is <= -1 or > 1e6)
                 throw new ArgumentException("일반 공격 계수 증가량을 확인하세요.");
+            // A replacement weapon is charge-then-release; the tap-style manual loop has no confirmed meaning for it.
+            if (c.Combat.ManualCharacterId==m.Weapon.CharacterId && c.Combat.ManualStyle=="tap"
+                && m.Skills.Slots.Values.Any(s=>s.Skill?.WeaponChange is not null))
+                throw new ArgumentException($"미지원 교체 무기 조작: {m.Weapon.CharacterId}의 교체 무기는 수동 톡톡이 조작을 지원하지 않습니다.");
             StatBuffCalculator.Apply(0,m.Weapon.Buffs.Accuracy);
             if (m.Skills.Slots.Count != 3 || new[] { "skill1", "skill2", "burst" }.Any(s => !m.Skills.Slots.ContainsKey(s)
                 || !m.Skills.Levels.TryGetValue(s, out int lv) || lv is < 1 or > 10))
@@ -134,7 +145,8 @@ public static class SkillReplay
     {
         public SkillReplayMember Input;
         public string Id => Input.Weapon.CharacterId;
-        public SkillFiringModel Gun;
+        public SkillFiringModel MainGun, ModeGun;
+        public SkillFiringModel Gun => ModeGun ?? MainGun;
         public MemberHitBonuses Bonuses;
         public bool GunDirty = true;
         public double Hp, CoverRatio = 1, CoverMaxHp = 1;
@@ -161,7 +173,11 @@ public static class SkillReplay
     {
         public int Counter;
     }
-    private sealed record WeaponMode(int SkillId, int Expires, double Coefficient, double Rate, long EventId, int ShotId);
+    private sealed record WeaponMode(int SkillId, int Expires, double Coefficient, double Rate, long EventId, int ShotId)
+    {
+        public WeaponChangeProfile Profile { get; init; }
+        public int ShotsLeft { get; init; }
+    }
 
     private sealed class Battle : ISkillBattleControl
     {
@@ -182,6 +198,7 @@ public static class SkillReplay
         private ShotEventData currentShotData;
         private long eventCount;
         private int frame, operations;
+        private bool replacementUsed;
         private bool fullBurst;
         private readonly ICombatEventSink eventSink;
         private readonly ISkillBattleDriver driver;
@@ -273,7 +290,7 @@ public static class SkillReplay
             defense=new(C);
             team = members.Select(m => new Actor { Input = m,
                 Bonuses = BossConditionResolver.Resolve(m.Weapon,C,true),
-                Gun = new(new WeaponProfile(m.Weapon.Weapon), m.Weapon.Weapon.maxAmmo,
+                MainGun = new(new WeaponProfile(m.Weapon.Weapon), m.Weapon.Weapon.maxAmmo,
                     new FiringControl { Mode = C.ManualCharacterId == m.Weapon.CharacterId ? ControlMode.Manual : ControlMode.Auto,
                         Style = C.ManualStyle == "tap" ? FireStyle.Tap : FireStyle.FullCharge }, random),
                 Ready = m.Skills.Slots.ToDictionary(p => p.Key, p => p.Key == "burst" ? 0L : (long)(p.Value.Skill?.SkillCooltime ?? 0)*SkillUnits.TicksPerCs)
@@ -329,6 +346,10 @@ public static class SkillReplay
                 15 => On(a, checked((int)value)).Any(e => e.Function.Buff == 0 && e.Value > 0)
                     || value == 8 && a.Input.Weapon.Buffs.Accuracy.Any(b=>b.Rate>0),
                 18 => effects.Any(e => e.Target == a && e.Function.GroupId == value),
+                // Burst stage 4 = the full-burst window (stages 1-3 need the team controller's step and are not modelled here).
+                21 => value == 4 ? fullBurst : throw new ArgumentException("Unknown status"),
+                // A solo-raid battle has one enemy unit; thresholds >= 2 can never be met. No monster spawn events exist.
+                28 => value >= 2 ? false : throw new ArgumentException("Unknown status"),
                 31 => value == 5 && a.Input.Weapon.Weapon.weaponType == "SG",
                 _ => throw new ArgumentException("Unknown status")
             };
@@ -488,7 +509,7 @@ public static class SkillReplay
                 var values=body.SkillValueData;
                 switch (body.SkillType)
                 {
-                    case 1: Damage(owner,SkillUnits.Rate(values[0].SkillValue),$"skill:{sk.SkillId}",cast,false,false,sid:sk.SkillId); break;
+                    case 1: case 2: case 13: case 15: Damage(owner,SkillUnits.Rate(values[0].SkillValue),$"skill:{sk.SkillId}",cast,false,false,sid:sk.SkillId); break;
                     case 6:
                         // Shared shield, single pool. Enemy damage consumption is a P05 integration.
                         double shieldHp=MaxHp(owner)*SkillUnits.Rate(values[1].SkillValue);
@@ -498,8 +519,10 @@ public static class SkillReplay
                         shields[owner.Id]=new(owner.Id,sk.SkillId,shieldHp,end,shieldEvent);
                         break;
                     case 7:
-                        modes[owner.Id]=new(sk.SkillId,frame+SkillUnits.Frames(body.DurationValue),SkillUnits.Rate(values[0].SkillValue),
-                            values[1].SkillValue/60d,cast,checked((int)values[2].SkillValue));
+                        bool shotsMode=body.DurationType==2;
+                        modes[owner.Id]=new(sk.SkillId,shotsMode ? int.MaxValue : frame+SkillUnits.Frames(body.DurationValue),SkillUnits.Rate(values[0].SkillValue),
+                            values[1].SkillValue/60d,cast,checked((int)values[2].SkillValue))
+                            { Profile=body.WeaponChange, ShotsLeft=shotsMode ? body.DurationValue : 0 };
                         owner.GunDirty=true;
                         Log("weapon_change",owner.Id,owner.Id,$"skill:{sk.SkillId}",cast,sid:sk.SkillId,value:values[2].SkillValue,
                             basis:"official_coefficient_rpm_shot_id",expires:modes[owner.Id].Expires);
@@ -515,7 +538,7 @@ public static class SkillReplay
         {
             if (body is null) return [owner];
             int count = body.SkillValueData.Count > 1 ? Math.Clamp(checked((int)body.SkillValueData[1].SkillValue),1,5) : 1;
-            if (body.SkillType is 1 or 7) return [null];
+            if (body.SkillType is 1 or 2 or 7 or 13 or 15) return [null];
             if (body.SkillType == 6) return team.ToArray();
             if (body.AttackType == 4 && body.SkillValueData[2].SkillValue == 1) return [owner];
             IEnumerable<Actor> available = body.PreferTargetCondition == 1 ? team.Where(a=>a!=owner) : team;
@@ -574,36 +597,65 @@ public static class SkillReplay
         private void SyncGun(Actor a)
         {
             if (!a.GunDirty) return;
+            modes.TryGetValue(a.Id,out var mode);
+            // A weapon change with a documented replacement profile runs on its own gun; the base gun is frozen and
+            // resumes with its ammo/charge/spot state when the mode ends.
+            if (mode?.Profile is { } wc && a.ModeGun is null)
+            {
+                a.ModeGun=ReplacementGun(a,mode,wc);
+                replacementUsed=true;
+                Log("replacement_weapon",a.Id,a.Id,$"skill:{mode.SkillId}",mode.EventId,value:wc.ChargeTimeSec,
+                    basis:ReplacementWeaponPolicy.TraceBasis);
+            }
+            else if (mode?.Profile is null && a.ModeGun is not null) a.ModeGun=null;
             var w=a.Input.Weapon.Weapon; var b=a.Input.Weapon.Buffs;
             var ammoRates=On(a,14).Where(e=>e.Function.FunctionValueType==2)
                 .Select(e=>StatRateBuff.FromRaw(Key(e),e.Function.FunctionValue,e.Stacks)).ToArray();
             // Same exact integer path as attack; flat ammo grants are integer function values.
             long maxAmmo=checked(StatBuffCalculator.ApplyAmmo(w.maxAmmo,b.Ammo,ammoRates)
                 + On(a,14).Where(e=>e.Function.FunctionValueType==1).Sum(e=>checked(e.Function.FunctionValue*e.Stacks)));
+            // The replacement magazine is the documented fixed size; the base weapon's ammo buffs are not applied to it.
+            if (a.ModeGun is not null && ReplacementWeaponPolicy.IgnoreBaseAmmoBuffs) maxAmmo=mode.Profile.MaxAmmo;
             var charge=On(a,61).Where(e=>e.Basis!="caster_charge_centiseconds").Select(e=>new StatRateBuff(Key(e),e.Value,e.Stacks));
-            int chargeCs=OverloadProcessor.ReduceTimeCs(SkillUnits.Cs(w.chargeTimeSec),Terms(b.ChargeSpeed.Concat(charge)))
+            double chargeSec=a.ModeGun is not null ? mode.Profile.ChargeTimeSec : w.chargeTimeSec;
+            int chargeCs=OverloadProcessor.ReduceTimeCs(SkillUnits.Cs(chargeSec),Terms(b.ChargeSpeed.Concat(charge)))
                 - checked((int)On(a,61).Where(e=>e.Basis=="caster_charge_centiseconds").Sum(e=>e.Value*e.Stacks));
             int reloadCs=OverloadProcessor.ReduceTimeCs(SkillUnits.Cs(w.reloadTimeSec),Terms(b.ReloadSpeed));
-            modes.TryGetValue(a.Id,out var mode);
             a.Gun.ApplyRuntime(checked((int)Math.Max(1L,maxAmmo)),Math.Max(0,chargeCs),reloadCs,On(a,5).Any(),mode?.Rate);
             a.GunDirty=false;
+        }
+        // Charge-then-release replacement weapon (e.g. Snow White / Maxwell burst). Fire rate comes from the official body value.
+        // Motion values come from ReplacementWeaponPolicy (provisional, Director-approved; no replacement shot table pinned).
+        // Every run that uses it logs `replacement_weapon` and lists the policy in the result limitations; a tap-style manual
+        // user is rejected in Validate instead of guessed.
+        private SkillFiringModel ReplacementGun(Actor a, WeaponMode mode, WeaponChangeProfile wc)
+        {
+            var dto=System.Text.Json.JsonSerializer.Deserialize<Nikke.Simulator.Core.Data.Dto.WeaponDto>(
+                System.Text.Json.JsonSerializer.Serialize(a.Input.Weapon.Weapon))!;
+            dto.isChargeWeapon=true; dto.inputType="UP"; dto.chargeTimeSec=wc.ChargeTimeSec; dto.fullChargeDamage=wc.FullChargeRate;
+            dto.maxAmmo=wc.MaxAmmo; dto.fireRate=dto.endFireRate=mode.Rate; dto.maintainFireStanceSec=0;
+            dto.spotFirstDelaySec=ReplacementWeaponPolicy.SpotFirstSec; dto.spotLastDelaySec=ReplacementWeaponPolicy.SpotLastSec; dto.fireRateRampPerShot=0; dto.fireRateResetTimeSec=0;
+            return new(new WeaponProfile(dto),wc.MaxAmmo,
+                new FiringControl { Mode=C.ManualCharacterId==a.Id ? ControlMode.Manual : ControlMode.Auto, Style=FireStyle.FullCharge /* policy: always charged fully */ },random);
         }
         private static double[] Terms(IEnumerable<StatRateBuff> buffs) => buffs.SelectMany(b=>Enumerable.Repeat(b.Rate,b.Stacks)).ToArray();
 
         private void Damage(Actor a, double coefficient, string effect, long parent, bool normal, bool charged, int? fid=null, int? sid=null)
         {
             bool crit=C.CritMode=="on" || C.CritMode=="sample" && CritSampler.RollCrit(random,
-                Math.Clamp(.15+Terms(a.Input.Weapon.Buffs.CriticalChance).Sum(),0,1));
+                Math.Clamp(.15+Terms(a.Input.Weapon.Buffs.CriticalChance).Sum()+On(a,9).Sum(e=>e.Value*e.Stacks),0,1));
+            modes.TryGetValue(a.Id,out var changed); var profile=normal ? changed?.Profile : null;
             var h=a.Input.Weapon.Hit with {
                 Coefficient=coefficient, RuntimeAttackBuffs=a.Input.Weapon.Hit.RuntimeAttackBuffs.Concat(AttackRates(a)).ToArray(),
                 AttackFlatBuffs=AttackFlat(a), Defense=defense.Current, DamageType=normal ? "normal" : "skill",
                 AttackStatBasis="native_caster_with_shared_buffs_and_flat_grants", SnapshotTiming="damage_resolution",
                 CanCrit=true, CanCore=normal, Crit=crit, Core=normal && C.Core,
-                ChargeApplicable=normal && a.Input.Weapon.Hit.ChargeApplicable, FullCharge=normal && charged,
+                ChargeApplicable=normal && (profile is not null || a.Input.Weapon.Hit.ChargeApplicable), FullCharge=normal && charged,
+                ChargeBase=profile?.FullChargeRate ?? a.Input.Weapon.Hit.ChargeBase,
                 ChargeAdd=a.Input.Weapon.Hit.ChargeAdd+On(a,11).Sum(e=>e.Value*e.Stacks),
                 FullBurst=fullBurst, ProperDistance=normal && a.Bonuses.ProperDistance, ElementAdvantage=a.Bonuses.ElementAdvantage,
                 CritBonus=a.Input.Weapon.Hit.CritBonus+On(a,51).Sum(e=>e.Value*e.Stacks),
-                Pierce=normal && On(a,54).Any(),
+                Pierce=normal && (profile?.Pierce==true || On(a,54).Any()),
                 DamageTaken=a.Input.Weapon.Hit.DamageTaken+On(null,42).Sum(e=>e.Value*e.Stacks),
                 // Interruption (96) feeds breakRate through its own judgement; it no longer also enters AttackDamage.
                 InterruptionTarget=input.InterruptionTarget,
@@ -628,7 +680,7 @@ public static class SkillReplay
                     .Select(e=>e.BurstCastId).LastOrDefault();
                 if (mode is not null && burstOrigins.TryGetValue(mode.EventId,out var modeCast)) ownCast=modeCast;
                 if (shields.TryGetValue(a.Id,out var shield) && burstOrigins.TryGetValue(shield.EventId,out var shieldCast)) ownCast=shieldCast;
-                bool charge=normal && a.Input.Weapon.Weapon.isChargeWeapon;
+                bool charge=normal && a.Gun.IsCharge;
                 damageLog.Add(new(ev,parent,currentShot,currentPellet,frame,frame/60d,a.Id,"boss",effect,kind,
                     normal ? mode?.SkillId : sid,fid,damage,loggedDamage,
                     normal ? mode?.ShotId ?? a.Input.Skills.BurstConnection?.ShotId : null,
@@ -652,6 +704,9 @@ public static class SkillReplay
             double before=target.Hp; target.Hp=Math.Min(MaxHp(target),target.Hp+amount);
             Log("heal",source.Id,target.Id,$"function:{fid}",parent,fid,value:target.Hp-before,basis:"hp");
         }
+
+        private IReadOnlyList<string> Limits(string[] common) => !replacementUsed ? common : common.Append(
+            ReplacementWeaponPolicy.Limitation).ToArray();
 
         public SkillReplayResult Run()
         {
@@ -730,18 +785,25 @@ public static class SkillReplay
                         Damage(a,coefficient,mode is null?"normal_attack":$"skill:{mode.SkillId}:weapon",shotId,true,shot.IsFullCharge);
                     }
                     currentShot=null; currentPellet=null; currentShotData=null;
+                    if (mode is { ShotsLeft: > 0 })
+                    {
+                        // Shots-measured weapon change: the shot that spent the last shot still resolves inside the mode.
+                        if (mode.ShotsLeft==1)
+                        { modes.Remove(a.Id); a.GunDirty=true; Log("weapon_restored",a.Id,a.Id,$"skill:{mode.SkillId}",mode.EventId,basis:"shots_spent"); }
+                        else modes[a.Id]=mode with { ShotsLeft=mode.ShotsLeft-1 };
+                    }
                     RefreshConditions(shotId);
                 }
                 Phase(BattlePhase.AfterHits);
             }
             frame=C.DurationFrames;
             var members=team.Select(a=>new SkillMemberResult(a.Id,a.Damage.Values.Sum(),a.Damage,a.Shots,a.Hits,a.Crits,a.AmmoConsumed,
-                a.Gun.CurrentAmmo,a.Gun.MaxAmmo,a.Hp,MaxHp(a),a.CoverRatio,a.Ready.ToDictionary(p=>p.Key,p=>SkillUnits.ReadyFrame(p.Value)))).ToArray();
+                a.MainGun.CurrentAmmo,a.MainGun.MaxAmmo,a.Hp,MaxHp(a),a.CoverRatio,a.Ready.ToDictionary(p=>p.Key,p=>SkillUnits.ReadyFrame(p.Value)))).ToArray();
             return new(Version,"prescribed_context_provisional","selected_five_effects_connected",input,members.Sum(m=>m.Damage),members,
                 trace,eventCount,C.Trace && eventCount>trace.Count,
                 effects.Select(e=>new SkillEffectView(e.Source.Id,e.Target?.Id ?? "boss",e.Function.Id,e.Function.GroupId,e.Function.FunctionType,
                     e.Value,e.Stacks,e.Expires,e.Basis)).ToArray(),shields.Values.ToArray(),
-                ["Burst casts and full-burst windows are prescribed; team gauge and step validation are P04 work.",
+                Limits(["Burst casts and full-burst windows are prescribed; team gauge and step validation are P04 work.",
                  "Fixed surviving target and prescribed HP observations; enemy attacks, shield consumption, death and boss geometry are not simulated.",
                  "Pierce, accuracy and interruption bonuses are tracked; automatic aim, extra pierce targets and interruption mechanics remain P05 work.",
                  "Modernia mode consumes official coefficient/RPM/shot ID and unlimited-ammo duration; unextracted replacement-shot geometry uses the base weapon.",
@@ -749,7 +811,7 @@ public static class SkillReplay
                  "Caster ATK grants use native caster ATK; healing snapshots final caster max HP at application. Snapshot timing remains a measurement target.",
                  "Cover HP must be supplied for real cover targeting; absent cover inputs mean equal undamaged unit-size cover fixtures.",
                  "Lowest HP/cover target basis is an explicit comparison policy; verify the actual skill recipient before selecting a game rule.",
-                 "Conditional cube/favorite effects are not connected. These runs are not validated raid recommendation samples."])
+                 "Conditional cube/favorite effects are not connected. These runs are not validated raid recommendation samples."]))
             { Defense=defense.Summary(),
               DamageLog=input.DamageLog is null ? null : new(input.DamageLog.CharacterId,damageLog.Count,loggedDamage,damageLog.ToArray()),
               Connection=new("p03.connection.1",true,false,connectionSequence,new Dictionary<CombatEventKind,long>(connectionCounts),

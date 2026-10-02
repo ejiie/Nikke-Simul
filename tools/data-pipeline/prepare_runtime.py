@@ -1,15 +1,19 @@
-"""Pin the five selected characters' official graphs without flattening skill phases.
+"""Pin the selected characters' official graphs without flattening skill phases.
 
 Game data stays in ignored data/local/runtime. This exports evidence; it does not
 claim that importing a function means the combat interpreter supports it.
 """
 import hashlib
 import json
+import re
 from pathlib import Path
 from prepare_combat_conditions import assemble_profiles
 
 ROOT = Path(__file__).resolve().parents[2]
-TARGETS = ('리타', '블랑', '누아르', '앨리스', '모더니아')
+# Original five, then SSR batch 1 in 묑카엘-account combat-power order (S-SKILL-1; Director replaced the 5th slot with #5101 레드 후드). #5175 신데렐라 : 크리스탈 웨이브
+# is absent from every pinned source (skill_chains/roledata_clean/blabla_roledata) and is NOT assembled.
+TARGETS = ('리타', '블랑', '누아르', '앨리스', '모더니아',
+           '스노우 화이트', '라피 : 레드 후드', '맥스웰', '홍련 : 흑영', '레드 후드')
 PHASES = ('before_use', 'before_hurt', 'after_use', 'after_hurt')
 
 
@@ -31,8 +35,10 @@ def gauge_constants(table, config):
 
 
 def burst_connection(character, weapon, role):
-    # Only stages present in the selected five; do not invent numeric AllStep semantics.
-    steps = {'Step1': 1, 'Step2': 2, 'Step3': 3, 'StepFull': 4}
+    # Stage labels map to the numerals the official chain itself stores (verified below against both sources).
+    # AllStep/NextStep (#5101 only) are numerals 5/6 in the source; the team-burst controller does not support
+    # them (I->II->III only), so no AllStep chain semantics are invented here.
+    steps = {'Step1': 1, 'Step2': 2, 'Step3': 3, 'StepFull': 4, 'AllStep': 5, 'NextStep': 6}
     burst = weapon['burst']
     for key, normalized in [('use_burst_skill', 'useBurstSkill'), ('change_burst_step', 'changeBurstStep')]:
         if steps[role[key]] != character[key] or role[key] != burst[normalized]:
@@ -100,6 +106,33 @@ def graph_closure(chains, roots):
     return functions, skills, sorted(missing)
 
 
+def weapon_change_profile(role, slot_name, level):
+    """Replacement-weapon facts that exist only as game description text (no shot table is pinned).
+
+    Parsed from the pinned public roster description: charge time, full-charge multiplier, magazine and pierce.
+    Only the ChangeWeapon bodies measured in shots (Snow White, Maxwell) are profiled; every other ChangeWeapon
+    keeps the base-weapon fallback documented in docs/p03-skill-runtime.ko.md.
+    """
+    skill = role['skills'][slot_name]
+    text = re.sub(r'<[^>]+>', '', skill['description'])
+    charge = re.search(r'Charge Time:\s*([0-9.]+)\s*sec', text)
+    full = re.search(r'Full Charge Damage:\s*([0-9.]+)%', text)
+    ammo = re.search(r'Max Ammunition Capacity:\s*\{description_value_(\d+)\}', text)
+    effect = re.search(r'Additional Effect:\s*([^\n]+)', text)
+    if not (charge and full and ammo and effect):
+        raise ValueError('Weapon-change description is missing charge/full-charge/ammo/additional effect: ' + role['name'])
+    # Only the two explicit forms are understood; a missing or unknown effect must not become "no pierce".
+    pierce = {'Pierce': True, 'None': False}.get(effect.group(1).strip())
+    if pierce is None:
+        raise ValueError('Unknown weapon-change additional effect %r: %s' % (effect.group(1).strip(), role['name']))
+    values = skill['description_value_list'][int(ammo.group(1)) - 1]['description_value']
+    if len(values) != 10 or any(v != values[0] for v in values):
+        raise ValueError('Magazine is not level-invariant: ' + role['name'])
+    return {'charge_time_sec': float(charge.group(1)), 'full_charge_rate': float(full.group(1)) / 100,
+            'max_ammo': int(values[0]), 'pierce': pierce,
+            'source': 'blabla_roledata.json roster/%s/skills/%s/description' % (role['name_code'] if 'name_code' in role else role['name'], slot_name)}
+
+
 def assemble(chains, roles, names, upstream_skills, upstream_characters, source_roles=None):
     selected, functions, character_skills, missing = {}, {}, {}, []
     for name in TARGETS:
@@ -123,6 +156,10 @@ def assemble(chains, roles, names, upstream_skills, upstream_characters, source_
                          'skillExecutionStatus': 'not_connected'}
         if source_roles is not None:
             role = source_roles['roster'][key]
+            for level in character['skills']['burst']['levels'].values():
+                body = level.get('skill') or {}
+                if body.get('skill_type') == 7 and body.get('duration_type') == 2:
+                    body['weapon_change'] = weapon_change_profile(role, 'burst', level)
             selected[key]['sourceRole'] = {'squad': role['squad'], 'skills': role['skills'],
                                            'burstDurationCs': role['burst_duration']}
             selected[key]['burstConnection'] = burst_connection(character, weapon, role)
