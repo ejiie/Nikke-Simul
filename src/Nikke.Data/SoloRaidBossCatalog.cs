@@ -26,3 +26,31 @@ public sealed class SoloRaidBossCatalogService(string presentationRoot)
     public SoloRaidBoss Resolve(string? id) => id is null or "dummy"?Dummy:
         Read().Bosses.SingleOrDefault(b=>b.Id==id)??throw new ArgumentException("boss_id_unknown");
 }
+
+public sealed class SoloRaidBossAttributeCatalogService(string presentationRoot)
+{
+    public SoloRaidBossAttributeCatalog Read()
+    {
+        var path=Path.Combine(presentationRoot,"solo-raid-boss-attributes.json");
+        if(!File.Exists(path))return new(1,"solo_raid_boss_static_attributes",[],[],
+            [new("catalog",null,"boss_attributes_not_prepared",false,"보스 속성 준비 필요")],false,null);
+        try
+        {
+            var catalog=Wire.Read<SoloRaidBossAttributeCatalog>(File.ReadAllText(path));
+            if(catalog.SchemaVersion!=1 || catalog.Kind!="solo_raid_boss_static_attributes" || catalog.Bosses is null || catalog.Diagnostics is null || catalog.Fields is null
+                || catalog.Bosses.Any(b=>b is null || b.Id!="solo-raid-"+b.Season) || catalog.Bosses.Select(b=>b.Id).Distinct().Count()!=catalog.Bosses.Count)
+                throw new InvalidOperationException("boss_attributes_invalid");
+            foreach(var boss in catalog.Bosses)
+            {
+                var available=boss.Status=="available";
+                if(!available && (boss.Status!="unavailable" || boss.Reason is null || boss.Challenge is not null || boss.Element is not null))
+                    throw new InvalidOperationException("boss_attributes_invalid");
+                if(available && (boss.Challenge?.Stats is null || boss.Parts is null || boss.Core is null || boss.Ladder is null || boss.Unconfirmed is null
+                    || boss.DefenceRatio is null || boss.DefenceRatioRate is null || boss.HpRatio is null))
+                    throw new InvalidOperationException("boss_attributes_invalid");
+            }
+            return catalog;
+        }
+        catch(System.Text.Json.JsonException ex){throw new InvalidOperationException("boss_attributes_invalid",ex);}
+    }
+}

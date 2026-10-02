@@ -53,4 +53,38 @@ public class SoloRaidRequestPolicyTests
         Assert.Equal("boss_catalog_not_prepared",Assert.Single(response.Diagnostics).Code);
         Assert.Throws<ArgumentException>(()=>catalog.Resolve("solo-raid-1"));
     }
+    static string TempWith(string json)
+    {
+        var root=Path.Combine(Path.GetTempPath(),Guid.NewGuid().ToString("N"));Directory.CreateDirectory(root);
+        File.WriteAllText(Path.Combine(root,"solo-raid-boss-attributes.json"),json);return root;
+    }
+    const string Header="\"schemaVersion\":1,\"kind\":\"solo_raid_boss_static_attributes\",\"fields\":[],\"diagnostics\":[],\"complete\":false,\"source\":null";
+    [Fact] public void Missing_boss_attributes_are_explicit_and_not_defaulted()
+    {
+        var response=new SoloRaidBossAttributeCatalogService(Path.Combine(Path.GetTempPath(),Guid.NewGuid().ToString("N"))).Read();
+        Assert.False(response.Complete);Assert.Empty(response.Bosses);
+        Assert.Equal("boss_attributes_not_prepared",Assert.Single(response.Diagnostics).Code);
+    }
+    [Fact] public void Unavailable_season_keeps_null_attributes_and_defence_ratio_rate_is_raw()
+    {
+        var json="{"+Header+",\"bosses\":[{\"id\":\"solo-raid-41\",\"season\":41,\"status\":\"unavailable\",\"reason\":\"static_data_season_missing\"},"
+            +"{\"id\":\"solo-raid-1\",\"season\":1,\"status\":\"available\",\"reason\":null,\"defenceRatio\":10000,\"defenceRatioRate\":6000,\"hpRatio\":10000,"
+            +"\"element\":{\"id\":100001,\"key\":\"Fire\",\"weakId\":200001,\"weakKey\":\"Water\"},"
+            +"\"challenge\":{\"presetId\":1,\"level\":390,\"characterLevel\":400,\"stats\":{\"level\":390,\"hp\":5866372929,\"attack\":111269,\"defence\":30925},\"levelChange\":null},"
+            +"\"ladder\":[],\"parts\":[],\"core\":{\"kind\":\"unconfirmed\",\"partIds\":[],\"evidence\":null},\"unconfirmed\":[\"core_position\"]}]}";
+        var catalog=new SoloRaidBossAttributeCatalogService(TempWith(json)).Read();
+        var missing=catalog.Bosses[0];
+        Assert.Equal("unavailable",missing.Status);Assert.Null(missing.Challenge);Assert.Null(missing.Element);Assert.Null(missing.DefenceRatioRate);
+        var ok=catalog.Bosses[1];
+        Assert.Equal(6000,ok.DefenceRatioRate);Assert.Equal(30925,ok.Challenge!.Stats!.Defence);Assert.Equal(5866372929L,ok.Challenge.Stats.Hp);
+        Assert.Equal("Water",ok.Element!.WeakKey);
+    }
+    [Theory]
+    [InlineData("{\"schemaVersion\":2,\"kind\":\"solo_raid_boss_static_attributes\",\"fields\":[],\"diagnostics\":[],\"complete\":true,\"bosses\":[]}")]
+    [InlineData("{"+Header+",\"bosses\":[{\"id\":\"solo-raid-9\",\"season\":1,\"status\":\"unavailable\",\"reason\":\"x\"}]}")]
+    [InlineData("{"+Header+",\"bosses\":[{\"id\":\"solo-raid-1\",\"season\":1,\"status\":\"available\",\"reason\":null}]}")]
+    [InlineData("{"+Header+",\"bosses\":[{\"id\":\"solo-raid-1\",\"season\":1,\"status\":\"unavailable\",\"reason\":null}]}")]
+    [InlineData("not json")]
+    public void Invalid_boss_attributes_are_rejected(string json) =>
+        Assert.Throws<InvalidOperationException>(()=>new SoloRaidBossAttributeCatalogService(TempWith(json)).Read());
 }
