@@ -2,6 +2,7 @@
 
 ## 최신 상태
 
+- **2026-10-03:** 경계값 양끝 포함은 실측이 어려워(게임에 거리 미표시) Director 판단으로 **현행 유지·종결**(연속 거리에서 경계 일치 확률 ≈ 0) — [2026-10-03 결정](user-decisions-2026-10-03.ko.md).
 - **사용자 확인(2026-09-29): 사거리 데이터(무기군·캐릭터별 `bonusrange_min/max`, 하란 #5042 SR 25–45 예외, RL 0–0 = 적정 거리 보너스 없음)는 이미 검증된 내용이다.** 아래 기록의 "잠정·확인 필요·실게임 가설" 중 사거리 **데이터 값과 RL 0–0 해석**에 해당하는 부분은 이 확인으로 해소됐다(당시 기록은 역사로 보존). 경계값 **양끝 포함**(`min ≤ 거리 ≤ max`) 규칙은 이번 확인 범위가 명시되지 않아 확인 대기로 둔다. 앱 화면 문구("확인 필요"·"잠정")와 API `gameVerified=false`는 아직 코드에 남아 있다.
 - **F-COND-U mock 단계: 완료, Director 검토 수용.** UI `cc24bc9`(`cd004f1` ff 후), [보고서](C:/Users/user/orca/workspaces/Nikke-Simul/UI/docs/boss-distance-element-ui.ko.md). 변경은 `apps/desktop-ui`(app.js·새 `combat-conditions.js`·simul.css·single-deck-stats.js)·UI tests·UI 문서뿐. Director가 mock 캡처(거리·약점 팝업, 폼 1500px)를 확인했다: 32×32 아이콘 버튼 + 현재 값, 거리 슬라이더·숫자·미설정·멤버별 판정·무기군 표, 약점 팝업의 5속성 이미지·"보스의 약점 속성 — 이 속성 니케가 우월 코드 보너스를 받습니다" 경고·속성별 덱 멤버. 캡처의 멤버 무기·속성·예외 값은 **합성 mock 데이터**이며 실제 캐릭터 정보가 아니다.
   - `COND_WIRE.confirmed=false`라 실제 폼·요청은 아직 바뀌지 않았다. 잠정 wire(`GET /api/runtime/combat-ranges?snapshotId=`, `combat.bossDistance`/`bossWeakElement`, `Fire/Water/Wind/Iron/Electronic`)는 `combat-conditions.js` 한 곳에 모았다. Backend 확정 wire 통지 대기.
