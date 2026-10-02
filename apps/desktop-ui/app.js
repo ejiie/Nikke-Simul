@@ -10,6 +10,7 @@ import { defaultPolicy, policyOptions } from './hit-policy.js';
 import { COND_WIRE, conditionWire, describeCombatProfileError, describeCompatibility, mountConditionControls } from './combat-conditions.js';
 import { describeChange, errorText, friendlyServerMessage, koreanText, slotLabel } from './display-labels.js';
 import { BOSS_WIRE, DEF_WIRE, DEFAULT_CRIT_MODE, DURATION_FRAMES, PELLET_POLICY, conditionsNote, critOptionsHtml, defenseFields, describeDefenseResult, describeSavedCombat, mountBossSelector } from './raid-conditions.js';
+import { own } from './own-lookup.js';
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -247,7 +248,7 @@ formation.render=()=>{
 };
 
 const IMAGE_STATUS_TEXT={running:'이미지 및 카탈로그 준비 중',succeeded:'이미지 및 카탈로그 준비 완료',partial:'이미지 갱신 중 일부 항목을 처리하지 못했습니다.',failed:'이미지 갱신에 실패했습니다.',stopped:'백엔드가 종료 중입니다.'};
-const imageMessage=update=>koreanText(update?.message,IMAGE_STATUS_TEXT[update?.status]??'이미지 갱신 상태가 바뀌었습니다.');
+const imageMessage=update=>koreanText(update?.message,own(IMAGE_STATUS_TEXT, update?.status)??'이미지 갱신 상태가 바뀌었습니다.');
 function renderDiagnostics(){
   const knownNames=new Set([...state.presentationByCharacter.values()].map(p=>p?.displayName).filter(Boolean));
   const issues=(snapshot?.issues??[]).filter(i=>i.code!=='duplicate_identical');
@@ -356,7 +357,7 @@ function renderBurstSummary(team){
   const name=id=>esc(state.presentationByCharacter.get(id)?.displayName??build(id)?.name??(id?'이름 미확인':'—'));
   const seconds=frame=>num(frame/60);
   const reasons={missing_stage_1:'버스트 I 니케 없음',missing_stage_2:'버스트 II 니케 없음',missing_stage_3:'버스트 III 니케 없음',cooldown_stage_1:'버스트 I 쿨다운 대기',cooldown_stage_2:'버스트 II 쿨다운 대기',cooldown_stage_3:'버스트 III 쿨다운 대기'};
-  const reasonText=key=>reasons[key]??'대기 사유 미확인';
+  const reasonText=key=>own(reasons, key)??'대기 사유 미확인';
   const events=team.timeline.filter(e=>['burst_cast','waiting','stage_expired'].includes(e.kind));
   return `<section class="surface"><h3>자동 버스트 사이클</h3><p>풀버스트 ${num(team.fullBursts.length)}회 · 유지 ${seconds(team.fullBurstFrames)}초${team.waitingReason?' · '+esc(reasonText(team.waitingReason)):''}</p><div class="table-scroll"><table><thead><tr><th>회차</th><th>버스트 III</th><th>풀버스트 진입</th><th>종료</th><th>구간 대미지</th></tr></thead><tbody>${team.fullBursts.map(w=>`<tr><td>${w.cycle}</td><td>${name(w.caster)}</td><td>${seconds(w.startFrame)}초</td><td>${w.endFrame===null?'진행 중 (예정 '+seconds(w.plannedEndFrame)+'초)':seconds(w.endFrame)+'초'}</td><td>${num(Object.values(w.memberDamage).reduce((sum,v)=>sum+v,0))}</td></tr>`).join('')}</tbody></table></div><details><summary>충전 기여·시전·대기 기록</summary><p>${Object.entries(team.acceptedGaugeByMember).map(([id,value])=>name(id)+' '+num(value/team.sourceConstants.capacityRaw*100)+'%').join(' · ')}</p><p class="microcopy">충전 기여는 전투 전체에서 실제 게이지에 반영된 누적량입니다.</p><div class="table-scroll"><table><thead><tr><th>시각</th><th>단계</th><th>동작</th><th>니케</th><th>쿨다운 종료</th></tr></thead><tbody>${events.map(e=>`<tr><td>${seconds(e.frame)}초</td><td>${['충전','I','II','III','풀버스트'][e.step]}</td><td>${e.kind==='burst_cast'?'시전':e.kind==='stage_expired'?'단계 대기 만료':esc(reasonText(e.reason))}</td><td>${name(e.characterId)}</td><td>${e.readyAtFrame===null?'—':seconds(e.readyAtFrame)+'초'}</td></tr>`).join('')}</tbody></table></div>${team.timelineTruncated?'<p>상세 기록 상한 도달 · 사이클 합계는 전체 전투 기준입니다.</p>':''}</details></section>`;
 }
@@ -366,7 +367,7 @@ function effectLabel(saved,id,effect,index){
   const slots=saved.inputs?.find(input=>input?.weapon?.characterId===id)?.skills?.slots??{};
   for(const [slot,definition] of Object.entries(slots)){
     if(kind==='skill'&&definition.skillId===effectId||kind==='function'&&definition.functionIds.includes(effectId))
-      return ({skill1:'스킬 1',skill2:'스킬 2',burst:'버스트'}[slot]??'스킬')+(mode==='weapon'?' 중 평타':' 대미지');
+      return (own({skill1:'스킬 1',skill2:'스킬 2',burst:'버스트'},slot)??'스킬')+(mode==='weapon'?' 중 평타':' 대미지');
   }
   return `추가 효과 ${index+1}`;
 }

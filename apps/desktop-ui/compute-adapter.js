@@ -11,6 +11,7 @@
  */
 
 import { errorText, koreanText } from './display-labels.js';
+import { own } from './own-lookup.js';
 
 export const COMPUTE_CONTRACT_VERSION = 'backend-v1-f2327e5';
 
@@ -77,7 +78,7 @@ const STAGE_LABELS = {
 const stageLabel = value => {
   const key = text(value);
   if (!key) return UNKNOWN;
-  return STAGE_LABELS[key] ?? '상태 미확인';
+  return own(STAGE_LABELS, key) ?? '상태 미확인';
 };
 
 /**
@@ -227,7 +228,7 @@ export function describeBatch(batch) {
     present: true,
     id: text(batch.id),
     state,
-    stateLabel: BATCH_STATES[state] ?? (state ? '상태 미확인' : UNKNOWN),
+    stateLabel: own(BATCH_STATES, state) ?? (state ? '상태 미확인' : UNKNOWN),
     counts,
     progress: counts.requested && counts.requested > 0 && isFiniteNumber(counts.valid)
       ? Math.min(1, counts.valid / counts.requested) : null,
@@ -257,7 +258,7 @@ export function describeComputeError(code) {
     warmup_excluded_from_statistics: '예열 실험은 통계 표본에서 제외됩니다.',
     baseline_required: '비교 기준 없음 · 이 실험은 기준 실험 없이 실행되어 OL 비교 대상이 아닙니다.'
   };
-  return known[key] ?? '알 수 없는 오류로 실패했습니다.';
+  return own(known, key) ?? '알 수 없는 오류로 실패했습니다.';
 }
 
 const CONTRACT_ERROR_CODES = ['analysis_not_integrated', 'gpu_unavailable', 'saved_tactic_stale', 'engine_or_rules_version_changed',
@@ -300,7 +301,7 @@ export function describeMetricStatistics(metrics, { label = null } = {}) {
   const sampleNote = n === 0 ? '표본 없음' : n === 1 ? '표본 1건 · 산포/신뢰구간 없음' : null;
   // Contract: "n=0/1의 불명값은 null" — support is per field. A reason never hides a value the API supplied;
   // it explains only null fields, and only the fields its scope names (unknown reasons: every null field).
-  const scope = unsupportedReason ? REASON_SCOPE[unsupportedReason] ?? null : null;
+  const scope = unsupportedReason ? own(REASON_SCOPE, unsupportedReason) ?? null : null;
   const covered = field => Boolean(unsupportedReason) && (scope === null || scope.includes(field));
   const value = (field, options = {}) => isFiniteNumber(metrics?.[field]) ? metricValue(metrics[field], options)
     : metricValue(null, { ...options, unsupported: covered(field) });
@@ -338,7 +339,7 @@ const REASON_TEXT = { mean_ci_requires_n_at_least_2: '평균 CI·표본 표준�
 export function describeUnsupportedReason(reason) {
   const key = text(reason);
   // U-FIX-6: Korean only; unknown reason codes are not shown raw.
-  return key ? REASON_TEXT[key] ?? '일부 통계 지표를 제공하지 않습니다' : null;
+  return key ? own(REASON_TEXT, key) ?? '일부 통계 지표를 제공하지 않습니다' : null;
 }
 
 /**

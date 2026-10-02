@@ -1,6 +1,7 @@
 // Card/detail projections and edit callbacks, backed by versioned Nikke-Simul snapshots.
 import { errorText } from './display-labels.js';
 import { renderEquipmentDetail, renderSkillDetail, renderCollectionDetail, numericEditor } from './local-lab-detail.js';
+import { own } from './own-lookup.js';
 const slots={head:'head',torso:'torso',arm:'arms',leg:'legs'};
 const company={elysion:1,missilis:2,tetra:3,pilgrim:4,abnormal:7};
 const byId=id=>document.getElementById(id);
@@ -21,7 +22,7 @@ function project(){
   const c=session.draft;values=new Map();state.editOperations=[];
   for(const [field,v] of Object.entries({character_level:c.level,bond_level:c.bond,limit_break:c.core>0?3:c.limitBreak,core_level:c.core,skill_1_level:c.skills['1'],skill_2_level:c.skills['2'],burst_level:c.skills['3']}))values.set(field,{integerValue:v});
   for(const e of c.equipment){
-    const p=`equipment.${slots[e.slot]}`;
+    const p=`equipment.${own(slots, e.slot)}`;
     values.set(p+'.definition',{referenceUid:e.itemId==='0'?null:e.itemId});values.set(p+'.enhancement_level',{integerValue:e.level});
     for(const l of e.lines){const q=`${p}.overload.${l.lineIndex}`;
       values.set(q+'.state',{controlledValue:l.presence});
@@ -39,7 +40,7 @@ function applyOperations(){
   for(const [field,key] of Object.entries({character_level:'level',bond_level:'bond',limit_break:'limitBreak',core_level:'core'}))if(values.get(field)?.integerValue!=null)c[key]=values.get(field).integerValue;
   for(const [field,key] of [['skill_1_level','1'],['skill_2_level','2'],['burst_level','3']])c.skills[key]=values.get(field)?.integerValue;
   for(const e of c.equipment){
-    const p=`equipment.${slots[e.slot]}`,uid=values.get(p+'.definition')?.referenceUid;
+    const p=`equipment.${own(slots, e.slot)}`,uid=values.get(p+'.definition')?.referenceUid;
     const def=state.presentationBySupport.get(uid),replaced=uid&&uid!==e.itemId;
     if(replaced&&def){e.itemId=uid;e.tier=def.tier;e.manufacturer=0;}
     e.level=values.get(p+'.enhancement_level')?.integerValue??e.level;
@@ -92,15 +93,15 @@ function render(){
   supports.push({definitionUid:'0',kindCode:'collection',displayName:'소장품 없음',rarityCode:'none',levels:[]});
   for(const e of c.equipment){
     let def=supports.find(d=>d.definitionUid===e.itemId&&d.kindCode==='equipment');
-    if(!def){def={definitionUid:e.itemId??`unknown:${e.slot}`,kindCode:'equipment',displayName:'장비 정보 미확인',slotCode:slots[e.slot],combatClassCode:item.combatClassCode,tier:e.tier,stats:[]};supports.push(def);}
+    if(!def){def={definitionUid:e.itemId??`unknown:${e.slot}`,kindCode:'equipment',displayName:'장비 정보 미확인',slotCode:own(slots, e.slot),combatClassCode:item.combatClassCode,tier:e.tier,stats:[]};supports.push(def);}
     const stat=report?.steps?.find(s=>s.name===`equipment:${e.slot}`)?.value;
     if(stat){def.stats=Object.entries({hp:'체력',atk:'공격력',def:'방어력'}).filter(([key])=>stat[key]>0).map(([key,label])=>({label,value:String(stat[key]),baseValue:stat[key]}));def.enhancementStatIncreaseBasisPointsPerLevel=0;}
-    else if(e.manufacturer===company[item.manufacturerCode]){def.stats=(def.stats??[]).map(s=>({...s,baseValue:Math.round(s.baseValue*(1.3+e.level*.1)),value:String(Math.round(s.baseValue*(1.3+e.level*.1)))}));def.enhancementStatIncreaseBasisPointsPerLevel=0;}
+    else if(e.manufacturer===own(company, item.manufacturerCode)){def.stats=(def.stats??[]).map(s=>({...s,baseValue:Math.round(s.baseValue*(1.3+e.level*.1)),value:String(Math.round(s.baseValue*(1.3+e.level*.1)))}));def.enhancementStatIncreaseBasisPointsPerLevel=0;}
   }
   state.presentation={supportDefinitions:supports,overloadOptions:catalog.overloadOptions??[]};
   state.presentationBySupport=new Map(supports.map(s=>[s.definitionUid,s]));state.presentationByOverload=new Map(state.presentation.overloadOptions.map(s=>[s.definitionUid,s]));state.presentationByCharacter=new Map([[id,item]]);
   const names={elysion:'엘리시온',missilis:'미실리스',tetra:'테트라',pilgrim:'필그림',abnormal:'어브노멀',attacker:'화력형',defender:'방어형',supporter:'지원형',fire:'작열',water:'수냉',wind:'풍압',electric:'전격',iron:'철갑'};
-  byId('nikke-selected-tags').textContent=[item.rarityCode?.toUpperCase(),item.burstStep?`버스트 ${{1:'Ⅰ',2:'Ⅱ',3:'Ⅲ',5:'P'}[item.burstStep]}`:null,names[item.manufacturerCode],names[item.combatClassCode],names[item.elementCode]].filter(Boolean).join(' · ');
+  byId('nikke-selected-tags').textContent=[item.rarityCode?.toUpperCase(),item.burstStep?`버스트 ${own({1:'Ⅰ',2:'Ⅱ',3:'Ⅲ',5:'P'},item.burstStep)??''}`:null,own(names,item.manufacturerCode),own(names,item.combatClassCode),own(names,item.elementCode)].filter(Boolean).join(' · ');
   byId('nikke-detail-power').textContent=session.power==null?'미확인':session.power.toLocaleString('ko-KR');byId('nikke-detail-power').previousElementSibling.textContent='수집 전투력';
   let final=byId('detail-final-stats');if(!final){final=document.createElement('p');final.id='detail-final-stats';final.className='selected-tags';byId('nikke-detail-power').parentElement.after(final);}
   final.textContent=report?.nativeStats?`체력 ${report.nativeStats.hp.toLocaleString('ko-KR')} · 공격력 ${report.nativeStats.atk.toLocaleString('ko-KR')} · 방어력 ${report.nativeStats.def.toLocaleString('ko-KR')}`:report?'스탯 계산 자료를 확인하세요.':'스탯 계산 중…';
@@ -110,7 +111,7 @@ function render(){
   for(const e of c.equipment){
     const card=byId('equipment-list').children[['head','torso','arm','leg'].indexOf(e.slot)];if(!card)continue;
     if(e.tier!==10)for(const select of card.querySelectorAll('.overload-row select'))select.disabled=true;
-    if(e.tier===9){const label=document.createElement('label');label.className='equipment-manufacturer';const input=document.createElement('input');input.type='checkbox';input.checked=e.manufacturer===company[item.manufacturerCode];label.append(input,'기업 장비 일치');card.querySelector('.equipment-stat-panel').append(label);input.onchange=()=>{e.manufacturer=input.checked?company[item.manufacturerCode]:0;changed();};}
+    if(e.tier===9){const label=document.createElement('label');label.className='equipment-manufacturer';const input=document.createElement('input');input.type='checkbox';input.checked=e.manufacturer===own(company, item.manufacturerCode);label.append(input,'기업 장비 일치');card.querySelector('.equipment-stat-panel').append(label);input.onchange=()=>{e.manufacturer=input.checked?own(company, item.manufacturerCode):0;changed();};}
   }
   const collectionLevel=byId('collection-editor').querySelector('input');if(collectionLevel){collectionLevel.disabled=c.collectionId==='0'||c.collectionId==null;collectionLevel.min=c.favoriteStage>0?'1':'0';}
   const grade=byId('collection-editor').querySelector('.collection-phase strong');if(grade)grade.textContent=c.favoriteStage>0?'애장품':c.collectionGrade==='none'?'':c.collectionGrade??'미확인';
