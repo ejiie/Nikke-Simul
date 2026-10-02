@@ -85,6 +85,8 @@ app.MapCompute(dataRoot, store, game, runtimeReplay, calculations);
 var presentationRoot = Path.Combine(dataRoot, "presentation");
 var bosses=new SoloRaidBossCatalogService(presentationRoot);
 app.MapGet("/api/presentation/solo-raid-bosses",()=>bosses.Read());
+var bossAttributes=new SoloRaidBossAttributeCatalogService(presentationRoot);
+app.MapGet("/api/presentation/solo-raid-bosses/attributes",()=>bossAttributes.Read());
 var presentation = app.Services.GetRequiredService<PresentationService>();
 app.MapGet("/api/presentation", () => presentation.Read());
 app.MapGet("/api/presentation/status", () => presentation.Status());

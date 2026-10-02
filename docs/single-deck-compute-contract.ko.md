@@ -260,6 +260,12 @@ boss 메타데이터는 조건·전투 데이터 버전·fingerprint·튜닝 키
 
 Git 제외 presentation 준비 명령은 `python tools/data-pipeline/prepare_solo_raid_bosses.py --presentation-root <격리 dataRoot>/presentation`. 원본에는 이번 작업에서 실행하지 않았다. 목록/이미지와 코드를 같이 준비해야 실제 보스가 표시되며 상세 범위는 [F2-B 보고서](combat-conditions-cleanup-backend.ko.md)를 따른다.
 
+### 보스 정적 속성 — 표시 전용 (B-DATA-1)
+
+`GET /api/presentation/solo-raid-bosses/attributes`는 위 보스 목록과 **별도 wire**다(목록 필드 `id/name/imageUrl/season`은 그대로). `schemaVersion:1`, `kind:"solo_raid_boss_static_attributes"`, `fields`(필드별 원천·단위·신뢰도), `bosses`(시즌 1~42, `id`는 `solo-raid-<시즌>`), `diagnostics`, `complete`, `source`(StaticData 사본과 표의 SHA-256·레코드 수, 준비 시각). 값이 없으면 `null`이고 0·기본값으로 채우지 않는다. 확인하지 못한 값은 명시적 `null`이며 보스의 `unconfirmed`에 이유 코드(`challenge_level_stats`, `level_change_step_<n>_stats`, `core_position` 등)가 함께 있어야 한다(선언 없는 null·키 누락·문자열 숫자는 손상으로 409). 시즌 41·42처럼 사용한 StaticData 사본에 없는 시즌은 `status:"unavailable"`, `reason:"static_data_season_missing"`이며 속성은 모두 없다. 준비 전에는 `bosses:[]` + `boss_attributes_not_prepared`, 손상 파일은 409 `boss_attributes_invalid`.
+
+**이 값은 계산·fingerprint·튜닝 키·저장 결과에 반영되지 않는다.** 보스 선택은 계속 표시 전용이다. 상세 필드·신뢰도·미확인 목록은 [B-DATA-1 보고서](boss-static-attributes-backend.ko.md).
+
 ### 사거리 확인 범위
 
 combat-conditions catalog의 `gameVerified:true`는 사용자 확인을 마친 **캐릭터별 사거리 데이터·RL0–0** 범위다. RL diagnostic은 `rl_zero_range_no_bonus`로 바뀌고 rangeBonusAvailable=false는 유지한다. 전투 전체·보스 기믹·대미지 실측까지 검증됐다는 뜻이 아니다. 경계 양끝 포함은 현 계산 유지·문서상 확인 대기이며 UI 미확정 문구로 표시하지 않는다.
