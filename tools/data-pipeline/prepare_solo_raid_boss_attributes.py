@@ -102,28 +102,11 @@ GROUP_DICT = 'WaveData.GroupDict.csv'
 ICON_TO_ELEMENT = {'icn_element_fire': 'Fire', 'icn_element_water': 'Water', 'icn_element_wind': 'Wind',
                    'icn_element_elect': 'Electronic', 'icn_element_iron': 'Iron'}
 
-FIELDS = [
-    {'key': 'element', 'label': '속성', 'source': 'MonsterTable.element_id → ElementTable.icon', 'unit': '속성 ID',
-     'confidence': '확인', 'note': '보스 monster 행의 element_id가 정확히 1개일 때만 채운다.'},
-    {'key': 'weakElement', 'label': '약점 속성', 'source': 'ElementTable.weak_element_id(보스 속성 행)', 'unit': '속성 ID',
-     'confidence': '유력', 'note': '필드 이름과 알려진 상성(불→바람→철→전기→물→불)이 일치. 계산에는 반영하지 않는다.'},
-    {'key': 'challengeLevel', 'label': '챌린지 레벨', 'source': 'SoloRaidPresetTable(Difficulty_type=2).Monster_stage_lv',
-     'unit': '레벨', 'confidence': '확인', 'note': 'Character_lv(싱크로 레벨)도 함께 표시. 일반 난이도 사다리는 별도 ladder.'},
-    {'key': 'levelChange', 'label': '레벨 변경', 'source': 'MonsterStageLvChangeTable(group=Monster_stage_lv_change_group)',
-     'unit': '누적 피해 구간 → 레벨', 'confidence': '유력',
-     'note': '그룹 904: 0~20억 레벨 390, 20억 초과 레벨 400. 사용자 R4(20억 초과 시 DEF 30925→31784)와 DEF 표 값이 일치하나 열 이름은 미확인.'},
-    {'key': 'levelStats', 'label': '레벨별 HP·공격·방어', 'source': 'MonsterStatEnhanceTable[group=monster.statenhance_id, lv]',
-     'unit': '정수', 'confidence': '확인', 'note': '표의 원값. monster.hp_ratio·defence_ratio와의 곱 규칙은 미확인이라 곱하지 않는다.'},
-    {'key': 'defence', 'label': '방어력', 'source': 'levelStats.defence, MonsterTable.defence_ratio, MonsterPartsTable.defence_ratio',
-     'unit': '표 원값(비율은 /10000 후보)', 'confidence': '확인(원값) / 미확인(합성)',
-     'note': '유효 방어력으로의 합성은 확정하지 않았다. 챌린지 레벨 390·400 값은 사용자 R4의 30925·31784와 일치.'},
-    {'key': 'defenceRatioRate', 'label': '방어율', 'source': 'MonsterTable.defence_ratio_ratio', 'unit': '원값(단위 미확인)',
-     'confidence': '확인(필드·값) / 미확인(단위)', 'note': '시즌 1~40 보스는 모두 0. 방어율 기믹의 단위·적용 조건은 미확인.'},
-    {'key': 'parts', 'label': '파츠 구성', 'source': 'MonsterPartsTable[monster_model_id]', 'unit': '파츠 행', 'confidence': '확인',
-     'note': 'parts_type은 원값 정수만 제공(이름 매핑 미검증). 파츠별 defence_ratio·hp_ratio는 원값.'},
-    {'key': 'core', 'label': '코어 구성', 'source': 'MonsterPartsTable.weapon_object/parts_object/parts_skin 의 collider 이름', 'unit': '파츠 ID',
-     'confidence': '유력', 'note': 'collider 이름에 core가 든 파츠를 코어로 본다. 없으면 코어 위치 미확인(몸통 기본 약점 추정은 하지 않는다).'},
-]
+# Developer/report metadata (source table, unit, confidence, notes). It lives in a JSON manifest, not in Python
+# string literals, on purpose: the UI registry generator scans code literals, and these internal notes (user
+# decisions, group ids, evidence) must never become display text. They are exposed only as `fields` in the API.
+FIELDS_MANIFEST = Path(__file__).with_name('manifests') / 'solo-raid-boss-attribute-fields.json'
+FIELDS = json.loads(FIELDS_MANIFEST.read_text(encoding='utf-8'))
 
 
 class StaticDataError(RuntimeError):
