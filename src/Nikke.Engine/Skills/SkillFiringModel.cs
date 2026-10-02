@@ -54,6 +54,7 @@ namespace Nikke.Engine.Skills
         public int LastShotChargeRatioRaw { get; private set; }
         public int LastShotEffectiveChargeFrames { get; private set; }
         public int LastShotActualChargeFrames { get; private set; }
+        public bool IsCharge => _isCharge;
         public bool UnlimitedAmmo { get; private set; }
         private double? _overrideRate;
         private double _savedRate;

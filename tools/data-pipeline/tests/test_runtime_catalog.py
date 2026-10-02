@@ -59,3 +59,41 @@ class RuntimeCatalogTests(unittest.TestCase):
             with self.assertRaises(ValueError): burst_connection(character,weapon,bad)
         bad=copy.deepcopy(role);bad['shot']['target_burst_energy_pershot']=1
         with self.assertRaises(ValueError): burst_connection(character,weapon,bad)
+
+
+class WeaponChangeProfileTests(unittest.TestCase):
+    ROLE = {'name': 'x', 'name_code': '9', 'skills': {'burst': {
+        'description': 'Change the weapon in use: \nCharge Time: 5 sec\nDamage: {description_value_01}% of ATK \n'
+                       'Full Charge Damage: 1000% of damage \nMax Ammunition Capacity: {description_value_02} round(s) \n'
+                       'Additional Effect: Pierce</color>',
+        'description_value_list': [{'description_value': ['10'] * 10}, {'description_value': ['1'] * 10}]}}}
+
+    def test_profile_is_read_from_the_description_not_hardcoded(self):
+        from prepare_runtime import weapon_change_profile
+        profile = weapon_change_profile(self.ROLE, 'burst', {})
+        self.assertEqual((profile['charge_time_sec'], profile['full_charge_rate'], profile['max_ammo'], profile['pierce']),
+                         (5.0, 10.0, 1, True))
+        role = copy.deepcopy(self.ROLE)
+        role['skills']['burst']['description'] = role['skills']['burst']['description'].replace('5 sec', '2 sec').replace('1000%', '300%').replace('Pierce', 'None')
+        profile = weapon_change_profile(role, 'burst', {})
+        self.assertEqual((profile['charge_time_sec'], profile['full_charge_rate'], profile['pierce']), (2.0, 3.0, False))
+
+    def test_missing_or_level_dependent_facts_are_rejected_not_defaulted(self):
+        from prepare_runtime import weapon_change_profile
+        role = copy.deepcopy(self.ROLE)
+        role['skills']['burst']['description'] = role['skills']['burst']['description'].replace('Charge Time: 5 sec', '')
+        with self.assertRaises(ValueError): weapon_change_profile(role, 'burst', {})
+        role = copy.deepcopy(self.ROLE)
+        role['skills']['burst']['description_value_list'][1]['description_value'][9] = '2'
+        with self.assertRaises(ValueError): weapon_change_profile(role, 'burst', {})
+
+    def test_all_step_numerals_are_taken_from_both_sources_not_invented(self):
+        character = dict(use_burst_skill=5, change_burst_step=6, burst_apply_delay=1, burst_duration=1000, shot_id=10,
+                         skills={'burst': {'levels': {'1': {'skill': {'skill_type': 8}}}}})
+        weapon = {'burst': dict(useBurstSkill='AllStep', changeBurstStep='NextStep', applyDelaySec=.01, durationSec=10,
+                                energyPerShot=1, targetEnergyPerShot=2, fullChargeEnergy=3)}
+        role = dict(use_burst_skill='AllStep', change_burst_step='NextStep', burst_apply_delay=1, burst_duration=1000,
+                    shot=dict(burst_energy_pershot=1, target_burst_energy_pershot=2, full_charge_burst_energy=3))
+        self.assertEqual(burst_connection(character, weapon, role)['step'], 5)
+        bad = copy.deepcopy(character); bad['use_burst_skill'] = 3
+        with self.assertRaises(ValueError): burst_connection(bad, weapon, role)

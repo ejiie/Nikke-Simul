@@ -35,8 +35,18 @@ public sealed record SkillFunction
     public double Rate => (double)((decimal)FunctionValue / 10000);
 }
 public sealed record SkillValueParameter(int SkillValueType, long SkillValue);
+// Replacement-weapon facts that no pinned shot table provides; parsed from the public game description (prepare_runtime.py).
+public sealed record WeaponChangeProfile
+{
+    public double ChargeTimeSec { get; init; }
+    public double FullChargeRate { get; init; }
+    public int MaxAmmo { get; init; }
+    public bool Pierce { get; init; }
+    public string Source { get; init; }
+}
 public sealed record SkillBody
 {
+    public WeaponChangeProfile WeaponChange { get; init; }
     public int SkillType { get; init; }
     public int SkillCooltime { get; init; }
     public int DurationType { get; init; }
