@@ -1,9 +1,9 @@
 // Nikke detail renderer functions.
 // Snapshot projection and edit operations live in local-lab-adapter.js.
 import { state, effectiveProfileValue, configuredSynchroLevel, queueIntegerValue,
-import { own } from "./own-lookup.js";
   queueControlledValue, queueReferenceValue, queueExactValue, upsertProfileOperations,
   renderNikkeDetail, renderEditOperations } from "./local-lab-adapter.js";
+import { own } from "./own-lookup.js";
 const byId=id=>document.getElementById(id);
 const uiAssetRoot="/editor/assets/ui";
 const manufacturerLabels = Object.freeze({
