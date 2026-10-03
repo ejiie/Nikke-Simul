@@ -19,6 +19,21 @@ public class ContractAndOlTests
         Assert.Equal(100, s.Team.P95); Assert.Equal(190, s.Members.Values.Sum(m => m.P95));
         Assert.Equal(0, s.Team.CutSuccess); Assert.False(s.GameVerified);
     }
+    [Fact] public void Run_limitations_are_omitted_when_absent_and_deduplicated_into_results_and_statistics()
+    {
+        var b = Batch(n: 2); var plain = Row(b, 0, 10); var tagged = new[] { new RunLimitation("p1", "provisional"), new RunLimitation("p2", "pierce") };
+        // Plain/historical runs serialize without the property (old results keep their bytes).
+        Assert.DoesNotContain("imitations", Nikke.Contracts.Wire.Serialize(plain));
+        Assert.DoesNotContain("imitations", Nikke.Contracts.Wire.Serialize(new BatchResults(b, 0, 100, [plain])));
+        var rows = new[] { plain with { Limitations = tagged }, Row(b, 1, 20) with { Limitations = tagged } };
+        Assert.Contains("\"limitations\"", Nikke.Contracts.Wire.Serialize(rows[0]));
+        var page = new BatchResults(b, 0, 100, rows) { Limitations = BatchResults.Collect(rows) };
+        Assert.Equal(["p1", "p2"], page.Limitations!.Select(l => l.Id));
+        var stats = new ComputeAnalysis().Summarize(b, rows, null);
+        Assert.Equal(["p1", "p2"], stats.Limitations!.Select(l => l.Id));
+        Assert.Null(new ComputeAnalysis().Summarize(b, [plain, Row(b, 1, 20)], null).Limitations);
+        Assert.Null(BatchResults.Collect([plain]));
+    }
     [Fact] public void Wire_adapter_partial_failure_not_zero_sample()
     {
         var b = Batch() with { State = "failed", Valid = 1, Failed = 1, Cancelled = 1, Partial = true };

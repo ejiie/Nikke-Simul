@@ -66,10 +66,12 @@ public sealed class ComputeAnalysis(
     }
     public StatisticsResult Summarize(BatchStatus batch, IEnumerable<RunSummary> runs, double? cut)
     {
-        var s = Aggregate(batch, runs, cut);
+        var materialized = runs as IReadOnlyCollection<RunSummary> ?? runs.ToArray();
+        var s = Aggregate(batch, materialized, cut);
         return new(batch.Id, s.Partial, Wire(s.Metrics["team.damage"], cut),
             batch.Input.CharacterIds.ToImmutableDictionary(id => id, id => Wire(s.Metrics[$"{id}.damage"])),
-            Version + "; shifted-Welford/Chan; fixed-N Student-t; type7; strict-cut Wilson; sample-error-only", false);
+            Version + "; shifted-Welford/Chan; fixed-N Student-t; type7; strict-cut Wilson; sample-error-only", false)
+        { Limitations = BatchResults.Collect(materialized) };
     }
     public OlComparison Compare(BatchStatus baseline, IEnumerable<RunSummary> baselineRuns,
         BatchStatus candidate, IEnumerable<RunSummary> candidateRuns, IReadOnlyList<OlChange> changes)
