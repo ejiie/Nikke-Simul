@@ -115,3 +115,16 @@ QA 보고서 `검수/docs/boss-static-attributes-qa.ko.md`(1,419검사 중 1,411
 회귀(Sync, 신규): 컬렉션·객체 null 12경로 409, **undeclared null + 키 누락 각 29경로 409**(QA 8개 주입 전부 포함), 선언된 null 7경로 200(다른 속성 보존), 미확인 코어·그룹 0·미사용 시즌·0 보존·수치 형식·손상 파일. 변이 검사: `StrictGraph` 호출을 끄면 10건 실패해 회귀가 실제로 잡는다. 격리 API 검사 확장: 실제 준비 파일에 14경로 null 주입 중 해당 13경로가 409 `boss_attributes_invalid`, 선언된 null 5경로 200, 원본 복원 후 응답 동일(포트 58984).
 
 재실행: Sync 231/0, Core 235, Compute 46, Analysis 41 통과, Python 18/18, 격리 API passed. wire에 `challenge.levelChangeGroupId`가 추가되어 **이전 준비 파일은 409**다(재준비 필요, 원본 배포에는 아직 속성 파일이 없다).
+
+### 통합 후 UI 허용 목록 실패 (Director 1d01ed8) — 별도 커밋
+
+`node --test tests/ui/*.test.mjs`가 6/7: `registered_messages_match_server_sources`(`registered-messages.js is out of date`). 원인은 B-DATA-1이 추가한 서버 쪽 한국어 리터럴(보스 속성 `fields` 라벨·신뢰도·메모 약 27개 + 진단 문구)이 UI 허용 목록(서버 문구 allow-list)에 없는 것이다.
+
+화면 표시 원칙 검토(허용 목록 = 화면에 나갈 수 있는 서버 문구):
+
+- `fields`의 원천·단위·신뢰도·메모에는 내부 근거 메모가 있다(예: 사용자 R4 수치 대조, 레벨 변경 그룹 번호, 미확인 사유). 이것은 **표시 문구가 아니다**. 그래서 허용 목록에 넣지 않고, 목록 생성기가 읽는 코드 리터럴에서 **빼냈다**: 필드 메타데이터를 `tools/data-pipeline/manifests/solo-raid-boss-attribute-fields.json`으로 옮겼다(스크립트가 읽어 카탈로그 `fields`에 그대로 싣는다 — 준비 결과는 이전과 동일, 비교 확인). `fields`는 API에서 개발·보고용 메타데이터로만 제공되며 UI는 쓰지 않는다.
+- 회귀: `test_internal_field_notes_never_enter_the_ui_message_registry` — 모든 `fields[].source`·`note`가 허용 목록에 정확히 일치하는 항목으로 들어 있지 않음을 확인(짧은 라벨 `방어력` 등은 다른 코드가 이미 등록한 정당한 문구라 대상에서 제외).
+- 허용 목록에 새로 들어간 문구는 **1개**: `보스 속성 준비 필요`(서버가 속성 파일이 없을 때 주는 진단 문구, 기존 `보스 목록 준비 필요`와 같은 성격). 시즌 누락 진단 문구(`사용한 StaticData 사본에 …`)는 내부 식별자(`StaticData`)가 있어 생성기의 내부 이름 규칙에 걸려 등록되지 않는다 — 화면에 나가지 않는 것이 맞다.
+- 재생성 `node tests/ui/tools/gen_registered_messages.mjs`는 **추적 중인 소스만**으로 실행했다(다른 작업의 미커밋 파일을 목록에 섞지 않으려 임시로 치워 두었다가 되돌림). 213개 문구.
+
+검증: `node --test tests/ui/*.test.mjs` **7/7**, `node --input-type=module --check`(`registered-messages.js`) 통과, 생성기 `--check` 최신 확인, Python 19/19.
