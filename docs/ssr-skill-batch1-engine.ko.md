@@ -49,7 +49,7 @@ Director 추출 목록(`ssr-by-cp.json`, '묑카엘' 계정 전투력 순, 이�
 
 ## 지원 상태 표
 
-판정은 인터프리터 자체의 `SkillReplay.CheckSupport`를 레벨 1~10 × 슬롯 3개 전부에 돌린 결과다(진단은 `GET /api/runtime/catalog`의 `allLevelsExecutable`과 동일 경로). 미지원 캐릭터는 실행 시 `미지원 공식 스킬: …`로 **거부**되며 부분 결과를 만들지 않는다. 근거 ID = `skill_chains.json`의 function/skill ID.
+판정은 인터프리터 자체의 `SkillReplay.CheckSupport`를 레벨 1~10 × 슬롯 3개 전부에 돌린 결과다(진단은 `GET /api/runtime/catalog`의 `allLevelsExecutable`과 동일 경로). 미지원 캐릭터는 실행이 **거부**되며 부분 결과를 만들지 않는다. 거부 경로(문구)는 캐릭터마다 다르다(독립 QA 정정, 5895872): **라피 : 레드 후드**는 `CheckSupport`의 `미지원 공식 스킬: …`, **홍련 : 흑영**은 스킬 검사보다 앞선 무기 입력 검사의 `이 검산에서 지원하는 무기 입력이 아닙니다.`, **레드 후드**는 AllStep→NextStep 원천에 대한 `Invalid or conflicting burst source metadata.`다. 세 경우 모두 catalog의 `allLevelsExecutable=false`와 일치한다(`CheckSupport` 진단 목록은 위 표). 근거 ID = `skill_chains.json`의 function/skill ID.
 
 | 캐릭터 | 슬롯 | 효과(원천 ID) | 상태 | 비고 |
 |---|---|---|---|---|
@@ -99,7 +99,19 @@ Director 추출 목록(`ssr-by-cp.json`, '묑카엘' 계정 전투력 순, 이�
 
 ## 버전·fingerprint
 
-S-SKILL-1 자체는 규칙 버전을 **올리지 않았다.** 근거: 새 효과 타입은 이전에 `미지원`으로 거부되던 캐릭터에만 적용되고, 기존 5명의 결과는 회귀로 비트 동일하다(지시서: 새 효과 타입이 기존 계산에 영향이 있을 때만 상향). 현재 코드의 버전 문자열은 **E-PREC-1이 올린 값을 그대로 유지**한다: SkillReplay `p03.skills.7-precision-1`, TeamBurstController `p04.team.7-precision-1`, PreparedSkillReplay `cpu-summary.6-precision-1`, WeaponReplay `p03.weapon-reference.5-precision-1`, HitCalculator `p02.5-client-f32-prec1`, StatBuffCalculator `native-stat-shared-buffs-v4-ammo-i64`. **추가 상향 불필요 판단:** E-PREC merge 뒤에도 기존 5인 결과가 Director 6d83dec 엔진과 20 seed 모두 동일하고, S-SKILL의 교체 무기·새 효과 경로는 기존 캐릭터에 휴면이다(교체 총 정책 값은 E-PREC 정수 장탄 경로와 독립 — 아래 merge 절). 새로 만든 runtime catalog의 ID는 `2e6e8d06…`(10명)이며 기존 배포 catalog `9c98c91c…`(5명)와 다르다 — `PreparedCompute`의 data version이 fingerprint에 들어가므로 catalog를 교체하면 기존 5인 입력의 fingerprint·캐시도 새 키로 분리된다(결과 값은 같음). 교체·배포·UI 지원 목록 표시는 Backend/QA 후속이다. 미지원 3명은 catalog에는 있고 실행은 거부되므로 UI가 `allLevelsExecutable=false`로 막는지 확인이 필요하다.
+S-SKILL-1 자체는 규칙 버전을 **올리지 않았다.** 근거: 새 효과 타입은 이전에 `미지원`으로 거부되던 캐릭터에만 적용되고, 기존 5명의 결과는 회귀로 비트 동일하다(지시서: 새 효과 타입이 기존 계산에 영향이 있을 때만 상향). 현재 코드의 버전 문자열은 **E-PREC-1이 올린 값을 그대로 유지**한다: SkillReplay `p03.skills.7-precision-1`, TeamBurstController `p04.team.7-precision-1`, PreparedSkillReplay `cpu-summary.6-precision-1`(→ SS1-Q-1에서 `cpu-summary.7-run-policies`), WeaponReplay `p03.weapon-reference.5-precision-1`, HitCalculator `p02.5-client-f32-prec1`, StatBuffCalculator `native-stat-shared-buffs-v4-ammo-i64`. **(SS1-Q-1 이후 갱신)** compute 요약에 새 필드를 추가하면서 **요약 버전만** `cpu-summary.6-precision-1` → `cpu-summary.7-run-policies`로 올렸다(아래 SS1-Q-1 절). 나머지 버전은 그대로다. **추가 상향 불필요 판단(규칙 버전):** E-PREC merge 뒤에도 기존 5인 결과가 Director 6d83dec 엔진과 20 seed 모두 동일하고, S-SKILL의 교체 무기·새 효과 경로는 기존 캐릭터에 휴면이다(교체 총 정책 값은 E-PREC 정수 장탄 경로와 독립 — 아래 merge 절). 새로 만든 runtime catalog의 ID는 `2e6e8d06…`(10명)이며 기존 배포 catalog `9c98c91c…`(5명)와 다르다 — `PreparedCompute`의 data version이 fingerprint에 들어가므로 catalog를 교체하면 기존 5인 입력의 fingerprint·캐시도 새 키로 분리된다(결과 값은 같음). **정정(독립 QA):** 구 catalog를 그대로 써도 fingerprint는 달라진다 — `SkillBody`에 `weaponChange:null`이 직렬화되면서 graph 모양이 바뀌어 같은 요청의 키가 `ffeafdbf…` → `313fd39a…`로 바뀐다(dataVersion·규칙·구현·요약 버전은 그대로). 안전하게 분리되는 변화이며 "fingerprint 동일"이 아니다. 교체·배포·UI 지원 목록 표시는 Backend/QA 후속이다. 미지원 3명은 catalog에는 있고 실행은 거부되므로 UI가 `allLevelsExecutable=false`로 막는지 확인이 필요하다.
+
+## SS1-Q-1 수정 — compute 요약에서 잠정 정책·관통 한계 전달
+
+독립 QA(5895872)가 compute 경로(`/api/compute/experiments` → batch·`/results`·`/statistics`)에서 교체 무기 잠정 모션 정책과 관통 다중 타격 미모델 한계가 사라지는 것을 차단으로 판정했다(원인: `PreparedSkillReplay.Run()`이 `SkillReplayResult.Limitations`를 버림). Director가 이번 수정 한정으로 Engine 요약 + `ComputePreparation`의 RunSummary 변환 + 최소 Contracts/API 연결 범위 예외를 승인했다.
+
+- **엔진:** `SkillRunSummary.Policies`(`RunPolicyNote(Id, Text)`)를 추가. 실행이 교체 총을 썼을 때만(결과 limitations에 `ReplacementWeaponPolicy.Limitation`이 있을 때) 두 항목을 담고 아니면 null이다: `replacement_weapon_provisional_motion:provisional_no_spot_delay_full_charge_fixed_magazine`(조준 지연 0·풀차지·고정 탄창은 게임 미확정 잠정 정책)과 `pierce_multi_hit_not_modelled`(교체 총 한 발을 1타로 계산). id·문구는 `ReplacementWeaponPolicy`의 상수 한 곳(정책 값과 같은 위치).
+- **계약:** `RunSummary.Limitations`(`RunLimitation(Id, Text)` 목록), `BatchResults.Limitations`(페이지 내 중복 제거), `StatisticsResult.Limitations`(계산에 쓰인 모든 run의 중복 제거). 세 필드 모두 `WhenWritingNull`이라 **교체 총을 쓰지 않은 run·구 결과·구 통계는 JSON에 해당 키가 아예 없어 직렬화 바이트가 그대로**다(trace 배열은 저장하지 않는다). `ComputePreparation`이 엔진 요약을 `RunSummary`로 옮길 때 매핑하고, `/results`와 `ComputeAnalysis.Summarize`가 집계한다. 저장은 기존처럼 run 단위 JSON(교체 총 run당 약 0.3 KB)이다.
+- **버전·fingerprint:** 요약 형식이 바뀌어 `PreparedSkillReplay.Version`을 `cpu-summary.7-run-policies`로 올렸다. `PreparedCompute`의 `ImplementationVersion`·`SummaryVersion`·fingerprint 입력에 이 값이 들어가므로 새 실험은 키가 분리되고, **구 버전으로 저장된 입력의 resume은 기존 규칙(`engine_or_rules_version_changed`)으로 거부**된다(테스트로 확인). 구 결과의 GET/통계 조회는 영향 없다.
+- **UI:** 화면 문구를 새로 만들지 않았다(API 필드만 추가). `registered-messages.js`는 건드리지 않았다. 생성기 재실행 시 B-DATA 후속(`e21b774`)의 새 문구와 함께 `prepare_runtime.py`의 `TARGETS` 캐릭터 이름 4개(스노우 화이트·라피 : 레드 후드·맥스웰·레드 후드)가 등록 후보로 잡힌다 — B-DATA 허용 목록 갱신 때 같이 재생성하면 된다. `node --test tests/ui/*.test.mjs`는 6/7(`registered_messages_match_server_sources`만 실패, 원인은 B-DATA 문구).
+- **검증:** 새 테스트 — 엔진(교체 총 사용 run만 Policies 2개, 평범한 run은 null·버전 문자열), Analysis(속성 부재 시 JSON에 `limitations` 키 없음, 페이지·통계 중복 제거, 없으면 null), Compute(`PreparedCompute.Run`이 두 id를 `RunSummary`로 전달, 평범한 run은 키 없음, 복원 후 동일 결과, `cpu-summary.6-precision-1` 입력 복원 거부). 실제 catalog 확인(합성 계정, 자동 버스트 덱): 리타·블랑·스노우 화이트·맥스웰·앨리스 compute run은 두 id를 노출하고, 리타·블랑·앨리스·누아르·모더니아 run은 `limitations` 없음. Release: Core 252/252, Analysis 42/42, Compute 47/47, Sync 231/231, Python 파이프라인 44/44.
+- **소유 밖 후속(수정하지 않음):** Backend 계약 문서(`docs/single-deck-compute-contract.ko.md`)에 요약 버전 `cpu-summary.7-run-policies`와 새 선택 필드(`RunSummary`·`BatchResults`·`StatisticsResult`의 `limitations`)를 반영해야 한다. UI가 이 필드를 화면에 보여 주는 것은 별도 UI 배정이다.
+- **기존 5인 결과 불변:** 값 계산 경로는 건드리지 않았고(요약 필드와 버전 문자열만 추가) 앞선 Director 엔진 대비 20 seed 비트 동일 회귀(merge 절)가 그대로 유효하다.
 
 ## Director HEAD merge (E-PREC-1 통합, `d1bd49d`)
 
@@ -136,3 +148,7 @@ QA가 엔진 `27b99ee`를 Director `6d83dec` 위에 merge하자 `SkillReplay.cs`
 ### Director HEAD merge 재리뷰 (대상: merge 커밋)
 
 - 범위: `SkillReplay.cs` 장탄 조립 충돌 해소만(위 merge 절). 결과·대응은 여기에 누적한다.
+
+### SS1-Q-1 수정 재리뷰 (대상: 수정 커밋)
+
+- 범위: compute 요약 전달(엔진 `SkillRunSummary.Policies`·계약·`ComputePreparation` 매핑·`ComputeAnalysis`·`/results`)과 문서 정정 2건(거부 경로 문구, fingerprint 표현). 결과·대응은 여기에 누적한다.

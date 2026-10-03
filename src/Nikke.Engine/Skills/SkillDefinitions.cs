@@ -54,6 +54,13 @@ public static class ReplacementWeaponPolicy
     public const double SpotLastSec = 0;
     // Always charged to the full-charge time (FireStyle.FullCharge in ReplacementGun); a tap-style user is rejected in Validate.
     public const bool IgnoreBaseAmmoBuffs = true; // magazine is the profile's documented fixed size
+    // Run-level identifiers/texts carried on compute summaries (a trace array is not stored per run).
+    public const string MotionRunId = "replacement_weapon_provisional_motion:" + Id;
+    public const string MotionRunText =
+        "Replacement-weapon motion (no spot delay, full charge, fixed magazine, charge/pierce facts parsed from the public description) is a provisional policy, not game-confirmed.";
+    public const string PierceRunId = "pierce_multi_hit_not_modelled";
+    public const string PierceRunText =
+        "Pierce multi-hit on boss parts is not modelled: a replacement-weapon shot is calculated as one hit.";
     public const string Limitation =
         "Replacement-weapon motion (no spot delay, full charge, fixed magazine, charge/pierce facts parsed from the public description) is a provisional policy, not game-confirmed; pierce multi-hit on parts is not modelled.";
 }

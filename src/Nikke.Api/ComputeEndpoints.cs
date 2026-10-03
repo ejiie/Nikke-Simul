@@ -56,7 +56,9 @@ public static class ComputeEndpoints
             ct.ThrowIfCancellationRequested();var preparation=System.Diagnostics.Stopwatch.StartNew();var prepared=PreparedCompute.Restore(store.Read(id).Prepared);
             preparation.Stop();ct.ThrowIfCancellationRequested();return jobs.Resume(id,prepared,preparation.Elapsed.TotalMilliseconds);
         });
-        app.MapGet("/api/compute/experiments/{id}/results",(string id,int? offset,int? limit)=>new BatchResults(store.Read(id).Status,offset??0,limit??100,store.Results(id,offset??0,limit??100)));
+        app.MapGet("/api/compute/experiments/{id}/results",(string id,int? offset,int? limit)=> {
+            var runs=store.Results(id,offset??0,limit??100);
+            return new BatchResults(store.Read(id).Status,offset??0,limit??100,runs){Limitations=BatchResults.Collect(runs)};});
         app.MapGet("/api/compute/experiments/{id}/statistics",(string id,double? cut)=> {
             var analysis=app.Services.GetService<IComputeAnalysis>()??throw new InvalidOperationException("analysis_not_integrated");
             lock(analysisGate){var current=store.Read(id).Status;if(current.Input.Phase=="warmup")throw new InvalidOperationException("warmup_excluded_from_statistics");

@@ -213,4 +213,18 @@ public class SsrBatch1SkillTests
         Assert.Equal(0, swapShot.Value);                                  // 1-round replacement magazine, not 1 * 2
         Assert.Equal(m.Weapon.Weapon.maxAmmo * 2, r.Members[0].MaxAmmo);   // base weapon: exact +100%
     }
+
+    [Fact]
+    public void Prepared_summary_carries_the_replacement_policies_only_for_runs_that_used_the_weapon()
+    {
+        var c = Conditions(200) with { Casts = [new(5, "5012")] };
+        var used = PreparedSkillReplay.Create([Ar(ChargeBurst())], Graph(), c).Run();
+        Assert.NotNull(used.Policies);
+        Assert.Equal([ReplacementWeaponPolicy.MotionRunId, ReplacementWeaponPolicy.PierceRunId], used.Policies!.Select(p => p.Id));
+        Assert.Contains("provisional policy", used.Policies[0].Text);
+        Assert.Contains("one hit", used.Policies[1].Text);
+        var plain = PreparedSkillReplay.Create([Member("5012")], Graph(), Conditions(200)).Run();
+        Assert.Null(plain.Policies);
+        Assert.Equal("cpu-summary.7-run-policies", used.ImplementationVersion);
+    }
 }
