@@ -115,7 +115,7 @@
   - **SS1-Q-1:** 교체 무기 잠정 정책·관통 다중 타격 미모델 한계가 replay에는 있으나 compute batch/results/statistics에는 전달되지 않는다(`PreparedSkillReplay` `SkillRunSummary`/`Run()`과 `ComputePreparation` RunSummary 변환에서 Limitations 소실). 승인 조건("교체 총을 쓴 모든 실행에 표시") 위반.
   - 통과: 원천 1,164, 실제 API 152/153, 효과·키 57, 기존 회귀 797(기존 5인 결과·규칙 버전 Director `6d83dec`과 동일), E-PREC 상호작용(기본 무기 100 + raw 1450 → 115발, 교체 무기만 1발 고정).
   - 비차단 정정: 구 catalog도 `weaponChange:null` 직렬화로 graph fingerprint가 바뀐다(`ffeafdbf…` → `313fd39a…`, 규칙·dataVersion 불변, 안전한 키 분리). 홍련 : 흑영은 무기 입력 검사, 레드 후드는 버스트 메타데이터 검사에서 먼저 400 — 보고서의 "모두 미지원 공식 스킬 문구" 표현은 부정확.
-  - **Director 조치(2026-10-04):** 엔진 구현에 수정 지시(범위 예외: Engine 요약 + `src/Nikke.Data/ComputePreparation.cs` RunSummary 변환 + 최소 Contracts/API 연결, 저장 형식 변경 시 요약 버전·fingerprint 분리·구 결과 보존, 새 화면 문구는 허용 목록·UI 테스트) + 문서 정정 2건. **구현 세션이 주간 사용량 한도(10/6 10시 초기화)로 착수 직후 정지** — 사용자 판단 대기.
+  - **Director 조치(2026-10-04):** 엔진 구현에 수정 지시(범위 예외: Engine 요약 + `src/Nikke.Data/ComputePreparation.cs` RunSummary 변환 + 최소 Contracts/API 연결, 저장 형식 변경 시 요약 버전·fingerprint 분리·구 결과 보존, 새 화면 문구는 허용 목록·UI 테스트) + 문서 정정 2건. **구현 세션이 주간 사용량 한도(10/6 10시 초기화)로 착수 직후 정지** → 사용자가 세션을 재개시켜 수정 진행 중(2026-10-04). 배포는 계속 세 건 동시.
 
 ### 배포·D-SRC-1 전달
 
