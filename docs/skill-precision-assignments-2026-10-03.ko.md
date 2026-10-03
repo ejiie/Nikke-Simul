@@ -111,6 +111,11 @@
   - **조치:** 엔진 구현이 Director 최신 HEAD를 엔진 브랜치에 merge해 충돌 해소(기본 무기는 E-PREC 정수 장탄 경로, 교체 무기는 `ReplacementWeaponPolicy` 고정 탄창), 두 기능 회귀·기존 5인 결과 Director `6d83dec`와 동일 확인 → 리뷰(merge 해소 부분) → Director → QA 재전달.
   - **merge 해소 리뷰 최종 통과:** 엔진 `20a0609`(= `27b99ee` + Director `d1bd49d`). E-PREC `FromRaw`/`ApplyAmmo`/checked 합산 그대로 유지, 교체 무기만 고정 탄창으로 덮어씀. Release Core/Engine 251/251. 기존 5인 20 seed 저장 결과(Director 대 merge) 차이 0. 버전 6종·fingerprint 유지, 추가 상향 불필요.
   - **QA 재전달:** B-DATA-1 재QA 뒤 착수하도록 검수 대기열에 전달.
+- **QA 최종: 차단 1건 SS1-Q-1.** 검수 `5895872`(대상 `20a0609`, merge `b9ab40a` 충돌 0), [QA 보고서](C:/Users/user/orca/workspaces/Nikke-Simul/검수/docs/ssr-skill-batch1-qa.ko.md), 2,171 중 2,170 통과.
+  - **SS1-Q-1:** 교체 무기 잠정 정책·관통 다중 타격 미모델 한계가 replay에는 있으나 compute batch/results/statistics에는 전달되지 않는다(`PreparedSkillReplay` `SkillRunSummary`/`Run()`과 `ComputePreparation` RunSummary 변환에서 Limitations 소실). 승인 조건("교체 총을 쓴 모든 실행에 표시") 위반.
+  - 통과: 원천 1,164, 실제 API 152/153, 효과·키 57, 기존 회귀 797(기존 5인 결과·규칙 버전 Director `6d83dec`과 동일), E-PREC 상호작용(기본 무기 100 + raw 1450 → 115발, 교체 무기만 1발 고정).
+  - 비차단 정정: 구 catalog도 `weaponChange:null` 직렬화로 graph fingerprint가 바뀐다(`ffeafdbf…` → `313fd39a…`, 규칙·dataVersion 불변, 안전한 키 분리). 홍련 : 흑영은 무기 입력 검사, 레드 후드는 버스트 메타데이터 검사에서 먼저 400 — 보고서의 "모두 미지원 공식 스킬 문구" 표현은 부정확.
+  - **Director 조치(2026-10-04):** 엔진 구현에 수정 지시(범위 예외: Engine 요약 + `src/Nikke.Data/ComputePreparation.cs` RunSummary 변환 + 최소 Contracts/API 연결, 저장 형식 변경 시 요약 버전·fingerprint 분리·구 결과 보존, 새 화면 문구는 허용 목록·UI 테스트) + 문서 정정 2건. **구현 세션이 주간 사용량 한도(10/6 10시 초기화)로 착수 직후 정지** — 사용자 판단 대기.
 
 ### 배포·D-SRC-1 전달
 
