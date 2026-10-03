@@ -100,6 +100,8 @@
   - **조치:** Backend 구현에 재생성 별도 커밋 + 내부 근거 메모(예: "사용자 R4…", "그룹 904…")가 표시 문구로 나가지 않는지 검토 지시, 리뷰 직접 왕복 → Director. 배포 전 최종 확인에 UI 7/7 포함.
   - **허용 목록 수정 리뷰 최종 통과:** Backend `e21b774`(`a050853` 바로 위). 필드 메타데이터 9개를 `tools/data-pipeline/manifests/solo-raid-boss-attribute-fields.json`으로 값 그대로 이동, 내부 source/note는 생성기 스캔 제외(회귀 테스트), 허용 목록은 "보스 속성 준비 필요" 1개 추가(총 213). 리뷰어 직접: UI 7/7, ESM 구문, 생성기 --check, Python 19/19. 현재 UI에 보스 속성 API 소비 경로 없음.
   - **QA:** S-SKILL-1 QA 뒤 착수하도록 검수 대기열에 전달(준비기 산출물 바이트 동일, UI 7/7 포함).
+  - **QA 최종: 대상 단독 통과.** 검수 `25e8210`, [보고서](C:/Users/user/orca/workspaces/Nikke-Simul/검수/docs/boss-static-attributes-followup-qa.ko.md). 같은 8/12 ZIP·같은 시계 입력으로 `a050853`·`e21b774` 준비 산출물 239,710바이트 전체 동일(`693c466e…`), 근거 메모 18개 미등록·일반 문구 대체, API 565/565, `e21b774` 단독 UI 7/7. **BD1-F-Q-1(통합본 한정):** S-SKILL 통합본에서는 니케 이름 5개(스노우 화이트·맥스웰·라피 : 레드 후드·홍련 : 흑영·레드 후드)가 허용 목록에 없어 UI 6/7 — B-DATA 결함이 아니라 S-SKILL 쪽 누락.
+  - **Director 통합 `0f6dea1`**(`e21b774` 직접 merge — QA 커밋은 미통과 S-SKILL을 포함하므로 사용하지 않음). 생성기 --check 213개 일치, UI 7/7, data-pipeline Python OK. BD1-F-Q-1은 엔진 구현이 SS1-Q-1 수정 때 Director `0f6dea1` merge 후 생성기로 재생성(218개 예상)하도록 추가 지시.
 
 ### S-SKILL-1 진행
 
