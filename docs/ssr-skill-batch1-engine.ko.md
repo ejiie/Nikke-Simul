@@ -108,7 +108,7 @@ S-SKILL-1 자체는 규칙 버전을 **올리지 않았다.** 근거: 새 효과
 - **엔진:** `SkillRunSummary.Policies`(`RunPolicyNote(Id, Text)`)를 추가. 실행이 교체 총을 썼을 때만(결과 limitations에 `ReplacementWeaponPolicy.Limitation`이 있을 때) 두 항목을 담고 아니면 null이다: `replacement_weapon_provisional_motion:provisional_no_spot_delay_full_charge_fixed_magazine`(조준 지연 0·풀차지·고정 탄창은 게임 미확정 잠정 정책)과 `pierce_multi_hit_not_modelled`(교체 총 한 발을 1타로 계산). id·문구는 `ReplacementWeaponPolicy`의 상수 한 곳(정책 값과 같은 위치).
 - **계약:** `RunSummary.Limitations`(`RunLimitation(Id, Text)` 목록), `BatchResults.Limitations`(페이지 내 중복 제거), `StatisticsResult.Limitations`(계산에 쓰인 모든 run의 중복 제거). 세 필드 모두 `WhenWritingNull`이라 **교체 총을 쓰지 않은 run·구 결과·구 통계는 JSON에 해당 키가 아예 없어 직렬화 바이트가 그대로**다(trace 배열은 저장하지 않는다). `ComputePreparation`이 엔진 요약을 `RunSummary`로 옮길 때 매핑하고, `/results`와 `ComputeAnalysis.Summarize`가 집계한다. 저장은 기존처럼 run 단위 JSON(교체 총 run당 약 0.3 KB)이다.
 - **버전·fingerprint:** 요약 형식이 바뀌어 `PreparedSkillReplay.Version`을 `cpu-summary.7-run-policies`로 올렸다. `PreparedCompute`의 `ImplementationVersion`·`SummaryVersion`·fingerprint 입력에 이 값이 들어가므로 새 실험은 키가 분리되고, **구 버전으로 저장된 입력의 resume은 기존 규칙(`engine_or_rules_version_changed`)으로 거부**된다(테스트로 확인). 구 결과의 GET/통계 조회는 영향 없다.
-- **UI:** 화면 문구를 새로 만들지 않았다(API 필드만 추가). `registered-messages.js`는 건드리지 않았다. 생성기 재실행 시 B-DATA 후속(`e21b774`)의 새 문구와 함께 `prepare_runtime.py`의 `TARGETS` 캐릭터 이름 4개(스노우 화이트·라피 : 레드 후드·맥스웰·레드 후드)가 등록 후보로 잡힌다 — B-DATA 허용 목록 갱신 때 같이 재생성하면 된다. `node --test tests/ui/*.test.mjs`는 6/7(`registered_messages_match_server_sources`만 실패, 원인은 B-DATA 문구).
+- **UI:** 화면 문구를 새로 만들지 않았다(API 필드만 추가). 등록 문구 목록은 아래 BD1-F-Q-1 절에서 처리했다.
 - **검증:** 새 테스트 — 엔진(교체 총 사용 run만 Policies 2개, 평범한 run은 null·버전 문자열), Analysis(속성 부재 시 JSON에 `limitations` 키 없음, 페이지·통계 중복 제거, 없으면 null), Compute(`PreparedCompute.Run`이 두 id를 `RunSummary`로 전달, 평범한 run은 키 없음, 복원 후 동일 결과, `cpu-summary.6-precision-1` 입력 복원 거부). 실제 catalog 확인(합성 계정, 자동 버스트 덱): 리타·블랑·스노우 화이트·맥스웰·앨리스 compute run은 두 id를 노출하고, 리타·블랑·앨리스·누아르·모더니아 run은 `limitations` 없음. Release: Core 252/252, Analysis 42/42, Compute 47/47, Sync 231/231, Python 파이프라인 44/44.
 - **소유 밖 후속(수정하지 않음):** Backend 계약 문서(`docs/single-deck-compute-contract.ko.md`)에 요약 버전 `cpu-summary.7-run-policies`와 새 선택 필드(`RunSummary`·`BatchResults`·`StatisticsResult`의 `limitations`)를 반영해야 한다. UI가 이 필드를 화면에 보여 주는 것은 별도 UI 배정이다.
 - **기존 5인 결과 불변:** 값 계산 경로는 건드리지 않았고(요약 필드와 버전 문자열만 추가) 앞선 Director 엔진 대비 20 seed 비트 동일 회귀(merge 절)가 그대로 유효하다.
@@ -149,6 +149,14 @@ QA가 엔진 `27b99ee`를 Director `6d83dec` 위에 merge하자 `SkillReplay.cs`
 
 - 범위: `SkillReplay.cs` 장탄 조립 충돌 해소만(위 merge 절). 결과·대응은 여기에 누적한다.
 
+## BD1-F-Q-1 — 등록 문구 목록 재생성 (B-DATA-1 후속 통합 `0f6dea1`)
+
+QA(검수 25e8210)가 S-SKILL 통합본에서 `tools/data-pipeline/prepare_runtime.py`의 `TARGETS`에 S-SKILL이 추가한 니케 이름 5개(스노우 화이트·맥스웰·라피 : 레드 후드·홍련 : 흑영·레드 후드)가 `apps/desktop-ui/registered-messages.js`에 없어 생성기 `--check`와 UI 테스트가 6/7인 것을 발견했다(이 생성기는 `src/**/*.cs`와 `tools/data-pipeline/**/*.py`의 한국어 리터럴을 등록 후보로 본다).
+
+- **처리:** 엔진 브랜치에 Director 최신 HEAD(`f846597`, B-DATA-1 후속 `0f6dea1` 포함)를 일반 merge(충돌 0)한 뒤 `registered-messages.js`를 손으로 합치지 않고 **생성기로 재생성**했다: `node tests/ui/tools/gen_registered_messages.mjs` → 218개. 차이는 **정확히 이 5개 이름뿐**(SS1-Q-1은 새 표시 문구를 만들지 않았으므로 추가 없음).
+- **검증:** 생성기 `--check` 통과(`218 texts, 3 internal-looking literals excluded`), `node --test tests/ui/*.test.mjs` **7/7**, `apps/desktop-ui/*.js` ESM 구문 검사(`node --input-type=module --check`) 실패 0. merge 후 Release Core 252/252, Analysis 42, Compute 47, Sync 231, Python 파이프라인 57/57(B-DATA 후속 테스트 포함).
+
 ### SS1-Q-1 수정 재리뷰 (대상: 수정 커밋)
 
 - 범위: compute 요약 전달(엔진 `SkillRunSummary.Policies`·계약·`ComputePreparation` 매핑·`ComputeAnalysis`·`/results`)과 문서 정정 2건(거부 경로 문구, fingerprint 표현). 결과·대응은 여기에 누적한다.
+- 추가 확인 항목(Director): 엔진 브랜치가 `0f6dea1`을 merge했는지, `registered-messages.js`가 생성기로 재생성됐는지(218개, 차이는 니케 이름 5개뿐), 생성기 `--check`·UI 7/7·ESM 구문 — 위 BD1-F-Q-1 절. 리뷰어는 `f77b336` 자체는 통과로 판정했고(이 추가 검증 제외) 이 항목을 별도로 확인한다.
