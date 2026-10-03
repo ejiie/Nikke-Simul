@@ -36,6 +36,7 @@ Director 판정 → 설계 담당 통합(QA 통과본 merge·전체 테스트) �
 - Director가 받는 메시지는 **설계안 승인 요청, 판단 요청, QA 최종 결과** 세 종류다.
 - **인계 전 자기 점검(구현 책임, 리뷰가 확인):** 최신 Director를 자기 브랜치에 merge, Release 빌드 경고·오류 0, 전체 .NET 테스트, `tools/data-pipeline` Python 테스트, `node tests/ui/tools/gen_registered_messages.mjs --check`, `node --test tests/ui/*.test.mjs`, 변경 UI 모듈 `node --input-type=module --check`. 설계 담당은 지시서에 이 목록과 작업별 추가 항목을 넣는다(2026-10-02 S-SKILL-1 충돌·B-DATA-1 허용 목록 누락의 재발 방지).
 - 적용 시점: 진행 중인 SS1-Q-1 수정·세 건(E-PREC-1·B-DATA-1·S-SKILL-1) 배포는 기존 구조로 마치고, **다음 묶음(D-SRC-1 재개, S-SKILL-1 2차)부터** 설계 담당을 통해 배정한다. 설계·자문 세션은 사용자가 Orca에서 띄운다.
+- **세션(2026-10-04 사용자 실행):** 설계 담당 Claude Code `term_18bbba7d…`·설계 리뷰 Codex `term_8a5f3032…`(`설계-담당` worktree, 브랜치 `ejiie/설계-담당`), 자문 Codex `term_db99ed80…`(`Director` worktree, 읽기 전용). 온보딩·첫 묶음 전달 완료: (P1) D-SRC-1 원천 갱신 지시서 재작성(Backend 구현은 안정 지점에서 멈추고 대기), (P2) S-SKILL-1 2차 + 엔진 효과 확장 설계안. 둘 다 설계 리뷰 → Director 승인 요청.
 
 ## 2026-09-29 결정 (task 계층 규칙)
 
