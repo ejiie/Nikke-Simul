@@ -39,7 +39,7 @@
 - **QA 배정(2026-10-02):** 검수 `term_234e279b…`, B-DATA-1과 순서대로(E-PREC-1 먼저). 착수 확인.
 - **QA 최종: 통과, 1,106/1,106, 제품 차단 0.** 검수 `6bb1be2`(Director `3b19b4c` + 대상 `2b16883` 병합 `ca0e096`), [QA 보고서](C:/Users/user/orca/workspaces/Nikke-Simul/검수/docs/precision-followup-qa.ko.md), 증거 검수 `artifacts/single-deck-qa/precision1/evidence-index.json`. 독립 Fraction binary32/64 산술 1,003검사, 기본 `client_f32` 구 결과 264건 동일, dprod 결과 중 float32 비표현 정수 161건. 방어율 true 예외·96/파츠 분리·96 중복 제거·장탄 raw/10000 사사오입 checked 통과. 기존 5인 180초 40개 결과 전후 동일. 실제 API 27검사(구 결과 조회 보존, 구 resume 409, fingerprint 분리). 공개 표 12개 hash 동일.
   - 비차단 문서 정정(QA 보고서에 정확한 범위 기록): (1) "dprod 차이 0"은 base·저지 조건 한정 — OL .145 seed1 client 772,905,797 vs dprod 772,905,689(−108) 등 5시드 모두 차이, "2^24 이상에서만 차이"로 일반화 불가. (2) "dprod API 미노출"은 단일 히트 API(400)에만 맞고, replay/compute에 정책을 명시하면 실제 실행된다(승인 범위의 SkillReplay 정책 연결 결과). UI 선택지는 없다.
-- **Director 통합:** `6d83dec`(`--no-ff`, 제품 트리 = QA `6bb1be2`). Release 빌드 경고 0·오류 0, .NET 486/486(Analysis 41·Sync 164·Compute 46·Core 235), UI 7/7. **원본 배포 전**(사용자 확인 후).
+- **Director 통합:** `6d83dec`(`--no-ff`, 제품 트리 = QA `6bb1be2`). Release 빌드 경고 0·오류 0, .NET 486/486(Analysis 41·Sync 164·Compute 46·Core 235), UI 7/7. → **2026-10-04 원본 배포 완료**([배포 기록](desktop-release-original-2026-10-04.ko.md)).
 
 ## B-DATA-1 — 보스 StaticData 속성 (Backend worktree)
 
@@ -127,6 +127,11 @@
 
 - **배포 결정(사용자, 2026-10-02):** E-PREC-1·B-DATA-1·S-SKILL-1 **세 건을 한 번에** 원본 배포한다. 세 건 QA 통과·Director 통합 후 사용자가 앱을 닫고 진행. E-PREC-1은 통합 `6d83dec`로 대기.
 - **D-SRC-1 전달(2026-10-02):** B-DATA-1 리뷰 통과로 착수 조건 충족. Backend 구현 `term_9d9ce9f4…`·리뷰 `term_ed5e9c16…` 수신 확인. 입력은 Director `artifacts/sources/`의 blabla·StaticData 사본(자기 worktree로 복사 후 hash 대조). B-DATA-1 QA 중이므로 기존 코드 동작 불변, 확장은 새 경로로. 세 건 배포에는 포함하지 않는다.
+
+### 세 건 원본 배포 (2026-10-04)
+
+- S-SKILL-1 QA 최종 통과(검수 `047e640`, Director 범위 정정 반영) → Director 통합 `6a53c9c`(`849f81b` merge, 제품 트리 = QA `79a0830`) → **원본 배포 완료**([배포 기록](desktop-release-original-2026-10-04.ko.md)): 원본 main `a03c5a9` → `6a53c9c`, runtime `2e6e8d06…`, 보스 속성 준비 파일 추가, 바로가기 실행 검증·보존 비교 동일.
+- 후속 과제: compute `BatchStatus` 한계 전달, UI의 compute 한계 표시, statistics `members` 키 순서 고정, D-SRC-1(설계 담당 경유 재개), S-SKILL-1 2차.
 
 ## 이후
 

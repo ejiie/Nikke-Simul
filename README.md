@@ -8,7 +8,7 @@ Solo Raid의 대미지 시뮬레이션, 비중복 5덱 선정, 장비별 육성 
 
 **Windows 실행 파일 UI:** 기존 관리 UI의 화면·카드·상세 탭과 WinForms/WebView2 창을 이식했습니다. [이식 범위·이미지 출처·실행 방법](docs/desktop-ui-migration.ko.md).
 
-**원본 실행본 (최신 배포 2026-10-02, 검산 표시 정리·앨리스 수동 풀차지 딜레이 수정):** 실제 사용 경로는 `C:/Users/user/Documents/GitHub/Nikke-Simul/artifacts/desktop/win-x64/Nikke Simul.exe`이며, 바탕 화면의 `Nikke Simul.lnk`도 이 파일을 가리킵니다. 원본 `main`에 완료 커밋을 통합하고 EXE·백엔드·실행 설정을 이 위치에서 갱신했습니다. [최신 원본 배포·검증 기록](docs/desktop-release-original-2026-10-02.ko.md) · [2026-09-29 2차 배포](docs/desktop-release-original-2026-09-29b.ko.md) · [2026-09-29 1차 배포](docs/desktop-release-original-2026-09-29.ko.md) · [2026-09-28 client_f32 배포](docs/desktop-release-original-2026-09-28.ko.md) · [2026-09-14 배포 기록](docs/desktop-release-original-2026-09-14.ko.md). Director와 다른 worktree의 실행본은 별도 검증용이며, 그 빌드 성공을 원본 배포 완료로 간주하지 않습니다. [앞선 Director 한정 배포 기록](docs/desktop-release-2026-09-14.ko.md).
+**원본 실행본 (최신 배포 2026-10-04, 계산 정밀도 후속·보스 정적 속성·스노우 화이트/맥스웰 스킬):** 실제 사용 경로는 `C:/Users/user/Documents/GitHub/Nikke-Simul/artifacts/desktop/win-x64/Nikke Simul.exe`이며, 바탕 화면의 `Nikke Simul.lnk`도 이 파일을 가리킵니다. 원본 `main`에 완료 커밋을 통합하고 EXE·백엔드·실행 설정을 이 위치에서 갱신했습니다. [최신 원본 배포·검증 기록](docs/desktop-release-original-2026-10-04.ko.md) · [2026-10-02 배포](docs/desktop-release-original-2026-10-02.ko.md) · [2026-09-29 2차 배포](docs/desktop-release-original-2026-09-29b.ko.md) · [2026-09-29 1차 배포](docs/desktop-release-original-2026-09-29.ko.md) · [2026-09-28 client_f32 배포](docs/desktop-release-original-2026-09-28.ko.md) · [2026-09-14 배포 기록](docs/desktop-release-original-2026-09-14.ko.md). Director와 다른 worktree의 실행본은 별도 검증용이며, 그 빌드 성공을 원본 배포 완료로 간주하지 않습니다. [앞선 Director 한정 배포 기록](docs/desktop-release-2026-09-14.ko.md).
 
 **스펙 편집:** 상세 화면에서 장비·OL·스킬·성장·소장품·큐브를 변경하고 Save로 저장합니다. 공식 장비 이미지와 원본 관리 UI의 선택창을 사용하며, 별 3개와 코어 배지를 붙여 ±로 조정합니다. [편집·저장 범위와 출처](docs/desktop-spec-editor.ko.md).
 
@@ -25,6 +25,8 @@ Solo Raid의 대미지 시뮬레이션, 비중복 5덱 선정, 장비별 육성 
 **전투 조건 정리·방어력 자동 전환·보스 선택 (2026-09-29 2차 원본 배포):** 시간 180초·샷건 발사 1회 고정, 방어력은 30,925로 시작해 덱 누적 20억 초과 다음 타격부터 31,784, 크리티컬 기본 확률 적용, 보스 선택(시즌 1~42 한국어·표시만), 화면은 이름 기반 표시. 피해 검산 표의 영문 항목 이름 표시(F2-Q-6)는 2026-10-02 U-FIX-7로 수정·배포. [요구](docs/user-requests-2026-09-29.ko.md) · [배정·검수](docs/combat-conditions-cleanup-assignments-2026-09-29.ko.md) · [배포 기록](docs/desktop-release-original-2026-09-29b.ko.md).
 
 **2026-10-02 배포:** 피해 검산 표 한국어화·서버 문자열 허용 목록 표시(U-FIX-7), 앨리스 등 손을 떼야 발사되는 차지 무기의 수동 풀차지 모션 딜레이 수정(E-BUG-1, 앨리스 수동 덱 팀 피해 약 10~13% 하향 — 엔진 규칙 변경으로 이전 통계 실험은 조회만). [배포 기록](docs/desktop-release-original-2026-10-02.ko.md).
+
+**2026-10-04 배포:** 비교 후보 정책 `client_f32_dprod`(기본은 `client_f32` 유지)·방어율 true damage 예외·저지/파츠 분리·장탄 정수 조립(E-PREC-1, 규칙 버전 상향 — 이전 결과는 조회만), 보스 정적 속성 카탈로그 읽기 API(B-DATA-1, 표시 전용·계산 미반영), 스노우 화이트·맥스웰 스킬 조립(S-SKILL-1, 버스트 교체 무기는 잠정 모션·관통 미모델 부분 지원, 라피 : 레드 후드·홍련 : 흑영·레드 후드는 미지원 거부). [배포 기록](docs/desktop-release-original-2026-10-04.ko.md).
 
 **솔로 레이드 챌린지 레벨:** 검산은 내부적으로 싱크로 레벨 400을 사용합니다. 레벨 선택란은 없으며 계정의 실제 육성 레벨은 변경하지 않습니다. [변경·검증 범위](docs/solo-raid-challenge-level.ko.md).
 
