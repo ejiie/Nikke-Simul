@@ -1,4 +1,5 @@
 import copy
+import json
 import struct
 import sys
 import unittest
@@ -104,6 +105,16 @@ class BossAttributeTests(unittest.TestCase):
         one = build(entries)['bosses'][0]
         self.assertIsNone(one['modelPrefab'])
         self.assertIn('model_prefab', one['unconfirmed'])
+
+    def test_internal_field_notes_never_enter_the_ui_message_registry(self):
+        text = (Path(__file__).resolve().parents[3] / 'apps/desktop-ui/registered-messages.js').read_text(encoding='utf-8')
+        registry = set(json.loads(text[text.index('new Set(') + 8:text.rindex(');')]))
+        self.assertGreater(len(registry), 100)
+        for field in prep.FIELDS:
+            # Short labels such as '방어력' are legitimately registered elsewhere; the memos are what must not leak.
+            for key in ('source', 'note'):
+                self.assertNotIn(field[key], registry, (field['key'], key))
+        self.assertIn('사용자 R4', ' '.join(f['note'] for f in prep.FIELDS))  # the memo exists; it just is not display text
 
     def test_missing_core_marker_is_unconfirmed_not_guessed(self):
         two = build(archive_entries())['bosses'][1]

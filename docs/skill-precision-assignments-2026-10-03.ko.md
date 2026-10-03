@@ -100,6 +100,8 @@
   - **조치:** Backend 구현에 재생성 별도 커밋 + 내부 근거 메모(예: "사용자 R4…", "그룹 904…")가 표시 문구로 나가지 않는지 검토 지시, 리뷰 직접 왕복 → Director. 배포 전 최종 확인에 UI 7/7 포함.
   - **허용 목록 수정 리뷰 최종 통과:** Backend `e21b774`(`a050853` 바로 위). 필드 메타데이터 9개를 `tools/data-pipeline/manifests/solo-raid-boss-attribute-fields.json`으로 값 그대로 이동, 내부 source/note는 생성기 스캔 제외(회귀 테스트), 허용 목록은 "보스 속성 준비 필요" 1개 추가(총 213). 리뷰어 직접: UI 7/7, ESM 구문, 생성기 --check, Python 19/19. 현재 UI에 보스 속성 API 소비 경로 없음.
   - **QA:** S-SKILL-1 QA 뒤 착수하도록 검수 대기열에 전달(준비기 산출물 바이트 동일, UI 7/7 포함).
+  - **QA 최종: 대상 단독 통과.** 검수 `25e8210`, [보고서](C:/Users/user/orca/workspaces/Nikke-Simul/검수/docs/boss-static-attributes-followup-qa.ko.md). 같은 8/12 ZIP·같은 시계 입력으로 `a050853`·`e21b774` 준비 산출물 239,710바이트 전체 동일(`693c466e…`), 근거 메모 18개 미등록·일반 문구 대체, API 565/565, `e21b774` 단독 UI 7/7. **BD1-F-Q-1(통합본 한정):** S-SKILL 통합본에서는 니케 이름 5개(스노우 화이트·맥스웰·라피 : 레드 후드·홍련 : 흑영·레드 후드)가 허용 목록에 없어 UI 6/7 — B-DATA 결함이 아니라 S-SKILL 쪽 누락.
+  - **Director 통합 `0f6dea1`**(`e21b774` 직접 merge — QA 커밋은 미통과 S-SKILL을 포함하므로 사용하지 않음). 생성기 --check 213개 일치, UI 7/7, data-pipeline Python OK. BD1-F-Q-1은 엔진 구현이 SS1-Q-1 수정 때 Director `0f6dea1` merge 후 생성기로 재생성(218개 예상)하도록 추가 지시.
 
 ### S-SKILL-1 진행
 
@@ -115,7 +117,7 @@
   - **SS1-Q-1:** 교체 무기 잠정 정책·관통 다중 타격 미모델 한계가 replay에는 있으나 compute batch/results/statistics에는 전달되지 않는다(`PreparedSkillReplay` `SkillRunSummary`/`Run()`과 `ComputePreparation` RunSummary 변환에서 Limitations 소실). 승인 조건("교체 총을 쓴 모든 실행에 표시") 위반.
   - 통과: 원천 1,164, 실제 API 152/153, 효과·키 57, 기존 회귀 797(기존 5인 결과·규칙 버전 Director `6d83dec`과 동일), E-PREC 상호작용(기본 무기 100 + raw 1450 → 115발, 교체 무기만 1발 고정).
   - 비차단 정정: 구 catalog도 `weaponChange:null` 직렬화로 graph fingerprint가 바뀐다(`ffeafdbf…` → `313fd39a…`, 규칙·dataVersion 불변, 안전한 키 분리). 홍련 : 흑영은 무기 입력 검사, 레드 후드는 버스트 메타데이터 검사에서 먼저 400 — 보고서의 "모두 미지원 공식 스킬 문구" 표현은 부정확.
-  - **Director 조치(2026-10-04):** 엔진 구현에 수정 지시(범위 예외: Engine 요약 + `src/Nikke.Data/ComputePreparation.cs` RunSummary 변환 + 최소 Contracts/API 연결, 저장 형식 변경 시 요약 버전·fingerprint 분리·구 결과 보존, 새 화면 문구는 허용 목록·UI 테스트) + 문서 정정 2건. **구현 세션이 주간 사용량 한도(10/6 10시 초기화)로 착수 직후 정지** — 사용자 판단 대기.
+  - **Director 조치(2026-10-04):** 엔진 구현에 수정 지시(범위 예외: Engine 요약 + `src/Nikke.Data/ComputePreparation.cs` RunSummary 변환 + 최소 Contracts/API 연결, 저장 형식 변경 시 요약 버전·fingerprint 분리·구 결과 보존, 새 화면 문구는 허용 목록·UI 테스트) + 문서 정정 2건. **구현 세션이 주간 사용량 한도(10/6 10시 초기화)로 착수 직후 정지** → 사용자가 세션을 재개시켜 수정 진행 중(2026-10-04). 배포는 계속 세 건 동시.
 
 ### 배포·D-SRC-1 전달
 
