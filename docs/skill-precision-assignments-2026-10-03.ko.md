@@ -87,6 +87,19 @@
 - **리뷰 최종 통과(2026-10-02):** Backend HEAD `2c41185`(구현 `cd4caba`, 문서 `403b37b`), 반려 1회(선언된 null 보존·미선언 null 거부, 중첩 수치 strict) 해소. Sync 187/0, Python 17/0. 계산 경로 변경 없음. 한계: 시즌 41·42 unavailable(8/12판 원천에 없음).
 - **Director 판단(보고서 핵심 결과 2):** 바탕 화면 8/12판 StaticData 읽기 전용 디코드는 사후 수용(다운로드 없음, hash 기록). **방어율 원값 0 유지** — 9/17판에서도 솔로 레이드 보스 전부 0으로 확인. 단위·적용 조건은 계속 미확인으로 둔다. 시즌 41·42는 9/17판에 있으므로 D-SRC-1에서 새 원천 고정과 함께 채운다.
 - **QA 배정(2026-10-02):** E-PREC-1 다음 순서로 같은 검수 세션.
+- **QA 최종: 차단 2유형.** 검수 `e6295ca`(제품 병합 `0c26d1c` = E-PREC QA `6bb1be2` + Backend `2c41185`), [QA 보고서](C:/Users/user/orca/workspaces/Nikke-Simul/검수/docs/boss-static-attributes-qa.ko.md), 1,419검사 중 1,411 통과·8 실패.
+  - **BD1-Q-1:** `unconfirmed=[]`인데 `element=null` 또는 `element.weakKey=null` 단독 주입 → GET 200(선언 없는 null은 409여야 함). `SoloRaidBossCatalog.cs:63,67`.
+  - **BD1-Q-2:** 컬렉션 요소 null 주입 → `bosses[0]`·`challenge.levelChange.steps[0]` 500 NullReferenceException, `parts[0]`·`ladder[0]`·`diagnostics[0]`·`fields[0]` 200으로 null 반환(손상 입력 409 계약 위반). `SoloRaidBossCatalog.cs:35,53,69`.
+  - 통과: raw-wire 판독 340/340, strict 중첩 수치 243/243, 실제 0·선언된 null 보존, 방어율 0·시즌 41/42 unavailable, 기존 보스 목록 바이트·계산 입력·fingerprint 불변, 기존 5인 60건 동일.
+  - **Director 조치:** Backend 구현에 D-SRC-1보다 먼저 별도 커밋으로 수정 지시(객체·컬렉션 요소 검사 공통화, 8개 주입 + 같은 유형 회귀), 리뷰 직접 왕복 → Director → QA 재배정. 세 건 동시 배포는 이 수정 QA 통과 후.
+  - **수정 리뷰 최종 통과:** Backend `a050853`(부모 `b8951ca`). element·weakKey 미선언 null 거부, `StrictGraph`가 도메인 검증 전에 전체 그래프의 non-nullable 멤버·컬렉션/딕셔너리 null 요소를 공통 거부(500 경로 제거). 회귀: 컬렉션/객체 null 12경로, 미선언 null·키 누락 29경로, 선언 null 7경로. Sync 231/231, Python 18/18. **계약 변경:** `challenge.levelChangeGroupId` 필수 — 이전 준비 파일은 409, 재준비 필요(배포 시 준비 스크립트 실행 여부 확인). D-SRC-1 미추적 파일과 분리됨.
+  - **재QA 전달(2026-10-02):** 검수 착수 확인.
+  - **재QA 최종: 통과, 1,682/1,682, 차단 0.** 검수 `9ee11a7`(대상 `a050853`을 `e6295ca` 위 merge `7f961fe`). 원래 8개 주입 전부 409 `boss_attributes_invalid`, 확장 null 매트릭스·`source.entries` dictionary null 포함, 실제 API 545검사 HTTP 500 0, 선언 null·실제 0 200 보존, 기존 5인 60건 동일.
+  - **배포 조건(QA):** 이전 준비 파일은 409 → 배포 때 `prepare_solo_raid_boss_attributes.py --static-data-zip <고정 8/12 ZIP> --presentation-root <배포 dataRoot>/presentation` 실행 필수. Git/DLL 통합만으로 준비되지 않는다.
+  - **Director 통합 `1d01ed8`**(`--no-ff`, 제품 트리 = QA `9ee11a7`). Release 빌드 경고 0·오류 0, .NET 553/553(Analysis 41·Compute 46·Sync 231·Core 235), data-pipeline Python OK. **UI 6/7 — `display_labels.test.mjs` `registered_messages_match_server_sources` 실패:** B-DATA-1 새 서버 문구 약 27개(예: "방어율", "보스 속성 준비 필요", "원값(단위 미확인)")가 `apps/desktop-ui/registered-messages.js` 허용 목록에 없음. QA는 이 Node UI 테스트를 돌리지 않았다.
+  - **조치:** Backend 구현에 재생성 별도 커밋 + 내부 근거 메모(예: "사용자 R4…", "그룹 904…")가 표시 문구로 나가지 않는지 검토 지시, 리뷰 직접 왕복 → Director. 배포 전 최종 확인에 UI 7/7 포함.
+  - **허용 목록 수정 리뷰 최종 통과:** Backend `e21b774`(`a050853` 바로 위). 필드 메타데이터 9개를 `tools/data-pipeline/manifests/solo-raid-boss-attribute-fields.json`으로 값 그대로 이동, 내부 source/note는 생성기 스캔 제외(회귀 테스트), 허용 목록은 "보스 속성 준비 필요" 1개 추가(총 213). 리뷰어 직접: UI 7/7, ESM 구문, 생성기 --check, Python 19/19. 현재 UI에 보스 속성 API 소비 경로 없음.
+  - **QA:** S-SKILL-1 QA 뒤 착수하도록 검수 대기열에 전달(준비기 산출물 바이트 동일, UI 7/7 포함).
 
 ### S-SKILL-1 진행
 
@@ -94,6 +107,15 @@
 - **리뷰 최종 통과(2026-10-02):** 엔진 HEAD `27b99ee`(`dbe9b68` → `fc36a09` → `27b99ee`), 반려 1회 해소. 잠정 정책은 `ReplacementWeaponPolicy`(`SkillDefinitions.cs`) 한 곳 정의·실행부 참조·trace basis·limitations·수동 tap 거부 확인. 관통 파싱 strict(Pierce/None만, 누락·미지 값 오류). 버전 미상향 — 기존 5인 20 seed 동일. 리뷰어 직접 실행 `dbe9b68` Core/Engine 231/231·Python 43/43; 최신 Core 232·Python 44는 구현 보고치.
   - **실제 범위: 스노우 화이트·맥스웰 조립(버스트는 관통 다중 타격 미모델로 부분 지원)**, 라피 : 레드 후드·홍련 : 흑영·레드 후드는 **미지원 진단**(실행 거부). 미지원 원인: 팀 버스트 단계 규칙(AllStep·편성 의존 단계 변경·IsBurstStepState 1~3), 부착 투사체(182~185), CycleUse·DamageShareInstant, ChargeTimeChangetoDamage(129), TargetGroupid·TimingTriggerValueChange(130·131) 등. → 이 효과 묶음은 후속 엔진 확장 배정 후보(팀 버스트 규칙 우선).
 - **QA:** 검수 세션이 E-PREC-1 → B-DATA-1 진행 중이라 **세 번째로 대기**. 앞선 QA 보고 후 전달(xhigh 권장).
+- **QA 1차 전달 후 중단(2026-10-02):** QA가 E-PREC 통합본 위에 merge하자 `SkillReplay.cs` 장탄 조립 충돌(E-PREC 정수 장탄 vs 교체 무기 탄창 정책). QA가 직접 해소하려 해 **Director가 중단**시켰다 — 제품 코드 수정은 QA 독립성 위반. 검수 브랜치는 `e6295ca`로 복구 확인.
+  - **조치:** 엔진 구현이 Director 최신 HEAD를 엔진 브랜치에 merge해 충돌 해소(기본 무기는 E-PREC 정수 장탄 경로, 교체 무기는 `ReplacementWeaponPolicy` 고정 탄창), 두 기능 회귀·기존 5인 결과 Director `6d83dec`와 동일 확인 → 리뷰(merge 해소 부분) → Director → QA 재전달.
+  - **merge 해소 리뷰 최종 통과:** 엔진 `20a0609`(= `27b99ee` + Director `d1bd49d`). E-PREC `FromRaw`/`ApplyAmmo`/checked 합산 그대로 유지, 교체 무기만 고정 탄창으로 덮어씀. Release Core/Engine 251/251. 기존 5인 20 seed 저장 결과(Director 대 merge) 차이 0. 버전 6종·fingerprint 유지, 추가 상향 불필요.
+  - **QA 재전달:** B-DATA-1 재QA 뒤 착수하도록 검수 대기열에 전달.
+- **QA 최종: 차단 1건 SS1-Q-1.** 검수 `5895872`(대상 `20a0609`, merge `b9ab40a` 충돌 0), [QA 보고서](C:/Users/user/orca/workspaces/Nikke-Simul/검수/docs/ssr-skill-batch1-qa.ko.md), 2,171 중 2,170 통과.
+  - **SS1-Q-1:** 교체 무기 잠정 정책·관통 다중 타격 미모델 한계가 replay에는 있으나 compute batch/results/statistics에는 전달되지 않는다(`PreparedSkillReplay` `SkillRunSummary`/`Run()`과 `ComputePreparation` RunSummary 변환에서 Limitations 소실). 승인 조건("교체 총을 쓴 모든 실행에 표시") 위반.
+  - 통과: 원천 1,164, 실제 API 152/153, 효과·키 57, 기존 회귀 797(기존 5인 결과·규칙 버전 Director `6d83dec`과 동일), E-PREC 상호작용(기본 무기 100 + raw 1450 → 115발, 교체 무기만 1발 고정).
+  - 비차단 정정: 구 catalog도 `weaponChange:null` 직렬화로 graph fingerprint가 바뀐다(`ffeafdbf…` → `313fd39a…`, 규칙·dataVersion 불변, 안전한 키 분리). 홍련 : 흑영은 무기 입력 검사, 레드 후드는 버스트 메타데이터 검사에서 먼저 400 — 보고서의 "모두 미지원 공식 스킬 문구" 표현은 부정확.
+  - **Director 조치(2026-10-04):** 엔진 구현에 수정 지시(범위 예외: Engine 요약 + `src/Nikke.Data/ComputePreparation.cs` RunSummary 변환 + 최소 Contracts/API 연결, 저장 형식 변경 시 요약 버전·fingerprint 분리·구 결과 보존, 새 화면 문구는 허용 목록·UI 테스트) + 문서 정정 2건. **구현 세션이 주간 사용량 한도(10/6 10시 초기화)로 착수 직후 정지** — 사용자 판단 대기.
 
 ### 배포·D-SRC-1 전달
 
