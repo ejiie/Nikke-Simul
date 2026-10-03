@@ -54,7 +54,7 @@ public class PreparedSkillReplayTests
         Parallel.For(0,results.Length,new ParallelOptions { MaxDegreeOfParallelism=2 },i=>results[i]=prepared.Run());
         Assert.All(results,r=> {
             Assert.Equal(audit.TotalDamage,r.TeamDamage); Assert.Equal(audit.Members[0].Shots,r.Members[0].Shots);
-            Assert.Equal(audit.Members[0].Hits,r.Members[0].Hits); Assert.Equal("cpu-summary.6-precision-1",r.ImplementationVersion);
+            Assert.Equal(audit.Members[0].Hits,r.Members[0].Hits); Assert.Equal("cpu-summary.7-run-policies",r.ImplementationVersion);
         });
         Assert.Equal(results[0].Members,prepared.Run().Members);
     }

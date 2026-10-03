@@ -34,6 +34,8 @@ Director → QA (QA는 무조건 Director 경유) → Director 통합·배포
 - 반려 후 다음 구현 시도의 사고 수준 상향은 사용자가 구현 세션에서 `/effort`로 바꾼다(세션 기본값이 바뀌므로 Director가 대신 입력하지 않는다).
 - 이전 경로(모든 인계 Director 경유)는 U-FIX-7 첫 리뷰까지 사용했다.
 - 운영 교훈(U-FIX-7): 리뷰어의 최종 통과 보고가 Director 세션에 도착하지 않은 일이 있었다 — Director는 리뷰 터미널 화면도 확인한다. 지시 전송 전 대상 터미널에 에이전트가 살아 있는지 화면으로 확인한다(종료된 세션에 보내면 셸 명령으로 실행됨). 세션 재개에 `codex resume --last`를 쓰지 않는다(다른 worktree의 최근 대화를 잡음).
+- 운영 교훈(S-SKILL-1, 2026-10-02): 다른 작업 통합본 위에서 merge 충돌이 나면 **QA가 직접 해소하지 않는다**(제품 코드 수정 = 독립성 위반). QA는 merge를 되돌리고 보고하며, 충돌 해소는 대상 구현 담당이 자기 브랜치에서 하고 리뷰를 거친다. Director는 통합 순서상 충돌이 예상되면 QA 전달 전에 구현 브랜치에 최신 Director를 먼저 merge시킨다.
+- 운영 교훈(B-DATA-1, 2026-10-02): 서버 문구를 추가하는 변경은 UI 허용 목록(`apps/desktop-ui/registered-messages.js`, 생성기 `tests/ui/tools/gen_registered_messages.mjs`)도 함께 갱신해야 한다. 구현·리뷰·QA 모두 백엔드 변경이라도 `node --test tests/ui/*.test.mjs`를 돌린다 — Director 통합에서야 실패가 드러났다.
 
 ## 흐름
 

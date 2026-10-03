@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 
 namespace Nikke.Contracts;
 
@@ -42,21 +43,40 @@ public record ExperimentInput(string Fingerprint, string SnapshotId, string Data
 }
 public record MemberRunSummary(string CharacterId, double Damage, long Shots, long Hits, long CriticalHits,
     long Reloads, long BurstCasts);
+public record RunLimitation(string Id, string Text);
 public record RunSummary(string RunId, int Attempt, int Index, string ExperimentId, string InputFingerprint,
     string Backend, string Phase, double TeamDamage, IReadOnlyList<MemberRunSummary> Members,
     int FullBursts, double ElapsedMilliseconds)
 {
     public DefenseResult? Defense { get; init; }
+    // Provisional policies/limitations this run applied. Omitted when none, so historical and plain runs serialize unchanged.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<RunLimitation>? Limitations { get; init; }
 }
 public record BatchStatus(string Id, string State, int Attempt, int Requested, int Valid, int Failed, int Cancelled,
     bool Partial, ExperimentInput Input, ExecutionSelection Execution, string? ErrorCode);
-public record BatchResults(BatchStatus Batch, int Offset, int Limit, IReadOnlyList<RunSummary> Runs);
+public record BatchResults(BatchStatus Batch, int Offset, int Limit, IReadOnlyList<RunSummary> Runs)
+{
+    // De-duplicated limitations of the runs on this page; omitted when none.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<RunLimitation>? Limitations { get; init; }
+    public static IReadOnlyList<RunLimitation>? Collect(IEnumerable<RunSummary> runs)
+    {
+        var all = runs.Where(r => r.Limitations is not null).SelectMany(r => r.Limitations!).DistinctBy(l => l.Id).ToArray();
+        return all.Length == 0 ? null : all;
+    }
+}
 public record Interval(double Lower, double Upper, double Confidence, string Method);
 public record MetricStatistics(long N, double? Mean, double? SampleSd, Interval? MeanCi,
     double? Median, double? P5, double? P95, double? Cut, double? CutSuccess, Interval? CutCi,
     string QuantileMethod, string Unit, string? UnsupportedReason = null);
 public record StatisticsResult(string ExperimentId, bool Partial, MetricStatistics Team,
-    IReadOnlyDictionary<string, MetricStatistics> Members, string MethodVersion, bool GameVerified = false);
+    IReadOnlyDictionary<string, MetricStatistics> Members, string MethodVersion, bool GameVerified = false)
+{
+    // De-duplicated limitations applied by any counted run; omitted when none.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<RunLimitation>? Limitations { get; init; }
+}
 public record OlComparison(string BaselineExperimentId, string CandidateExperimentId,
     IReadOnlyList<OlChange> Changes, double? TeamMeanDifference, Interval? DifferenceCi,
     string Verdict, string Phase, string MethodVersion, JsonObject? MemberAndCycleEffects = null,

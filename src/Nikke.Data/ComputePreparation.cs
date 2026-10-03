@@ -115,7 +115,8 @@ public sealed class PreparedCompute : IPreparedExperiment
         var result=engine.Run(cancellationToken);
         return new($"{experimentId}:{index}",attempt,index,experimentId,payload.Input.Fingerprint,"cpu",payload.Input.Phase,result.TeamDamage,
             result.Members.Select(m=>new MemberRunSummary(m.CharacterId,m.Damage,m.Shots,m.Hits,m.CriticalHits,m.Reloads,m.BurstCasts)).ToArray(),
-            result.FullBursts,result.ElapsedMilliseconds) {Defense=MapDefense(result.Defense)};
+            result.FullBursts,result.ElapsedMilliseconds) {Defense=MapDefense(result.Defense),
+                Limitations=result.Policies?.Select(p=>new RunLimitation(p.Id,p.Text)).ToArray()};
     }
     private static DefenseResult MapDefense(DefenseRunSummary result) => new(result.Mode,result.InitialDefense,result.FinalDefense,result.DamageThreshold,
         result.SwitchAfterHit is {} hit?new(hit.Frame,hit.HitTraceId,hit.HitOrdinal,hit.CharacterId,hit.Effect,hit.CumulativeDamage,hit.PreviousDefense,hit.NewDefense):null);

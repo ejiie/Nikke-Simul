@@ -313,7 +313,7 @@ public class PrecisionFollowupTests
         Assert.Equal("native-stat-shared-buffs-v4-ammo-i64", StatBuffCalculator.Version);
         Assert.Equal("p03.skills.7-precision-1", SkillReplay.Version);
         Assert.Equal("p03.weapon-reference.5-precision-1", WeaponReplay.Version);
-        Assert.Equal("cpu-summary.6-precision-1", PreparedSkillReplay.Version);
+        Assert.Equal("cpu-summary.7-run-policies", PreparedSkillReplay.Version);
         Assert.Equal("p04.team.7-precision-1", TeamBurstController.Version);
     }
 }
