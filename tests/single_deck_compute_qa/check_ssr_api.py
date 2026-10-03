@@ -9,8 +9,8 @@ from check_f2_conditions import ROOT,clean_hit
 from check_client_f32 import context as damage_reference
 from public_fixture import read,digest
 OUT=ROOT/'artifacts/single-deck-qa/ssr1'
-def main():
- p=argparse.ArgumentParser();p.add_argument('--dotnet',required=True);a=p.parse_args();s=ChargeSession(a.dotnet);s.report.update(product='20a0609',scope='S-SKILL-1 own actual API')
+def main(product='20a0609',summary_changed=False,extension=None):
+ p=argparse.ArgumentParser();p.add_argument('--dotnet',required=True);a=p.parse_args();s=ChargeSession(a.dotnet);s.report.update(product=product,scope='S-SKILL-1 own actual API')
  (OUT/'api-evidence.txt').write_text(str(s.run),encoding='utf-8');public=ROOT/'artifacts/single-deck-qa/precision1/public-copy'
  for rel,h in read(ROOT/'artifacts/single-deck-qa/precision1/public-hashes-before.json').items():
   assert digest(public/rel)==h;target=s.data/rel;target.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(public/rel,target)
@@ -32,7 +32,9 @@ def main():
    s.start_binary(api,ROOT/'artifacts/single-deck-qa/bdata1/baseline-api');old=s.replay(req,'director-baseline');ob,orr,ost=s.batch(req,'director-batch');s.stop()
    s.start_binary(api,ROOT/'src/Nikke.Api/bin/Release/net10.0');same=s.replay(req,'new-engine-old-catalog');nb,_,_=s.batch(req,'new-engine-old-catalog-batch')
    # Adding WeaponChange:null to SkillBody changes graph serialization and thus fingerprint even for old catalogs.
-   s.check('old catalog versions and dataVersion retained',all(ob['input'][k]==nb['input'][k] for k in ['rulesVersion','engineVersion','summaryVersion','dataVersion']))
+   unchanged=['rulesVersion','dataVersion'] if summary_changed else ['rulesVersion','engineVersion','summaryVersion','dataVersion']
+   s.check('old catalog unchanged versions and dataVersion retained',all(ob['input'][k]==nb['input'][k] for k in unchanged))
+   if summary_changed:s.check('summary version intentionally raised',ob['input']['summaryVersion']=='cpu-summary.6-precision-1' and nb['input']['summaryVersion']=='cpu-summary.7-run-policies')
    s.check('new graph shape safely splits old fingerprint',ob['input']['fingerprint']!=nb['input']['fingerprint'] and ob['execution']['fingerprint']!=nb['execution']['fingerprint']);s.stop()
    shutil.copytree(OUT/'runtime',s.data/'runtime',dirs_exist_ok=True);s.start_binary(api,ROOT/'src/Nikke.Api/bin/Release/net10.0');rr,summary=s.call('runtime/catalog');s.save('catalog-support',summary);support={c['characterId']:c['support'] for c in summary['characters']}
    s.check('new catalog version and ten entries',rr.status==200 and summary['runtimeDataId']==newid and len(support)==10)
@@ -67,7 +69,9 @@ def main():
      s.check('unsupported execution agrees catalog flag '+id+str(lv),not support[id]['allLevelsExecutable'] and bool(expected) and rr.status==400)
      if id=='5129':s.check('skill diagnostics match catalog first twelve '+str(lv),all(x in text for x in expected[:12]))
    account();newteam=deepcopy(req);newteam['characterIds']=['5011','5008','5009','5012','5001'];newteam['conditions']['casts']=[dict(frame=30,characterId='5012'),dict(frame=400,characterId='5001')];b,rows,stats=s.batch(newteam,'new-members-compute');s.check('new members compute saved',b['state']=='completed')
-   s.check('compute exposes replacement provisional and pierce limitation','provisional' in json.dumps([b,rows,stats]) and 'pierce multi-hit' in json.dumps([b,rows,stats]))
+   text=json.dumps([b,rows,stats]).lower()
+   s.check('compute exposes replacement provisional and pierce limitation','provisional' in text and 'pierce multi-hit' in text)
+   if extension:extension(s,ctx,req,newteam,b,rows,stats)
    page=ctx.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)));page.goto(s.base+'/editor/');page.wait_for_selector('body[data-ready="true"]');page.locator('[data-tab="raid"]').click();page.screenshot(path=str(s.run/'raid.png'),full_page=True);s.save('browser',dict(errors=errors,text=page.locator('body').inner_text()));s.check('actual editor loads after expanded catalog',not errors,errors)
    browser.close()
  except Exception as ex:s.report.update(status='aborted',error=repr(ex));raise

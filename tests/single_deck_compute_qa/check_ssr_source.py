@@ -1,11 +1,11 @@
 """Independent pinned-source audit for S-SKILL-1. Calls only the production assembler.
 No owner/reviewer harness, fixture or expected result is read.
 """
-import sys,json,hashlib,copy
+import sys,json,hashlib,copy,os
 from pathlib import Path
 from html.parser import HTMLParser
 from fractions import Fraction
-ROOT=Path(__file__).resolve().parents[2];OUT=ROOT/'artifacts/single-deck-qa/ssr1';OUT.mkdir(exist_ok=True)
+ROOT=Path(__file__).resolve().parents[2];OUT=Path(os.environ.get('QA_SSR_OUTPUT',ROOT/'artifacts/single-deck-qa/ssr1'));OUT.mkdir(exist_ok=True)
 sys.dont_write_bytecode=True;sys.path.insert(0,str(ROOT/'tools/data-pipeline'))
 import prepare_runtime as product
 def sha(b):return hashlib.sha256(b).hexdigest()

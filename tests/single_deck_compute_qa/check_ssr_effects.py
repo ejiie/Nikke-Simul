@@ -1,8 +1,8 @@
 """Independent source arithmetic and trigger oracle for actual fixed-random probe runs."""
-import json,math
+import json,math,os
 from pathlib import Path
 from fractions import Fraction
-OUT=Path(__file__).resolve().parents[2]/'artifacts/single-deck-qa/ssr1'
+OUT=Path(os.environ.get('QA_SSR_OUTPUT',Path(__file__).resolve().parents[2]/'artifacts/single-deck-qa/ssr1'))
 facts=json.loads((OUT/'independent-oracle.json').read_text(encoding='utf-8'))
 cat=json.loads((OUT/'runtime'/json.loads((OUT/'runtime/current.json').read_text())['id']/'catalog.json').read_text(encoding='utf-8'))
 rows=list(map(json.loads,(OUT/'effects.jsonl').read_text(encoding='utf-8-sig').splitlines()));checks=[]
